@@ -1,0 +1,39 @@
+<html>
+<head>
+    <title>[Dave Peck's Go &raquo; Get Going]</title>
+    {% include "head.html" %}
+</head>
+<body onload="init_get_going()">
+    <div id="splash">
+        <div class="go">Go...</div>
+        <div id="start_game">
+            <div>
+                <table>
+                    <tr>
+                        <th>Your name:</th>
+                        <td><input type="text" id="your_name" tabindex="1" class="adjust"></input></td>
+                        <td class="divide">You are <a href="javascript:get_going.swap_colors()" id="your_color" class="subtle-link" tabindex="5">black</a>.</td>
+                    </tr>
+                    <tr>                  
+                        <th>Your email:</th>
+                        <td><input type="text" id="your_email" tabindex="2" class="adjust"></input></td>
+                        <td class="divide">Your opponent is <a href="javascript:get_going.swap_colors()" class="subtle-link" id="opponent_color">white</a>.</td>
+                    </tr>
+                    <tr>
+                        <th>Opponent&#146;s name:</th>
+                        <td><input type="text" id="opponent_name" tabindex="3" class="adjust"></input></td>                        
+                        <td class="divide">Black <a id="handicap" href="javascript:get_going.rotate_handicap();" class="subtle-link" tabindex="6">plays first</a>.</td>
+                    </tr>
+                    <tr>
+                        <th>Opponent&#146;s email:</th>
+                        <td><input type="text" id="opponent_email" tabindex="4" class="adjust"></input></td>
+                        <td class="divide">The board is <a href="javascript:get_going.rotate_board_sizes();" class="subtle-link" id="board_size" tabindex="7">19 x 19</a>.</td>
+                    </tr>
+                </table>
+            </div>
+            <p id="flash" class="flash" style="opacity: 0.0">&nbsp;</p>
+            <p class="lets_play"><a href="javascript:get_going.create_game()" class="disabled" id="play_link">Create the game &raquo;</a></p>
+        </div>
+    </div>    
+</body>
+</html>

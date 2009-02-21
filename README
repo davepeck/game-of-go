@@ -1,0 +1,79 @@
+Dave Peck's Go service for AppEngine
+(c) 2009 Dave Peck, All Rights Reserved
+http://go.davepeck.org/
+
+ABOUT THE LICENSE:
+
+This source code is licensed under the GNU Affero GPLv3. I generally don't like licenses this restrictive, but as this was a project for teaching others how to use (and/or abuse appengine), I thought it would be good to choose something that forces all other services to share and share alike. 
+
+The graphics are modified versions of stuff I found on the Wikimedia Commons and are under their own licenses.
+
+Obviously, the prototype and simplejson libraries are distributed under different terms and are copyrighted by their respecitve authors.
+
+I'm happy if people fork, but in general I hope that we'll continue to run the definitive version of this code at http://go.davepeck.org/.
+
+Send patches, etc. my way.
+
+
+
+WHAT TO DO:
+
+I wrote the original version in one weekend. I added chat and history features in another ~12 hours, which is where we're at now.
+
+There is a LOT of stuff to do here, so dive in! 
+
+
+
+MAJOR THINGS TO DO:
+
+- Ability to log in and see all your games in one list
+
+  Right now, every game is separate and hands out separate "cookies" for people to access the game.
+
+- Ranks and user profiles
+
+  I wanted to get the game basics down before this stuff, but the truth is there are no aesthetic "go" services out there so I'm hoping people add it here.
+
+- Improved UI
+
+  I'm not a designer, so this has somewhat of the feel of "expose all features as buttons." I think it is playable but if a good designer wants to pitch in and make it way better, cool.
+
+- Game branching and speculation
+
+  I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made.
+
+- Support for the SWG "go" file format.
+
+  It would be nice to export these files since lots of "go" tools use them.
+
+- Build (free) iPhone and Palm Pre front-ends
+
+  Why not? (But see the "moderate" issue about "service" URLs below.)
+
+  The iPhone and Palm Pre code can live here and be open source, too.
+
+
+
+MODERATE THINGS TO DO:
+
+The code is a mess. That's because it represents about 36 total hours of hacking. I had grand goals, so you will no doubt notice some data structures, local variables, etc. that simply aren't used or are extraneous.
+
+The "service" URLs are a bit of a mess. I originally wrote one to check to see if your opponent moved, but what I really should have is a single unified "get state" POST request that takes the desired move number and returns the state. It should work for history as well as game play. I want this in-part for cleanliness, in-part because I think it will make implementing an iPhone front-end easier.
+
+I had the idea that I would do true MVC on the javascript side. The "models" would directly parallel python types on the back end. The views were just about managing visual appearance. And the controllers tied them together. I got partway there, because frankly it just wasn't important to keep this separation when doing a three day hack. I'd like to go back and really clean this stuff up now. Check out go.js for details.
+
+
+MINOR THINGS TO DO:
+
+- Make it look better in IE7. For example, I use :hover CSS pseudo-classes on a bunch of non-anchor-tags. That's an IE no-no, but I did it anyway.
+
+- Maybe make it look better in IE6
+
+- Make sure the HTML is strict and compliant
+
+- Clean up the madness that is my CSS file.
+
+- Python docstrings, version information, etc.
+
+- etc.
+

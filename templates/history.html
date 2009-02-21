@@ -1,0 +1,68 @@
+<html>
+<head>
+    <title>[Dave Peck's Go &raquo; History of {{black_name}} vs. {{white_name}}]</title>    
+    {% include "head.html" %}
+</head>
+<body onload="init_history('{{your_cookie}}', {{your_color}}, {{board_size_index}}, '{{board_state_string}}', {{max_move_number}}, '{{last_move_message|addslashes}}', {{last_move_x}}, {{last_move_y}}, {{last_move_was_pass}}, {{whose_move}})">
+   <!-- preload all relevant images since I use CSS to swap them out. -->
+    <div id="preload" class="hide">
+        <img src="/img/transparent-1x1.png" />
+        <img src="/img/board-30.png" />
+        <img src="/img/simple-black.png" />
+        <img src="/img/simple-white.png" />
+        <img src="/img/ghost-white.png" />
+        <img src="/img/ghost-black.png" />
+        <img src="/img/highlight.png" />
+        <img src="/img/ff.png" />
+        <img src="/img/ff-hover.png" />
+        <img src="/img/rw.png" />
+        <img src="/img/rw-hover.png" />
+        <img src="/img/first.png" />
+        <img src="/img/first-hover.png" />
+        <img src="/img/last.png" />
+        <img src="/img/last-hover.png" />
+        <img src="/img/grid.png" />
+        <img src="/img/grid-hover.png" />
+        <img src="/img/email-off.png" />
+        <img src="/img/email-off-hover.png" />
+        <img src="/img/email-on.png" />
+        <img src="/img/email-on-hover.png" />
+    </div>
+
+    <!-- this will be dynamically generated -->
+    <div id="board_area">
+        <div id="board_container" class="{{board_class}}">&nbsp;</div>
+        <div id="board_extras"><a href="/play/{{your_cookie}}/" class="extra_link">play the game</a></div>
+    </div>
+
+    <div id="game_info" class="right_{{board_class}}">        
+        <div id="game_status">            
+            <h2 class="normal-heading">History: {{black_name}} <img src="/img/simple-black.png" /> vs. {{white_name}} <img src="/img/simple-white.png" /></h2>
+           
+            <div id="history_buttons">
+                <img id="first_button" class="flat_button" src="/img/transparent-1x1.png" onclick="history_controller.first()" />
+                <img id="rw_button" class="flat_button" src="/img/transparent-1x1.png" onclick="history_controller.rewind()" />
+                <img id="ff_button" class="flat_button" src="/img/transparent-1x1.png" onclick="history_controller.fast_forward()" />
+                <img id="last_button" class="flat_button" src="/img/transparent-1x1.png" onclick="history_controller.last()" />
+            </div>
+
+            <div id="history_error" class="hide">&nbsp;</div>
+
+            <br />
+            
+            <div id="current_move_message">You&#146;re looking at move <span id="current_move_number">{{max_move_number}}</span> (out of {{max_move_number}}.)</div>
+
+            <div id="last_pass" class="hide">This move was a pass.</div>
+            
+            {% if you_are_black %}
+            <div id="capture_message">At this point, you&#146;ve captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span> stones; {{white_name}} has captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span>.</div>
+            {% else %}
+            <div id="capture_message">At this point, you&#146;ve captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> stones; {{black_name}} has captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span>.</div>
+            {% endif %}
+    </div>
+  </div>
+
+  <div class="loading" id="loading" style="opacity:0.0"><img src="/img/loading-spinner.gif" /></div>
+    
+</body>
+</html>

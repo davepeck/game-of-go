@@ -1,0 +1,757 @@
+/*
+
+(c) 2009 Dave Peck, All Rights Reserved. (http://davepeck.org/)
+
+This file is part of Dave Peck's Go.
+
+Dave Peck's Go is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Dave Peck's Go is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with Dave Peck's Go.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+
+
+/*----------------------------------------------------------------------------
+ * Basics
+ *--------------------------------------------------------------------------*/
+
+body
+{
+    background: #383838;
+    color: #BBB;
+    padding: 5px;
+    margin: 0px;
+	font-size: 62.5%;
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+}
+
+a
+{
+    outline: 0;
+}
+
+.hide
+{
+    display: none;
+}
+
+#splash a.disabled, #splash a.disabled:hover, #splash a.disabled:visited, #splash a.disabled:link
+{
+    color: #555;
+    text-decoration: none;
+}
+
+.hard_to_see
+{
+    opacity: 0.0;
+}
+
+.easy_to_see
+{
+    opacity: 1.0;
+}
+
+
+/*----------------------------------------------------------------------------
+ * Sprites
+ *--------------------------------------------------------------------------*/
+
+/*
+ * FOR 35x35 pieces
+.white    { background-position: 0 -290px; } 
+.black    { background-position: 0 -485px; } 
+
+.tl       { background-position: 0 -420px; } 
+.top      { background-position: 0 -550px; } 
+.tr       { background-position: 0 -745px; } 
+
+.left     { background-position: 0 -615px; } 
+.center   { background-position: 0 -160px; } 
+.right    { background-position: 0 -680px; } 
+
+.bl       { background-position: 0 -225px; } 
+.bottom   { background-position: 0 -95px; } 
+.br       { background-position: 0 -355px; } 
+
+.star     { background-position: 0 -30px; } 
+*/
+
+/* For 30x30 pieces -- better for the MacBook's 1280 x 800 screen */
+
+.star       { background-position: 0 -30px; } 
+.bottom     { background-position: 0 -90px; } 
+.center     { background-position: 0 -150px; } 
+.bl         { background-position: 0 -210px; } 
+.white      { background-position: 0 -270px; } 
+.br         { background-position: 0 -330px; } 
+.tl         { background-position: 0 -390px; } 
+.black      { background-position: 0 -450px; } 
+.top        { background-position: 0 -510px; } 
+.left       { background-position: 0 -570px; } 
+.right      { background-position: 0 -630px; } 
+.tr         { background-position: 0 -690px; } 
+
+#board_container img
+{
+   background-image: url(/img/board-30.png);
+   background-repeat: no-repeat;    
+   margin: 0;
+   padding: 0;
+   border: 0;
+   width: 30px;
+   height: 30px;
+}
+
+
+/*----------------------------------------------------------------------------
+ * Board Area
+ *--------------------------------------------------------------------------*/
+
+.board_row
+{
+    padding: 0px;
+    margin: 0px;
+    border: 0px;
+    height: 30px;
+}
+
+#board_area
+{
+    float: left;
+    margin-left: 5px;
+    margin-top: 5px;    
+}
+
+#board_container
+{
+    background: #DDB45C;
+}
+
+.nineteen_board
+{
+    width: 570px;
+    height: 570px;
+}
+
+.thirteen_board
+{
+    width: 390px;
+    height: 390px;
+}
+
+.nine_board
+{
+    width: 270px;
+    height: 270px;
+}
+
+#board_extras
+{
+    font-size: 1.4em;
+    line-height: 1.6em;
+}
+
+#board_extras a.extra_link, #board_extras a.extra_link:link, #board_extras a.extra_link:visited
+{    
+    text-decoration: none;
+    color: #BBB;
+    border-bottom: solid 1px #5A5A5A;    
+}
+
+#board_extras a.extra_link:hover
+{
+    color: #DDB45C;
+    border-bottom: solid 1px #DDB45C;
+}
+
+#board_extras a.disabled_extra_link, #board_extras a.disabled_extra_link:link, #board_extras a.disabled_extra_link:visited
+{    
+    text-decoration: none;
+    color: #555;
+    border-bottom: 0;
+}
+
+#board_extras a.disabled_extra_link:hover
+{
+    text-decoration: none;
+    color: #555;
+    border-bottom: 0;
+}
+
+
+
+/*----------------------------------------------------------------------------
+ * Game Info
+ *--------------------------------------------------------------------------*/
+
+#game_info
+{
+    font-size: 1.4em;
+    line-height: 1.6em;
+    padding-top: 1em;
+}
+
+.right_nineteen_board
+{
+    margin-left: 595px; 
+    width: 370px;
+    max-width: 370px;
+}
+
+.right_thirteen_board
+{
+    margin-left: 415px;    
+    width: 370px;
+    max-width: 370px;
+}
+
+.right_nine_board
+{
+    margin-left: 295px;
+    width: 370px;
+    max-width: 370px;
+}
+
+#game_info > div
+{
+    width: 360px;
+    padding-bottom: 10px;
+}
+
+#game_info h2.normal-heading
+{
+    font-size: 1.4em;
+    font-weight: normal;
+    color: #FFF;
+    border-bottom: solid 1px #555;
+}
+
+#game_info h2.normal-heading span.relaxed-text
+{
+}
+
+#game_info div
+{
+    padding-right: 10px;
+}
+
+#game_info table
+{
+    font-size: 1.0em;
+    text-align: left;
+}
+
+#game_info table th
+{
+    color: #FFF;
+}
+
+#game_status table .not_your_turn img
+{
+    width: 13px;
+    height: 13px;
+}
+
+#game_status table .your_turn img.black_icon
+{
+    width: 13px;
+    height: 13px;
+    background: url(/img/simple-black.png) no-repeat;
+}
+
+#game_status table .your_turn img.white_icon
+{
+    width: 13px;
+    height: 13px;
+    background: url(/img/simple-white.png) no-repeat;
+}
+
+
+.count
+{
+    color: #FFF;
+    font-weight: bold;
+}
+
+.capture_count
+{    
+}
+
+
+.name
+{
+}
+
+tr.your_turn, span.your_turn
+{
+    color: #FFF;
+}
+
+tr.not_your_turn, span.not_your_turn
+{
+    color: #BBB;
+}
+
+#game_info a, #game_info a:link, #game_info a:visited
+{
+    color: #BBB;
+    text-decoration: none;
+}
+
+#game_info a:hover
+{
+    color: #DDB45C;
+    text-decoration: none;
+}
+
+.move_p
+{
+    padding-left: 1.4em;
+}
+
+.loading
+{
+    position: absolute;
+    right: 1.4em;
+    top: 2em;
+}
+
+.loading span
+{
+    color: #FF0000;
+    font-size: 1.4em;
+    text-transform: uppercase;
+}
+
+
+/*----------------------------------------------------------------------------
+ * Start Game
+ *--------------------------------------------------------------------------*/
+
+#start_game
+{
+    padding: 0px;
+    margin: 0px;
+}
+
+#start_game table
+{
+    text-align: left;
+    font-size: 0.8em;
+    padding: 0px;
+    margin: 0px;
+    vertical-align: text-bottom;
+    color: #BBB;
+    font-weight: normal;
+}
+
+#start_game tbody
+{
+    margin: 0px;
+    padding: 0px;
+}
+
+#start_game table td
+{
+    padding: 0.33em;
+    vertical-align: text-bottom;
+    color: #BBB;
+    font-weight: normal;
+}
+
+#start_game table tr
+{
+    vertical-align: text-bottom;
+    color: #BBB;
+    font-weight: normal;
+}
+
+#start_game table th
+{
+    font-weight: normal;
+    color: #BBB;
+}
+
+#start_game input
+{
+    background: #383838;
+    color: #BBB;
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+    font-size: 0.8em;
+    line-height: 0.8em;
+    padding: 0.2em;
+    border: solid 1px #555;
+    outline: none;
+}    
+
+#start_game input:focus
+{
+    border: solid 1px #DDB45C;
+}
+
+.adjust
+{
+    margin-top: -3px;
+}
+
+#start_game table td.divide
+{
+    margin-left: 10em;
+    vertical-align: text-bottom;
+}
+
+.color_black
+{
+    color: #000;
+}
+
+.color_white
+{
+    color: #FFF;
+}
+
+.lets_play
+{
+    font-size: 1.4em;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.promise
+{
+    color: #888;
+    font-size: 0.5em;
+}
+
+p.flash
+{
+    color: #FFB45C;
+    font-size: 0.7em;
+    line-height: 0.7em;
+    padding-left: 2px;
+    margin-top: 0.4em;
+    margin-bottom: 0.8em;
+}
+
+
+/*----------------------------------------------------------------------------
+ * Splash Screen
+ *--------------------------------------------------------------------------*/
+
+#splash
+{
+    text-align: left;
+    font-size: 3em;
+    padding: 0.75em 1em;
+    margin: 0;
+    border: 0px;
+    color: #BBB;
+}
+
+.splash-text
+{
+    width: 17em;
+    line-height: 1.2em;
+}
+
+.splash-text-smaller
+{
+    font-size: 0.4em;
+}
+
+.go
+{
+    margin: 0px 0px 0px -0.25em;
+    padding: 0px;
+    color: #DDB45C;
+    font-weight: bold;
+    font-size: 8em;
+}
+
+#splash a, #splash a:visited, #splash a:link
+{
+    color: #BBB;
+    text-decoration: none;
+}
+
+.started
+{
+    padding-top: 1em;
+    font-size: 1.4em;
+}
+
+#splash a:hover
+{
+    color: #DDB45C;
+    text-decoration: none;
+}
+
+#splash a:hover .color_white, #splash a:hover .color_black
+{
+    color: #DDB45C;
+}
+
+.subtle-link
+{
+    border-bottom: solid 1px #5A5A5A;
+}
+
+#game_info #game_status a.move_link, #game_info #chat a.move_link
+{
+}
+
+#game_info #game_status a.disabled_move_link, #game_info #chat a.disabled_move_link
+{
+    color: #555;
+}
+
+#game_info #game_status a.disabled_move_link:hover, #game_info #chat a.disabled_move_link:hover
+{
+    color: #555;
+}
+
+.enabled_text
+{
+}
+
+.disabled_text
+{
+    color: #555;
+}
+
+#chat_textarea
+{
+    border: 1px solid #555;
+    background: #383838;
+    color: #BBB;    
+    padding: 0.4em;
+    font-size: 1.0em;
+    font-weight: normal;
+    line-height: 1.2em;
+    height: 3.4em;
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+    resize: none;
+    outline: none;
+    max-width: 360px;
+    overflow: hidden;
+}
+
+#game_info h2.chat_heading
+{
+    font-size: 1.4em;
+    font-weight: normal;
+    color: #FFF;
+    border: 0;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+
+#chat_form_container
+{
+    width: 370px;
+}
+
+#game_info div#chat_textarea_container
+{
+    padding-bottom: 3px;
+}
+
+
+.disabled_go_button
+{
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+    border: 0;
+/*    border: 1px solid #444; */
+    background: #383838;
+    color: #555;
+    padding: 0.4em;    
+    height: 27px;
+    font-size: 1em;
+}
+
+.disabled_go_button:hover
+{
+}
+
+.go_button
+{
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+    border: 0;
+/*    border: 1px solid #555; */
+    background: #383838;
+    color: #BBB;
+    padding: 0.4em;    
+    height: 27px;
+    font-size: 1em;
+}
+
+.go_button:hover
+{
+    color: #DDB45C;
+    border: solid 1px #DDB45C;
+}
+
+#chat_textarea:focus
+{
+    border: 1px solid #DDB45C;
+}
+
+#chat_button_container
+{
+}
+
+.text_button
+{
+    border: solid 1px #555;
+    width: 25px;
+    height: 25px;
+    padding: 5px;
+}
+
+.text_button:hover
+{
+    border: solid 1px #DDB45C;
+}    
+
+
+.flat_button
+{
+    border: solid 1px #555;
+    width: 25px;
+    height: 25px;
+}
+
+.flat_button:hover
+{
+    border: solid 1px #DDB45C;
+}
+
+#first_button
+{
+    background-image: url(/img/first.png);
+}
+
+#first_button:hover
+{
+    background-image: url(/img/first-hover.png);
+}
+
+#rw_button
+{
+    background-image: url(/img/rw.png);
+}
+
+#rw_button:hover
+{
+    background-image: url(/img/rw-hover.png);
+}
+
+#ff_button
+{
+    background-image: url(/img/ff.png);
+}
+
+#ff_button:hover
+{
+    background-image: url(/img/ff-hover.png);
+}
+
+#last_button
+{
+    background-image: url(/img/last.png);
+}
+
+#last_button:hover
+{
+    background-image: url(/img/last-hover.png);
+}
+
+#game_status
+{
+}
+
+#move_number
+{
+}
+
+.indented
+{
+    padding-left: 2em;
+}
+
+#game_info #game_status div.email_settings
+{
+    border: 0;
+    margin: 0;
+    padding: 0;
+    float: right;
+}
+
+img.yes_email
+{
+    width: 25px;
+    height: 25px;
+    border: 0;
+    background:url(/img/email-on.png);
+}
+
+img.no_email
+{
+    width: 25px;
+    height: 25px;
+    border: 0;
+    background:url(/img/email-off.png);
+}
+
+img.yes_email:hover
+{
+    width: 25px;
+    height: 25px;
+    border: 0;
+    background:url(/img/email-on-hover.png);
+}
+
+img.no_email:hover
+{
+    width: 25px;
+    height: 25px;
+    border: 0;
+    background:url(/img/email-off-hover.png);
+}
+    
+#chat_contents
+{
+    height: 255px;
+    max-height: 255px;
+    overflow: hidden;
+}
+
+#chat_contents .chat_entry
+{
+    padding-left: 2em;
+}
+
+#chat_contents .chat_entry .chat_name
+{
+    color: #FFF;
+}
+
+#chat_error
+{
+    color: #800;
+}
+
+#history_error
+{
+    color: #800;
+}
