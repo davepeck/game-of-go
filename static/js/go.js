@@ -257,7 +257,7 @@ var GetGoing = Class.create({
             return false;
         }
         
-        if (s.indexOf('@') == -1 || s.indexOf('.') == -1 || s.indexOf('@') == 0 || s.indexOf('.') >= (s.length - 1) || (s.indexOf('@') >= s.indexOf('.') - 1))
+        if (s.indexOf('@') == -1 || s.indexOf('.') == -1 || s.indexOf('@') == 0 || s.lastIndexOf('.') >= (s.length - 1) || (s.indexOf('@') >= s.lastIndexOf('.') - 1))
         {
             return false;
         }        
