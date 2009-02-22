@@ -707,6 +707,7 @@ class GoHandler(webapp.RequestHandler):
             
         i_at = email.find('@')
         i_p = email.find('.')
+        i_right_p = email.rfind('.')
         i_last = len(email) - 1
         
         if i_at == -1 or i_p == -1:
@@ -718,11 +719,11 @@ class GoHandler(webapp.RequestHandler):
             
         # @ must come before .
         # and there must be a character in between
-        if i_at >= (i_p - 1):
+        if i_at >= (i_right_p - 1):
             return False
         
-        # final domain names must be two or more characters
-        if i_p >= len(email) - 2:
+        # final domain names must be one or more characters
+        if i_right_p >= len(email) - 1:
             return False
         
         return True
