@@ -24,12 +24,26 @@ EXPLORING THE CODE:
 
 There isn't too much code. The key files are:
 
-go.py                  -- currently houses all of the AppEngine server-side code, and all of the logic needed to play go (like liberty counting, Ko detection, etc.)
-static/js/go.js        -- currently houses all of the browser javascript code, including visuals and AJAX communication
-static/css/go.css      -- a total mess of a CSS file for the service.
+go.py
+
+  currently houses all of the AppEngine server-side code, and all of the logic needed to play go (like liberty counting, Ko detection, etc.)
+
+static/js/go.js
+
+  currently houses all of the browser javascript code, including visuals and AJAX communication
+
+static/css/go.css
+
+  a total mess of a CSS file for the service.
+
 templates/play.html 
-and 
-templates/history.html -- these are the two "main" pages. the templates are a little gnarly at the moment.
+templates/history.html
+
+   these are the two "main" pages. the templates are a little gnarly at the moment.
+
+templates/get-going.html
+
+   the game "creation" form
 
 
 
@@ -92,7 +106,7 @@ This list is in "no particular order":
   Other "chat features" that would rock:
 
     1. Ability to "see" older chats. Right now the overflow is clipped. Using a standard scrollbar looked ugly. Is there a better way?
-    2. Ability to refer to specific board squares when chatting. For example, if you say "you should have moved at A-13 dude" then the words "A-13" will be a clickable link tha causes the grid square to flash.
+    2. Ability to refer to specific board squares when chatting. For example, if you say "you should have moved at A-13 dude" then the words "A-13" become a clickable link that causes the appropriate grid square to flash.
     3. Ability to put links into chat (maybe just scan for http:// and auto-create a link?)
 
 - Visual grid numbers/letters
