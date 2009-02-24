@@ -35,9 +35,9 @@ handlers:
   static_files: static/index.html
   upload: static/index.html
 
-- url: /example.html
-  static_files: static/example.html
-  upload: static/example.html
+- url: /favicon.ico
+  static_files: static/img/favicon.ico
+  upload: static/img/favicon.ico
 
 - url: /.*
   script: go.py
