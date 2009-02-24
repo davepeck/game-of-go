@@ -2,78 +2,133 @@ Dave Peck's Go service for AppEngine
 (c) 2009 Dave Peck, All Rights Reserved
 http://go.davepeck.org/
 
-ABOUT THE LICENSE:
-
-This source code is licensed under the GNU Affero GPLv3. I generally don't like licenses this restrictive, but as this was a project for teaching others how to use (and/or abuse appengine), I thought it would be good to choose something that forces all other services to share and share alike. 
-
-The graphics are modified versions of stuff I found on the Wikimedia Commons and are under their own licenses.
-
-Obviously, the prototype and simplejson libraries are distributed under different terms and are copyrighted by their respecitve authors.
-
-I'm happy if people fork, but in general I hope that we'll continue to run the definitive version of this code at http://go.davepeck.org/.
-
-Send patches, etc. my way.
 
 
+ABOUT THIS REPOSITORY:
 
-WHAT TO DO:
+This is the ancient game of Go, implemented as a web service for Google's AppEngine. You can see the latest bits running at http://go.davepeck.org/ -- I will always run them there, on my own dime.
 
-I wrote the original version in one weekend. I added chat and history features in another ~12 hours, which is where we're at now.
+Currently, this service lets you set up a game of Go with a friend. There are no logins or passwords. When it's your turn, you get an email notification. Or, you can silence email and just leave your browser window open. It will update automatically when it's time for you to move.
 
-There is a LOT of stuff to do here, so dive in! 
+If you're new to the game of Go, you might consider reading the excellent tutorial at http://is.gd/kD5q
+
+I wrote this code as a "weekend hack" -- a fun project that I could get to a reasonable degree of polish in about a weekend. Since that original weekend, I've added chat and a history view. But there is still a lot more to do. There are lots of cool features I'd love the community to work on. I've listed some below; I'm sure you'll have other even better ideas. Also, because I wrote this software as fast as I could, the code is a little rough around the edges. No doubt you will see all sorts of oddities as you look through it; feel free to just help get the service on a more solid footing!
+
+Anyway, dive in and enjoy. With a little work, I bet we can turn this project into the best place to play Go on the internets!
+
+Cheers,
+Dave
+
+
+EXPLORING THE CODE:
+
+There isn't too much code. The key files are:
+
+go.py                  -- currently houses all of the AppEngine server-side code, and all of the logic needed to play go (like liberty counting, Ko detection, etc.)
+static/js/go.js        -- currently houses all of the browser javascript code, including visuals and AJAX communication
+static/css/go.css      -- a total mess of a CSS file for the service.
+templates/play.html 
+and 
+templates/history.html -- these are the two "main" pages. the templates are a little gnarly at the moment.
 
 
 
-MAJOR THINGS TO DO:
+A WORD ABOUT LICENSES:
 
-- Ability to log in and see all your games in one list
+Dave Peck's Go is open source and is licensed under the GNU Affero GPLv3. This is a very restrictive license. You're welcome to run your own service based on this code, but if you make improvements, you have to share them with the community.
 
-  Right now, every game is separate and hands out separate "cookies" for people to access the game.
+In general, I'm not a fan of licenses as restrictive as the AGPL. But I think it is an appropriate license for this project. I hope you'll agree.
 
-- Ranks and user profiles
 
-  I wanted to get the game basics down before this stuff, but the truth is there are no aesthetic "go" services out there so I'm hoping people add it here.
+There are a few other bits of code that are licensed under different terms:
 
-- Improved UI
+1. The simplejson library is licensed under an MIT License. A number of people have contributed. You can find out more here: http://code.google.com/p/simplejson/
 
-  I'm not a designer, so this has somewhat of the feel of "expose all features as buttons." I think it is playable but if a good designer wants to pitch in and make it way better, cool.
+2. The prototype.js library is (c) 2005-2008 Sam Stephenson and is also under an MIT License.
+
+3. The scriptaculous javascript libraries are (c) 2005-2008 Thomas Fuchs, also under an MIT License.
+
+
+As for the graphics:
+
+1. All of the images used in the main game board are modified versions of files I found on the Wikimedia Commons. These are distributed with the Creative Commons Attribution 2.0 ShareAlike license. Unfortunately, I can't figure out who made them originally -- the user name is Micheletb
+
+2. All remaining images were hand-drawn by me. I hereby put them under the Creative Commons Attribution ShareAlike 2.0 license: http://creativecommons.org/licenses/by-sa/2.0/
+
+
+
+
+
+COOL STUFF I HOPE TO SEE PEOPLE WORK ON:
+
+There is a LOT of stuff to do here, so dive in! I'm open to all suggestions and patches. Send 'em my way.
+
+This list is in "no particular order":
+
+- User accounts
+
+  I want to make sure that people can continue to use the service without ever having to create an account, choose a password, or login. That said, there are some power users who play many games at once. For them, I want to make sure they can log in and track all their games in one central place.
+
+- Ranks, user profiles, and other social features
+
+  I think community aspects are ultimately important in any single-game site like this
+
+- UI Improvements
+
+  I'm not a designer. I tried to make things simple, but I think there's probably lots of room for improvement, both visually and in terms of the interaction model. I'll leave this open-ended and see what people come up with.
 
 - Game branching and speculation
 
-  I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made.
+  I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made, so they can try a new path.
 
-- Support for the SWG "go" file format.
+- Support for the SGF (Smart Game Format) "Go" file format.
 
-  It would be nice to export these files since lots of "go" tools use them.
+  Lots of expert "Go" tools use this format, so it would be great if we could export to it.
 
-- Build (free) iPhone and Palm Pre front-ends
+- Better chat features
 
-  Why not? (But see the "moderate" issue about "service" URLs below.)
+  At the moment, when you chat, the internal representation ties what you said to a particular move. But I don't expose this in the UI anywhere. It would be helpful!
 
-  The iPhone and Palm Pre code can live here and be open source, too.
+  Other "chat features" that would rock:
 
+    1. Ability to "see" older chats. Right now the overflow is clipped. Using a standard scrollbar looked ugly. Is there a better way?
+    2. Ability to refer to specific board squares when chatting. For example, if you say "you should have moved at A-13 dude" then the words "A-13" will be a clickable link tha causes the grid square to flash.
+    3. Ability to put links into chat (maybe just scan for http:// and auto-create a link?)
 
+- Visual grid numbers/letters
+  
+  Definitely important for advanced players. However, I hope that we can do this in such a way that they are by default off, and when turned on have minimal visual impact.
 
-MODERATE THINGS TO DO:
+  Also, see "better chat features" #2. This is, I think, the killer reason to have grid numbers/letters.
 
-The code is a mess. That's because it represents about 36 total hours of hacking. I had grand goals, so you will no doubt notice some data structures, local variables, etc. that simply aren't used or are extraneous.
+- Better layout for 9x9 and 13x13 games.
 
-The "service" URLs are a bit of a mess. I originally wrote one to check to see if your opponent moved, but what I really should have is a single unified "get state" POST request that takes the desired move number and returns the state. It should work for history as well as game play. I want this in-part for cleanliness, in-part because I think it will make implementing an iPhone front-end easier.
+  Right now the gameplay visual layout is designed with the 19x19 board size in mind. The chat area, in particular, looks wonky on smaller boards. This is one specific "UI Imprvoement" that's probably worth calling out.
 
-I had the idea that I would do true MVC on the javascript side. The "models" would directly parallel python types on the back end. The views were just about managing visual appearance. And the controllers tied them together. I got partway there, because frankly it just wasn't important to keep this separation when doing a three day hack. I'd like to go back and really clean this stuff up now. Check out go.js for details.
+- Facebook integration
 
+  Not sure about this, but perhaps some people would use it?
 
-MINOR THINGS TO DO:
+- Free iPhone and Palm Pre front-ends
 
-- Make it look better in IE7. For example, I use :hover CSS pseudo-classes on a bunch of non-anchor-tags. That's an IE no-no, but I did it anyway.
+  Why not? It would be fun to have them! Their source code could be a part of this repository.
 
-- Maybe make it look better in IE6
+- Code cleanup!
+  
+  I wrote this service as a "weekend hack." As a result, there are lots of strange things still in there. Many data structures, local variables, etc. are either extraneous, or duplicated, or something in between.
+
+  I had the idea that I would do true MVC on the javascript side. The "models" would directly parallel python types on the back end. The views were just about managing visual appearance. And the controllers tied them together. I got partway there, because frankly it just wasn't important to keep this separation when doing a three day hack. I'd like to go back and really clean this stuff up now. Check out go.js for details.
+
+  The "service" URLs are a bit of a mess. I originally wrote one to check to see if your opponent moved, but what I really should have is a single unified "get state" POST request that takes the desired move number and returns the state. It should work for history as well as game play. I want this in-part for cleanliness, in-part because I think it will make implementing an iPhone front-end easier.
+
+- Make it look better in IE7. 
+
+  For example, I use :hover CSS pseudo-classes on a bunch of non-anchor-tags. That's an IE no-no, but I did it anyway.
 
 - Make sure the HTML is strict and compliant
 
 - Clean up the madness that is my CSS file.
 
-- Python docstrings, version information, etc.
+- Python docstrings, version information, etc. Maybe even break up files into smaller components, gasp.
 
-- etc.
-
+- Anything you think is cool!
