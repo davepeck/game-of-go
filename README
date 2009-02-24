@@ -4,6 +4,7 @@ http://go.davepeck.org/
 
 
 
+
 ABOUT THIS REPOSITORY:
 
 This is the ancient game of Go, implemented as a web service for Google's AppEngine. You can see the latest bits running at http://go.davepeck.org/ -- I will always run them there, on my own dime.
@@ -16,8 +17,7 @@ I wrote this code as a "weekend hack" -- a fun project that I could get to a rea
 
 Anyway, dive in and enjoy. With a little work, I bet we can turn this project into the best place to play Go on the internets!
 
-Cheers,
-Dave
+
 
 
 EXPLORING THE CODE:
@@ -44,31 +44,6 @@ templates/history.html
 templates/get-going.html
 
    the game "creation" form
-
-
-
-A WORD ABOUT LICENSES:
-
-Dave Peck's Go is open source and is licensed under the GNU Affero GPLv3. This is a very restrictive license. You're welcome to run your own service based on this code, but if you make improvements, you have to share them with the community.
-
-In general, I'm not a fan of licenses as restrictive as the AGPL. But I think it is an appropriate license for this project. I hope you'll agree.
-
-
-There are a few other bits of code that are licensed under different terms:
-
-1. The simplejson library is licensed under an MIT License. A number of people have contributed. You can find out more here: http://code.google.com/p/simplejson/
-
-2. The prototype.js library is (c) 2005-2008 Sam Stephenson and is also under an MIT License.
-
-3. The scriptaculous javascript libraries are (c) 2005-2008 Thomas Fuchs, also under an MIT License.
-
-
-As for the graphics:
-
-1. All of the images used in the main game board are modified versions of files I found on the Wikimedia Commons. These are distributed with the Creative Commons Attribution 2.0 ShareAlike license. Unfortunately, I can't figure out who made them originally -- the user name is Micheletb
-
-2. All remaining images were hand-drawn by me. I hereby put them under the Creative Commons Attribution ShareAlike 2.0 license: http://creativecommons.org/licenses/by-sa/2.0/
-
 
 
 
@@ -146,3 +121,27 @@ This list is in "no particular order":
 - Python docstrings, version information, etc. Maybe even break up files into smaller components, gasp.
 
 - Anything you think is cool!
+
+
+
+
+A WORD ABOUT LICENSES:
+
+Dave Peck's Go is open source and is licensed under the GNU Affero GPLv3. This is a very restrictive license. You're welcome to run your own service based on this code, but if you make improvements, you have to share them with the community.
+
+In general, I'm not a fan of licenses as restrictive as the AGPL. But I think it is an appropriate license for this project. I hope you'll agree.
+
+There are a few other bits of code that are licensed under different terms:
+
+1. The simplejson library is licensed under an MIT License. A number of people have contributed. You can find out more here: http://code.google.com/p/simplejson/
+
+2. The prototype.js library is (c) 2005-2008 Sam Stephenson and is also under an MIT License.
+
+3. The scriptaculous javascript libraries are (c) 2005-2008 Thomas Fuchs, also under an MIT License.
+
+
+As for the graphics:
+
+1. All of the images used in the main game board are modified versions of files I found on the Wikimedia Commons. These are distributed with the Creative Commons Attribution 2.0 ShareAlike license. Unfortunately, I can't figure out who made them originally -- the user name is Micheletb
+
+2. All remaining images were hand-drawn by me. I hereby put them under the Creative Commons Attribution ShareAlike 2.0 license: http://creativecommons.org/licenses/by-sa/2.0/
