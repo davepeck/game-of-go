@@ -39,6 +39,8 @@ from google.appengine.ext import db
 from google.appengine.api import memcache
 from google.appengine.api import mail
 
+import secrets
+
 
 #------------------------------------------------------------------------------
 # Constants
@@ -559,8 +561,17 @@ It's your turn to make a move against %s. Just follow this link:
 """ % (opponent_name, EmailHelper._game_url(your_cookie))
 
         message.send()
+
+        
+#------------------------------------------------------------------------------
+# Twitter Support
+#------------------------------------------------------------------------------
+
+class TwitterHelper(object):    
+    pass
         
 
+        
 #------------------------------------------------------------------------------
 # Models
 #------------------------------------------------------------------------------
@@ -644,6 +655,8 @@ class Player(db.Model):
     name = db.StringProperty()
     email = db.EmailProperty()
     wants_email = db.BooleanProperty(default=True)
+    twitter = db.StringProperty()
+    wants_twitter = db.BooleanProperty(default=True)    
 
     def get_opponent(self):
         opponent_color = opposite_color(self.color)

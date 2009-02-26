@@ -34,6 +34,8 @@ CONST.Star_Ordinals = [[3, 9, 15], [3, 6, 9], [2, 4, 6]];
 CONST.Board_Size_Names = ['19 x 19', '13 x 13', '9 x 9'];
 CONST.Handicaps = [0, 9, 8, 7, 6, 5, 4, 3, 2];
 CONST.Handicap_Names = ['plays first', 'has a nine stone handicap', 'has an eight stone handicap', 'has a seven stone handicap', 'has a six stone handicap', 'has a five stone handicap', 'has a four stone handicap', 'has a three stone handicap', 'has a two stone handicap'];
+CONST.Email_Contact = 1;
+CONST.Twitter_Contact = 2;
 
 
 //-----------------------------------------------------------------------------
@@ -81,14 +83,27 @@ var GetGoing = Class.create({
         this.your_color = CONST.Black_Color;
         this.opponent_color = CONST.White_Color;
         this.board_size_index = 0;
-        this.handicap_index = 0;        
+        this.handicap_index = 0;
+
+        this.your_contact_type = CONST.Email_Contact;
+        this.opponent_contact_type = CONST.Email_Contact;
+        
         this.valid_your_name = false;
-        this.valid_your_email = false;
+        this.valid_your_contact = false;
         this.valid_opponent_name = false;
-        this.valid_opponent_email = false;
+        this.valid_opponent_contact = false;
         this.valid = false;
         
         this._initialize_events();
+    },
+
+    swap_your_contact_method : function()
+    {
+        
+    },
+
+    swap_opponent_contact_method : function()
+    {
     },
     
     swap_colors : function()
