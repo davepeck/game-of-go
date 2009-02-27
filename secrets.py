@@ -23,11 +23,10 @@
 #------
 
 twitter_user = "davepeckgo"
-twitter_pass = "Wom24twi"
+twitter_pass = "SEKR3T"
 
 dashboard_user = "dashboard"
 dashboard_pass = "dashboard"
 
-# testing one two three
 
 

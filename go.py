@@ -20,7 +20,6 @@
 # This file is the appengine back-end to the Go application.
 #------
 
-
 import cgi
 import os
 import sys
@@ -39,6 +38,8 @@ from google.appengine.ext import db
 from google.appengine.api import memcache
 from google.appengine.api import mail
 
+import urlib
+import urllib2
 import secrets
 
 
@@ -495,16 +496,12 @@ class EmailHelper(object):
         return "%splay/%s/" % (AppEngineHelper.base_url(), cookie)
 
     @staticmethod
-    def notify_new_game(your_name, your_email, your_cookie, opponent_name, opponent_email, opponent_cookie, your_turn):
+    def notify_you_new_game(your_name, your_email, your_cookie, opponent_name, your_turn):
         your_address = EmailHelper._rfc_address(your_name, your_email)
-        opponent_address = EmailHelper._rfc_address(opponent_name, opponent_email)
-                
-        # Message to YOU
         your_message = mail.EmailMessage()
         your_message.sender = EmailHelper.No_Reply_Address
         your_message.subject = "[GO] You've started a game with %s" % opponent_name
         your_message.to = your_address
-
         your_message.body = """
 Hi %s,
 
@@ -521,8 +518,10 @@ You've started a game of Go with %s. You can see what's happening by visiting:
 
         # SEND your message!
         your_message.send()
-        
-        # Message to OPPONENT
+
+    @staticmethod
+    def notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn):
+        opponent_address = EmailHelper._rfc_address(opponent_name, opponent_email)
         opponent_message = mail.EmailMessage()
         opponent_message.sender = EmailHelper.No_Reply_Address
         opponent_message.subject = "[GO] %s has invited you to play!" % your_name
@@ -542,8 +541,9 @@ Hi %s,
             opponent_message.body += "It's your turn to move, so get going!"
 
         # SEND opponent message!
-        opponent_message.send()
+        opponent_message.send()        
 
+        
     @staticmethod
     def notify_your_turn(your_name, your_email, your_cookie, opponent_name, opponent_email):
         your_address = EmailHelper._rfc_address(your_name, your_email)
@@ -562,15 +562,93 @@ It's your turn to make a move against %s. Just follow this link:
 
         message.send()
 
-        
+
 #------------------------------------------------------------------------------
 # Twitter Support
 #------------------------------------------------------------------------------
 
-class TwitterHelper(object):    
-    pass
-        
+class TwitterHelper(object):
+    @staticmethod
+    def _open_basic_auth_url(username, password, url, params):
+        # The "right" way to do this with urllib2 sucks. Why bother.
+        data = None
+        if params is not None:
+            data = urllib.urlencode(params)
+        req = urllib2.Request(url, data)
+        base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
+        authheader =  "Basic %s" % base64string
+        req.add_header("Authorization", authheader)
+        try:
+            handle = urllib2.urlopen(req)
+        except:
+            logging.warn("Failed to make twitter request: %s" % ExceptionHelper.exception_string())
+            return None
+        return handle
 
+    @staticmethod
+    def _make_twitter_call(url, params):
+        handle = TwitterHelper._open_basic_auth_url(secrets.twitter_user, secrets.twitter_pass, url, params)
+        if handle is None:
+            return None        
+        try:
+            result = simplejson.loads(handle.read())
+        except:
+            logging.warn("Couldn't process json result from twitter: %s" % ExceptionHelper.exception_string())
+            return None        
+        return result
+    
+    @staticmethod
+    def does_follow(a, b):
+        # Does "a" follow "b"?
+        return TwitterHelper._make_twitter_call("http://twitter.com/friendships/exists.json", {"user_a": a, "user_b": b})
+
+    @staticmethod
+    def are_mutual_followers(a, b):
+        a_b = TwitterHelper.does_follow(a, b)
+        if a_b is None:
+            return None
+        if not a_b:
+            return False
+        b_a = TwitterHelper.does_follow(b, a)
+        if b_a is None:
+            return None
+        return b_a
+
+    @staticmethod
+    def create_follow(a, b, a_password):
+        success = TwitterHelper._open_basic_auth_url(a, a_password, "http://twitter.com/friendships/create/%s.json?follow=true" % b)
+        return (success is not None)
+
+    @staticmethod
+    def make_go_account_follow_user(user):
+        return TwitterHelper.create_follow(secrets.twitter_user, user, secrets.twitter_pass)
+
+    @staticmethod
+    def make_user_follow_go_account(user, user_password):
+        return TwitterHelper.create_follow(user, secrets.twitter_user, user_password)
+
+    @staticmethod
+    def send_direct_message(a, b, a_password, message):
+        success = TwitterHelper._open_basic_auth_url(a, a_password, "http://twitter.com/direct_messages/new.json", {"user": b, "text": message})
+        return (success is not None)
+
+    @staticmethod
+    def send_notification_to_user(user, message):
+        return TwitterHelper.send_direct_message(secrets.twitter_user, user, secrets.twitter_pass, message)
+    
+    @staticmethod
+    def notify_you_new_game(your_name, your_email, your_cookie, opponent_name, your_turn):
+        pass
+
+    @staticmethod
+    def notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn):
+        pass
+    
+    @staticmethod
+    def notify_your_turn(your_name, your_email, your_cookie, opponent_name, opponent_email, move_message):
+        pass
+    
+        
         
 #------------------------------------------------------------------------------
 # Models
@@ -656,7 +734,7 @@ class Player(db.Model):
     email = db.EmailProperty()
     wants_email = db.BooleanProperty(default=True)
     twitter = db.StringProperty()
-    wants_twitter = db.BooleanProperty(default=True)    
+    wants_twitter = db.BooleanProperty(default=False)    
 
     def get_opponent(self):
         opponent_color = opposite_color(self.color)
@@ -672,7 +750,17 @@ class Player(db.Model):
             friendly_name = friendly_name[:at_loc]
         if len(friendly_name) > 18:
             friendly_name = friendly_name[:15] + '...'
-        return friendly_name    
+        return friendly_name
+
+    def does_want_twitter(self):
+        # Smooth over the fact that this property wasn't here in the past.
+        try:
+            wants = self.wants_twitter
+        except:
+            wants = False
+        if wants is None:
+            return False
+        return wants    
 
         
 #------------------------------------------------------------------------------
@@ -813,8 +901,16 @@ class CreateGameHandler(GoHandler):
         your_player.put()
         opponent_player.put()
 
-        # Send out emails!
-        EmailHelper.notify_new_game(your_name, your_email, your_cookie, opponent_name, opponent_email, opponent_cookie, your_turn)
+        # Send out notification to both players, using desired notification scheme.
+        if your_player.wants_email:
+            EmailHelper.notify_you_new_game(your_name, your_email, your_cookie, opponent_name, your_turn)
+        elif your_player.does_want_twitter():
+            TwitterHelper.notify_you_new_game(your_name, your_email, your_cookie, opponent_name, your_turn)
+
+        if opponent_player.wants_email:
+            EmailHelper.notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn)
+        elif opponent_player.does_want_twitter():
+            TwitterHelper.notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn)        
         
         # Great; the game is created!
         return (your_cookie, your_turn)
@@ -1078,6 +1174,8 @@ class MakeThisMoveHandler(GoHandler):
         opponent = player.get_opponent()
         if opponent.wants_email:
             EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
+        elif opponent.does_want_twitter():
+            TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message)
                     
         items = {
             'success': True,
