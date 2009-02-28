@@ -38,8 +38,9 @@ from google.appengine.ext import db
 from google.appengine.api import memcache
 from google.appengine.api import mail
 
-import urlib
+import urllib
 import urllib2
+import base64
 import secrets
 
 
@@ -63,6 +64,8 @@ class CONST(object):
         [(15, 3), (3, 15), (15, 15), (3, 3), (9, 9), (3, 9), (15, 9), (9, 3), (9, 15)],
         [(9, 3), (3, 9), (9, 9), (3, 3), (6, 6), (3, 6), (9, 6), (6, 3), (6, 9)],
         [(6, 2), (2, 6), (6, 6), (2, 2), (4, 4)]]
+    Email_Contact = "email"
+    Twitter_Contact = "twitter"
 
 def opposite_color(color):
     return 3 - color
@@ -570,7 +573,12 @@ It's your turn to make a move against %s. Just follow this link:
 class TwitterHelper(object):
     @staticmethod
     def _open_basic_auth_url(username, password, url, params):
-        # The "right" way to do this with urllib2 sucks. Why bother.
+        if params is None:
+            logging.info("Making call with %s:%s to %s and no params" % (username, password, url))
+        else:
+            logging.info("Making call with %s:%s to %s and params %s" % (username, password, url, params.__repr__()))
+        
+        # The "right" way to do this with urllib2 sucks. Why bother?
         data = None
         if params is not None:
             data = urllib.urlencode(params)
@@ -586,21 +594,56 @@ class TwitterHelper(object):
         return handle
 
     @staticmethod
-    def _make_twitter_call(url, params):
-        handle = TwitterHelper._open_basic_auth_url(secrets.twitter_user, secrets.twitter_pass, url, params)
+    def _make_twitter_call_as(url, params, user, user_password):
+        handle = TwitterHelper._open_basic_auth_url(user, user_password, url, params)
         if handle is None:
             return None        
         try:
             result = simplejson.loads(handle.read())
         except:
             logging.warn("Couldn't process json result from twitter: %s" % ExceptionHelper.exception_string())
-            return None        
+            return None
+        return result        
+    
+    @staticmethod
+    def _make_twitter_call(url, params):
+        return TwitterHelper._make_twitter_call_as(url, params, secrets.twitter_user, secrets.twitter_pass)
+        
+    @staticmethod
+    def _make_boolean_twitter_call(url, params):
+        result = TwitterHelper._make_twitter_call(url, params)
+        if result is None:
+            return None
+        if type(result) != type(True):
+            return None
         return result
+
+    @staticmethod
+    def _make_success_twitter_call(url, params):
+        result = TwitterHelper._make_twitter_call(url, params)
+        if result is None:
+            return None
+        return not ('error' in result)
+
+    @staticmethod
+    def _make_success_twitter_call_as(url, params, user, user_password):
+        result = TwitterHelper._make_twitter_call_as(url, params, user, user_password)
+        if result is None:
+            return None
+        return not ('error' in result)
+    
+    @staticmethod
+    def _game_url(cookie):
+        return "%splay/%s/" % (AppEngineHelper.base_url(), cookie)
+    
+    @staticmethod
+    def _trim_name(name):
+        return name.strip()[:16]
     
     @staticmethod
     def does_follow(a, b):
         # Does "a" follow "b"?
-        return TwitterHelper._make_twitter_call("http://twitter.com/friendships/exists.json", {"user_a": a, "user_b": b})
+        return TwitterHelper._make_boolean_twitter_call("http://twitter.com/friendships/exists.json", {"user_a": a, "user_b": b})
 
     @staticmethod
     def are_mutual_followers(a, b):
@@ -616,16 +659,30 @@ class TwitterHelper(object):
 
     @staticmethod
     def create_follow(a, b, a_password):
-        success = TwitterHelper._open_basic_auth_url(a, a_password, "http://twitter.com/friendships/create/%s.json?follow=true" % b)
-        return (success is not None)
+        # {"ignore": "this"} forces a POST
+        return TwitterHelper._make_success_twitter_call_as("http://twitter.com/friendships/create/%s.json?follow=true" % b, {"ignore": "this"}, a, a_password)
 
     @staticmethod
+    def does_go_account_follow_user(user):
+        return TwitterHelper.does_follow(secrets.twitter_user, user)
+
+    @staticmethod
+    def does_user_follow_go_account(user):
+        return TwitterHelper.does_follow(user, secrets.twitter_user)
+    
+    @staticmethod
     def make_go_account_follow_user(user):
-        return TwitterHelper.create_follow(secrets.twitter_user, user, secrets.twitter_pass)
+        did = TwitterHelper.create_follow(secrets.twitter_user, user, secrets.twitter_pass)
+        if did is None:
+            return False
+        return did
 
     @staticmethod
     def make_user_follow_go_account(user, user_password):
-        return TwitterHelper.create_follow(user, secrets.twitter_user, user_password)
+        did = TwitterHelper.create_follow(user, secrets.twitter_user, user_password)
+        if did is None:
+            return False
+        return did
 
     @staticmethod
     def send_direct_message(a, b, a_password, message):
@@ -637,17 +694,30 @@ class TwitterHelper(object):
         return TwitterHelper.send_direct_message(secrets.twitter_user, user, secrets.twitter_pass, message)
     
     @staticmethod
-    def notify_you_new_game(your_name, your_email, your_cookie, opponent_name, your_turn):
-        pass
+    def notify_you_new_game(your_name, your_twitter, your_cookie, opponent_name, your_turn):
+        if your_turn:
+            message = "You've started a game of Go with %s. It is your turn. You can play by visiting %s" % (TwitterHelper._trim_name(opponent_name), TwitterHelper._game_url(your_cookie))
+        else:            
+            message = "You've started a game of Go with %s. You can see what's happening by visiting %s" % (TwitterHelper._trim_name(opponent_name), TwitterHelper._game_url(your_cookie))
+        return TwitterHelper.send_notification_to_user(your_twitter, message)
 
     @staticmethod
-    def notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn):
-        pass
+    def notify_opponent_new_game(your_name, opponent_name, opponent_twitter, opponent_cookie, your_turn):
+        if your_turn:
+            message = "%s has started a game of Go with you. You can see what's happening by visiting %s" % (TwitterHelper._trim_name(your_name), TwitterHelper._game_url(opponent_cookie))
+        else:            
+            message = "%s has started a game of Go with you. It's your turn. You can play by visiting %s" % (TwitterHelper._trim_name(your_name), TwitterHelper._game_url(opponent_cookie))
+        return TwitterHelper.send_notification_to_user(opponent_twitter, message)
     
     @staticmethod
-    def notify_your_turn(your_name, your_email, your_cookie, opponent_name, opponent_email, move_message):
-        pass
-    
+    def notify_your_turn(your_name, your_twitter, your_cookie, opponent_name, move_message):
+        if move_message == "It's your turn to move.":
+            # TODO UNHACK -- ugly, but I'm too lazy to do this well at the moment.
+            message = "%s moved; it's now your turn." % TwitterHelper._trim_name(opponent_name)
+        else:
+            message = move_message
+        message += " " + TwitterHelper._game_url(your_cookie)
+        return TwitterHelper.send_notification_to_user(your_twitter, message)    
         
         
 #------------------------------------------------------------------------------
@@ -828,7 +898,32 @@ class GoHandler(webapp.RequestHandler):
             return False
         
         return True
+
+    def is_valid_twitter(self, twitter):
+        if twitter is None:
+            return False
+
+        if (len(twitter) < 1) or (len(twitter) > 16):
+            return False
+
+        # a python hax0r told me this would be faster than REs for very short strings
+        # (TODO validate that claim)
+        twitter = twitter.lower()
+        for t in twitter:
+            if not t in 'abcdefghijklmnopqrstuvwxyz0123456789_':
+                return False
+
+        return True
+
+    def is_valid_contact_type(self, contact_type):
+        return (contact_type == CONST.Email_Contact) or (contact_type == CONST.Twitter_Contact)
     
+    def is_valid_contact(self, contact, contact_type):
+        if contact_type == CONST.Email_Contact:
+            return self.is_valid_email(contact)
+        else:
+            return self.is_valid_twitter(contact)
+        
 
 #------------------------------------------------------------------------------
 # "Get Going" Handler
@@ -851,10 +946,13 @@ class CreateGameHandler(GoHandler):
         super(CreateGameHandler, self).__init__()
     
     def fail(self, flash="Invalid input."):
-        self.render_json({'success': False, 'flash': flash})
+        self.render_json({'success': False, 'need_your_twitter_password': False, 'flash': flash})
 
-    def create_game(self, your_name, your_email, opponent_name, opponent_email, your_color, board_size_index, handicap_index):
-        # Create cookies for accessing the game
+    def require_twitter_password(self, flash):
+        self.render_json({'success': True, 'need_your_twitter_password': True, 'flash': flash})    
+
+    def create_game(self, your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index):
+        # Create cookies for accessing the game        
         your_cookie, opponent_cookie = GameCookie.unique_pair()                
 
         # Create the game state and board blobs
@@ -887,15 +985,37 @@ class CreateGameHandler(GoHandler):
         your_player.cookie = your_cookie
         your_player.color = your_color
         your_player.name = your_name
-        your_player.email = your_email
-        
+        if your_contact_type == CONST.Email_Contact:
+            your_player.email = your_contact
+            your_player.wants_email = True
+            your_player.twitter = ""
+            your_player.wants_twitter = False
+            your_email = your_contact
+        else:
+            your_player.email = "nobody@example.com"
+            your_player.wants_email = False
+            your_player.twitter = your_contact
+            your_player.wants_twitter = True
+            your_twitter = your_contact
+                
         # Create opponent player
         opponent_player = Player()
         opponent_player.game = game_key
         opponent_player.cookie = opponent_cookie
         opponent_player.color = opposite_color(your_color)
         opponent_player.name = opponent_name
-        opponent_player.email = opponent_email
+        if opponent_contact_type == CONST.Email_Contact:            
+            opponent_player.email = opponent_contact
+            opponent_player.wants_email = True
+            opponent_player.twitter = ""
+            opponent_player.wants_twitter = False
+            opponent_email = opponent_contact
+        else:
+            opponent_player.email = "nobody@example.com"
+            opponent_player.wants_email = False
+            opponent_player.twitter = opponent_contact
+            opponent_player.wants_twitter = True
+            opponent_twitter = opponent_contact
 
         # Put the players
         your_player.put()
@@ -905,31 +1025,38 @@ class CreateGameHandler(GoHandler):
         if your_player.wants_email:
             EmailHelper.notify_you_new_game(your_name, your_email, your_cookie, opponent_name, your_turn)
         elif your_player.does_want_twitter():
-            TwitterHelper.notify_you_new_game(your_name, your_email, your_cookie, opponent_name, your_turn)
+            TwitterHelper.notify_you_new_game(your_name, your_twitter, your_cookie, opponent_name, your_turn)
 
         if opponent_player.wants_email:
             EmailHelper.notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn)
         elif opponent_player.does_want_twitter():
-            TwitterHelper.notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn)        
+            TwitterHelper.notify_opponent_new_game(your_name, opponent_name, opponent_twitter, opponent_cookie, your_turn)        
         
         # Great; the game is created!
         return (your_cookie, your_turn)
 
     def success(self, your_cookie, your_turn):        
-        self.render_json({'success': True, 'your_cookie': your_cookie, 'your_turn': your_turn})
+        self.render_json({'success': True, 'need_your_twitter_password': False, 'your_cookie': your_cookie, 'your_turn': your_turn})
     
     def post(self, *args):
         try:
             your_name = self.request.POST.get("your_name")
-            your_email = self.request.POST.get("your_email")
+            your_contact = self.request.POST.get("your_contact")
             opponent_name = self.request.POST.get("opponent_name")
-            opponent_email = self.request.POST.get("opponent_email")
+            opponent_contact = self.request.POST.get("opponent_contact")
             your_color = int(self.request.POST.get("your_color"))
             board_size_index = int(self.request.POST.get("board_size_index"))
             handicap_index = int(self.request.POST.get("handicap_index"))
+            your_contact_type = self.request.POST.get("your_contact_type")
+            opponent_contact_type = self.request.POST.get("opponent_contact_type")
         except:
             self.fail()
             return
+
+        try:            
+            your_twitter_password = self.request.POST.get("your_twitter_password")
+        except:
+            your_twitter_password = None
             
         if (your_color < CONST.Black_Color) or (your_color > CONST.White_Color):
             self.fail("Invalid color.")
@@ -947,20 +1074,60 @@ class CreateGameHandler(GoHandler):
             self.fail("Your name is invalid.")
             return
 
-        if not self.is_valid_email(your_email):
-            self.fail("Your email is invalid.")
+        if not self.is_valid_contact_type(your_contact_type):
+            self.fail("Your contact type is invalid.")
+            return
+
+        if not self.is_valid_contact_type(opponent_contact_type):
+            self.fail("Your opponent's contact type is invalid.")
+            return
+        
+        if not self.is_valid_contact(your_contact, your_contact_type):
+            self.fail("Your contact information is invalid.")
             return
             
         if not self.is_valid_name(opponent_name):
             self.fail("Your opponent's name is invalid.")
             return
         
-        if not self.is_valid_email(opponent_email):
-            self.fail("Your opponent's email is invalid.")
+        if not self.is_valid_contact(opponent_contact, opponent_contact_type):
+            self.fail("Your opponent's contact information is invalid.")
             return
 
+        #
+        # Twitter test cases: if necessary, connect up all contacts so we can direct-message
+        #
+        
+        if your_contact_type == CONST.Twitter_Contact:
+            if not TwitterHelper.make_go_account_follow_user(your_contact):
+                self.fail("Sorry, but we couldn't contact twitter or couldn't follow your account. Try again soon, or use email for now.")
+                return
+
+        if opponent_contact_type == CONST.Twitter_Contact:
+            if not TwitterHelper.make_go_account_follow_user(opponent_contact):
+                self.fail("Sorry, but we couldn't contact twitter or couldn't follow your opponent's account. Try again soon, or use email for now.")
+                return
+
+        if your_contact_type == CONST.Twitter_Contact:
+            if your_twitter_password is None:
+                if not TwitterHelper.does_user_follow_go_account(your_contact):
+                    self.require_twitter_password("In order to play go using twitter, you most follow the @%s account. Enter your password to set this up automatically:" % secrets.twitter_user)
+                    return
+                # success -- you're already following @davepeckgo
+            else:
+                if not TwitterHelper.make_user_follow_go_account(your_contact, your_twitter_password):
+                    self.require_twitter_password("Sorry, either your password is incorrect or we couldn't contact twitter. Try entering your password again, or use email for now.")
+                    return
+                # success -- you're now following @davepeckgo
+
+        if opponent_contact_type == CONST.Twitter_Contact:
+            if not TwitterHelper.does_user_follow_go_account(opponent_contact):
+                self.fail("Sorry, but your opponent is not following @%s on twitter. Because of this, you should use email to start the game with your opponent." % secrets.twitter_user)
+                return
+            # success -- opponent is following @davepeckgo
+            
         try:
-            your_cookie, your_turn = self.create_game(your_name, your_email, opponent_name, opponent_email, your_color, board_size_index, handicap_index)            
+            your_cookie, your_turn = self.create_game(your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index) 
             self.success(your_cookie, your_turn)
         except:
             logging.error("An unexpected error occured in CreateGameHandler: %s" % ExceptionHelper.exception_string())
@@ -1175,7 +1342,7 @@ class MakeThisMoveHandler(GoHandler):
         if opponent.wants_email:
             EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
         elif opponent.does_want_twitter():
-            TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message)
+            TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
                     
         items = {
             'success': True,

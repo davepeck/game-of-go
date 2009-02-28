@@ -34,8 +34,8 @@ CONST.Star_Ordinals = [[3, 9, 15], [3, 6, 9], [2, 4, 6]];
 CONST.Board_Size_Names = ['19 x 19', '13 x 13', '9 x 9'];
 CONST.Handicaps = [0, 9, 8, 7, 6, 5, 4, 3, 2];
 CONST.Handicap_Names = ['plays first', 'has a nine stone handicap', 'has an eight stone handicap', 'has a seven stone handicap', 'has a six stone handicap', 'has a five stone handicap', 'has a four stone handicap', 'has a three stone handicap', 'has a two stone handicap'];
-CONST.Email_Contact = 1;
-CONST.Twitter_Contact = 2;
+CONST.Email_Contact = "email";
+CONST.Twitter_Contact = "twitter";
 
 
 //-----------------------------------------------------------------------------
@@ -74,6 +74,50 @@ function opposite_color(color)
 
 
 //-----------------------------------------------------------------------------
+// Validators
+//-----------------------------------------------------------------------------
+
+var ContactValidator = function() {}
+
+ContactValidator.is_probably_good_email = function(s)
+{
+    if (!s || (s.length <= 4))
+    {
+        return false;
+    }
+
+    if (s.indexOf('@') == -1 || s.indexOf('.') == -1 || s.indexOf('@') == 0 || s.lastIndexOf('.') >= (s.length - 1) || (s.indexOf('@') >= s.lastIndexOf('.') - 1))
+    {
+        return false;
+    }        
+
+    return true;
+}
+
+ContactValidator.is_probably_good_twitter = function(s)
+{
+    if (!s || (s.length < 1) || (s.length > 16))
+    {
+        return false;
+    }
+
+    return s.match(/^[0-9a-zA-Z_]+$/);
+}
+
+ContactValidator.is_probably_good_contact = function(s, contact_type)
+{
+    if (contact_type == CONST.Email_Contact)
+    {
+        return ContactValidator.is_probably_good_email(s);
+    }
+    else
+    {
+        return ContactValidator.is_probably_good_twitter(s);
+    }
+}
+
+
+//-----------------------------------------------------------------------------
 // Game Start Handler
 //-----------------------------------------------------------------------------
 
@@ -93,17 +137,43 @@ var GetGoing = Class.create({
         this.valid_opponent_name = false;
         this.valid_opponent_contact = false;
         this.valid = false;
+
+        this.showing_twitter_password = false;
         
         this._initialize_events();
     },
 
-    swap_your_contact_method : function()
+    swap_your_contact_type : function()
     {
-        
+        if (this.your_contact_type == CONST.Email_Contact)
+        {
+            this.your_contact_type = CONST.Twitter_Contact;
+            $("your_contact_type").update("twitter");            
+        }
+        else
+        {
+            this.your_contact_type = CONST.Email_Contact;
+            $("your_contact_type").update("email");
+            this._hide_twitter_password();
+        }
+        this.valid_your_contact = ContactValidator.is_probably_good_contact($("your_contact").value, this.your_contact_type);        
+        this._evaluate_validity();
     },
 
-    swap_opponent_contact_method : function()
+    swap_opponent_contact_type : function()
     {
+        if (this.opponent_contact_type == CONST.Email_Contact)
+        {
+            this.opponent_contact_type = CONST.Twitter_Contact;
+            $("opponent_contact_type").update("twitter");            
+        }
+        else
+        {
+            this.opponent_contact_type = CONST.Email_Contact;
+            $("opponent_contact_type").update("email");
+        }
+        this.valid_opponent_contact = ContactValidator.is_probably_good_contact($("opponent_contact").value, this.opponent_contact_type);
+        this._evaluate_validity();
     },
     
     swap_colors : function()
@@ -162,33 +232,53 @@ var GetGoing = Class.create({
     },
     
     create_game : function()
-    {
+    {        
         if (this.valid)
         {
             var self = this;
+            var params = {
+                "your_name": $("your_name").value,
+                "your_contact": $("your_contact").value,
+                "opponent_name": $("opponent_name").value,
+                "opponent_contact": $("opponent_contact").value,
+                "your_color": this.your_color,
+                "board_size_index": this.board_size_index,
+                "handicap_index": this.handicap_index,
+                "your_contact_type": this.your_contact_type,
+                "opponent_contact_type": this.opponent_contact_type
+            };
+
+            if (this.showing_twitter_password)
+            {
+                alert("wow");
+                var tp = $("twitter_password").value;
+                if (tp && tp.length > 1)
+                {
+                    alert("wow wow");
+                    params["your_twitter_password"] = $("twitter_password").value;
+                }                
+            }
+                                
             new Ajax.Request(
                 "/service/create-game/",
                 {
                     method: 'POST',                
-                
-                    parameters: 
-                    {
-                        "your_name": $("your_name").value,
-                        "your_email": $("your_email").value,
-                        "opponent_name": $("opponent_name").value,
-                        "opponent_email": $("opponent_email").value,
-                        "your_color": this.your_color,
-                        "board_size_index": this.board_size_index,
-                        "handicap_index": this.handicap_index
-                    },
+
+                    parameters : params,
                 
                     onSuccess: function(transport) 
                     {
                         var response = eval_json(transport.responseText);
                         if (response['success'])
                         {
-                        
-                            self._succeed_create_game(response['your_cookie'], response['your_turn']);
+                            if (response['need_your_twitter_password'])
+                            {
+                                self._require_twitter_password(response['flash'])
+                            }                            
+                            else
+                            {
+                                self._succeed_create_game(response['your_cookie'], response['your_turn']);
+                            }
                         }
                         else
                         {                    
@@ -220,13 +310,38 @@ var GetGoing = Class.create({
             $("flash").update("Your game is ready; it&#146;s your opponent&#146;s turn.");
         }
         
-        Effect.Appear("flash");        
+        Effect.Appear("flash");
+        this._hide_twitter_password();
+    },
+
+    _show_twitter_password : function()
+    {
+        if (this.showing_twitter_password) { return; }
+        $("twitter_password_container").removeClassName("hide");
+        this.showing_twitter_password = true;
+    },
+
+    _hide_twitter_password : function()
+    {
+        if (!this.showing_twitter_password) { return; }
+        $("twitter_password_container").addClassName("hide");
+        $("flash").update("");
+        new Effect.Opacity("flash", {to: 0.0});
+        this.showing_twitter_password = false;
+    },
+    
+    _require_twitter_password : function(flash)
+    {
+        this._show_twitter_password();
+        $("flash").update(flash);
+        Effect.Appear("flash");
     },
     
     _fail_create_game : function(flash)
     {
         $("flash").update(flash);        
         Effect.Appear("flash");
+        this._hide_twitter_password();
     },
 
     _activate_play_link : function()
@@ -241,7 +356,7 @@ var GetGoing = Class.create({
     
     _evaluate_validity : function()
     {
-        var newValid = this.valid_your_name && this.valid_your_email && this.valid_opponent_name && this.valid_opponent_email;
+        var newValid = this.valid_your_name && this.valid_your_contact && this.valid_opponent_name && this.valid_opponent_contact;
         
         if (newValid != this.valid)
         {
@@ -260,24 +375,9 @@ var GetGoing = Class.create({
     _initialize_events : function()
     {
         $("your_name").observe('keyup', this._input_your_name.bindAsEventListener(this));
-        $("your_email").observe('keyup', this._input_your_email.bindAsEventListener(this));
+        $("your_contact").observe('keyup', this._input_your_contact.bindAsEventListener(this));
         $("opponent_name").observe('keyup', this._input_opponent_name.bindAsEventListener(this));
-        $("opponent_email").observe('keyup', this._input_opponent_email.bindAsEventListener(this));        
-    },
-
-    _is_probably_good_email : function(s)
-    {
-        if (!s || (s.length <= 4))
-        {
-            return false;
-        }
-        
-        if (s.indexOf('@') == -1 || s.indexOf('.') == -1 || s.indexOf('@') == 0 || s.lastIndexOf('.') >= (s.length - 1) || (s.indexOf('@') >= s.lastIndexOf('.') - 1))
-        {
-            return false;
-        }        
-        
-        return true;
+        $("opponent_contact").observe('keyup', this._input_opponent_contact.bindAsEventListener(this));        
     },
     
     _input_your_name : function()
@@ -286,9 +386,9 @@ var GetGoing = Class.create({
         this._evaluate_validity();
     },
     
-    _input_your_email : function()
+    _input_your_contact : function()
     {
-        this.valid_your_email = this._is_probably_good_email($("your_email").value);
+        this.valid_your_contact = ContactValidator.is_probably_good_contact($("your_contact").value, this.your_contact_type);
         this._evaluate_validity();
     },
     
@@ -298,9 +398,9 @@ var GetGoing = Class.create({
         this._evaluate_validity();
     },
     
-    _input_opponent_email : function()
+    _input_opponent_contact : function()
     {
-        this.valid_opponent_email = this._is_probably_good_email($("opponent_email").value);
+        this.valid_opponent_contact = ContactValidator.is_probably_good_contact($("opponent_contact").value, this.opponent_contact_type);
         this._evaluate_validity();
     }
 });

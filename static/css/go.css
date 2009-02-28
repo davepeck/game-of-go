@@ -437,7 +437,7 @@ p.flash
 {
     color: #FFB45C;
     font-size: 0.7em;
-    line-height: 0.7em;
+    line-height: 1.0em;
     padding-left: 2px;
     margin-top: 0.4em;
     margin-bottom: 0.8em;
@@ -754,4 +754,17 @@ img.no_email:hover
 #history_error
 {
     color: #800;
+}
+
+.limited_width
+{
+    width: 650px;
+}
+
+#twitter_password_container
+{
+    font-size: 0.66em;
+    padding-bottom: 1em;
+    padding-left: 1.5em;
+    paddint-top: 0.5em;
 }

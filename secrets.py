@@ -23,7 +23,7 @@
 #------
 
 twitter_user = "davepeckgo"
-twitter_pass = "SEKR3T"
+twitter_pass = "SECR3T"
 
 dashboard_user = "dashboard"
 dashboard_pass = "dashboard"
