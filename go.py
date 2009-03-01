@@ -148,6 +148,15 @@ class GameBoard(object):
     def get_size_index(self):
         return self.size_index
 
+    def get_komi(self):
+        if self.handicap_index:
+            return 0.5
+        else:
+            return 6.5
+
+    def get_handicap(self):
+        return CONST.Handicaps[self.handicap_index]
+
     def get_state_string(self):
         # Used for passing the board state via javascript. Smallish.
         bs = ""
