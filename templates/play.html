@@ -3,7 +3,7 @@
     <title>[Dave Peck's Go &raquo; {{black_name}} vs. {{white_name}}]</title>    
     {% include "head.html" %}
 </head>
-<body onload="init_play('{{your_cookie}}', {{your_color}}, {{whose_move}}, {{board_size_index}}, '{{board_state_string}}', {{white_stones_captured}}, {{black_stones_captured}}, '{{your_name|addslashes}}', '{{opponent_name|addslashes}}', '{{opponent_email|addslashes}}', {{wants_email}}, {{last_move_x}}, {{last_move_y}}, {{last_move_was_pass}}, {{game_is_finished}}, '{{last_move_message|addslashes}}')">
+<body onload="init_play('{{your_cookie}}', {{your_color}}, {{whose_move}}, {{board_size_index}}, '{{board_state_string}}', {{white_stones_captured}}, {{black_stones_captured}}, '{{your_name|addslashes}}', '{{opponent_name|addslashes}}', '{{opponent_contact|addslashes}}', '{{opponent_contact_type}}', {{wants_email}}, {{last_move_x}}, {{last_move_y}}, {{last_move_was_pass}}, {{game_is_finished}}, '{{last_move_message|addslashes}}')">
     <!-- preload all relevant images since I use CSS to swap them out. -->
     <div id="preload" class="hide">
         <img src="/img/transparent-1x1.png" />
@@ -32,7 +32,7 @@
     <!-- this will be dynamically generated -->
     <div id="board_area">
         <div id="board_container" class="{{board_class}}">&nbsp;</div>
-        <div id="board_extras"><a href="javascript:game_controller.toggle_wants_email()" id="wants_email_link" class="extra_link">{% if wants_email_python %}email is on{% else %}email is off{% endif %}</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a> | <a href="/history/{{your_cookie}}.sgf" id="get_sgf" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">Download SGF</a>
+        <div id="board_extras"><a href="javascript:game_controller.toggle_wants_email()" id="wants_email_link" class="extra_link">{% if wants_email_python %}email is on{% else %}email is off{% endif %}</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a>
         </div>
     </div>
 
