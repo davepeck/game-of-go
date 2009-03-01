@@ -1628,6 +1628,7 @@ def main():
         ('/get-going/', GetGoingHandler),
         ('/play/([-\w]+)/', PlayGameHandler),
         ('/history/([-\w]+)/', HistoryHandler),
+        ('/history/([-\w]+)\.sgf', SGFHandler),
         ('/service/create-game/', CreateGameHandler),
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),

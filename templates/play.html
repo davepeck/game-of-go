@@ -32,7 +32,7 @@
     <!-- this will be dynamically generated -->
     <div id="board_area">
         <div id="board_container" class="{{board_class}}">&nbsp;</div>
-        <div id="board_extras"><a href="javascript:game_controller.toggle_wants_email()" id="wants_email_link" class="extra_link">{% if wants_email_python %}email is on{% else %}email is off{% endif %}</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a>
+        <div id="board_extras"><a href="javascript:game_controller.toggle_wants_email()" id="wants_email_link" class="extra_link">{% if wants_email_python %}email is on{% else %}email is off{% endif %}</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a> | <a href="/history/{{your_cookie}}.sgf" id="get_sgf" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">Download SGF</a>
         </div>
     </div>
 
