@@ -48,6 +48,13 @@ templates/get-going.html
 
 
 
+COOL STUFF RECENTLY DONE:
+
+- Support for the SGF Go file format. (Thanks to Emil Sit! -- "sit" on github)
+
+
+
+
 COOL STUFF I HOPE TO SEE PEOPLE WORK ON:
 
 There is a LOT of stuff to do here, so dive in! I'm open to all suggestions and patches. Send 'em my way.
