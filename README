@@ -70,10 +70,6 @@ This list is in "no particular order":
 
   I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made, so they can try a new path.
 
-- Support for the SGF (Smart Game Format) "Go" file format.
-
-  Lots of expert "Go" tools use this format, so it would be great if we could export to it.
-
 - Better chat features
 
   At the moment, when you chat, the internal representation ties what you said to a particular move. But I don't expose this in the UI anywhere. It would be helpful!
