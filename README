@@ -48,6 +48,13 @@ templates/get-going.html
 
 
 
+COOL STUFF RECENTLY DONE:
+
+- Support for the SGF Go file format. (Thanks to Emil Sit! -- "sit" on github)
+
+
+
+
 COOL STUFF I HOPE TO SEE PEOPLE WORK ON:
 
 There is a LOT of stuff to do here, so dive in! I'm open to all suggestions and patches. Send 'em my way.
@@ -69,10 +76,6 @@ This list is in "no particular order":
 - Game branching and speculation
 
   I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made, so they can try a new path.
-
-- Support for the SGF (Smart Game Format) "Go" file format.
-
-  Lots of expert "Go" tools use this format, so it would be great if we could export to it.
 
 - Better chat features
 

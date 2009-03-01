@@ -1,0 +1,14 @@
+(
+;FF[4]GM[1]
+PC[Dave Peck's Go: {{base_url}}]
+DT[{{start_date}},{{stop_date}}]
+GN[{{white_name}} vs {{black_name}}]
+PB[{{black_name}}]
+PW[{{white_name}}]
+RU[Japanese]
+SZ[{{board_size}}]
+KM[{{komi}}]{% ifnotequal handicap 0 %}
+HA[{{handicap}}]
+AB{% for h in handicap_stones %}[{{h}}]{% endfor %}PL[W]{% else %}PL[B]{% endifnotequal %}
+{% for m in moves %};{{m}}
+{% endfor %})

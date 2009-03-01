@@ -27,6 +27,7 @@ import logging
 import copy
 import pickle
 import random
+import string
 import traceback
 from datetime import datetime, timedelta, date
 import simplejson
@@ -69,6 +70,11 @@ class CONST(object):
 
 def opposite_color(color):
     return 3 - color
+
+def pos_to_coord(pos):
+    """Convert a position into letter coordinates, for SGF"""
+    x, y = pos
+    return "%s%s" % (string.letters[x], string.letters[y])
 
     
 #------------------------------------------------------------------------------
@@ -153,6 +159,15 @@ class GameBoard(object):
 
     def get_size_index(self):
         return self.size_index
+
+    def get_komi(self):
+        if self.handicap_index:
+            return 0.5
+        else:
+            return 6.5
+
+    def get_handicap(self):
+        return CONST.Handicaps[self.handicap_index]
 
     def get_state_string(self):
         # Used for passing the board state via javascript. Smallish.
@@ -1808,7 +1823,80 @@ class GetHistoricalStateHandler(GoHandler):
             'last_move_was_pass': state.get_last_move_was_pass(),
             'whose_move': state.whose_move})
         
+#------------------------------------------------------------------------------
+# "SGF" Handler (for SGF download)        
+#------------------------------------------------------------------------------
+
+class SGFHandler(GoHandler):
+    def __init__(self):
+        super(SGFHandler, self).__init__()
+
+    def fail(self, message):
+        self.render_template("fail.html", {'message': message})
+
+    def get(self, cookie, *args):
+        player = ModelCache.player_by_cookie(cookie)
+        if not player:
+            # XXX Should 404.
+            self.fail("No game with that ID could be found.")
+            return
         
+        game = player.game
+        if not game:
+            # XXX Should 500?
+            self.fail("Found a reference to a player, but couldn't find the game. Try again in a few minutes?")
+            return
+
+        black_player = ModelCache.player_by_cookie(game.black_cookie)
+        white_player = ModelCache.player_by_cookie(game.white_cookie)
+
+        current_state = pickle.loads(game.current_state)
+        board = current_state.get_board()
+
+        handicap = board.get_handicap()
+        positions_handicap = CONST.Handicap_Positions[board.get_size_index()]
+        handicap_stones = [pos_to_coord(positions_handicap[i]) for i in range(handicap)]
+
+        moves = []
+        mover = " BW"
+        move_number = -1
+        # Iterate over the history, constructing SGF move strings.
+        # Skip the first history state (the initial board, no move)
+        # Make sure the current state is at the end.
+        game.history.append(game.current_state)
+        for pstate in game.history[1:]:
+            state = pickle.loads(pstate)
+            whose_move = state.get_whose_move()
+            assert whose_move in [CONST.Black_Color, CONST.White_Color]
+
+            # Set the move number, if necessary.
+            if state.get_current_move_number() != move_number + 1:
+                move_number_str = "MN[%d]" % state.get_current_move_number()
+            else:
+                move_number_str = ""
+            move_number = state.get_current_move_number()
+
+            # Encode the move.
+            if state.get_last_move_was_pass():
+                moves.append("%s%s[]" % (move_number_str, mover[whose_move]))
+            else:
+                moves.append("%s%s[%s]" % (move_number_str, mover[whose_move], pos_to_coord(state.get_last_move())))
+
+        items = {
+            'base_url': AppEngineHelper.base_url(),
+            'start_date': game.date_created.date().isoformat(),
+            'stop_date': game.date_last_moved.date().isoformat(),
+            'board_size': board.get_width(),
+            'komi': board.get_komi(),
+            'handicap': handicap,
+            'handicap_stones': handicap_stones,
+            'white_name': white_player.get_friendly_name(),
+            'black_name': black_player.get_friendly_name(),
+            'moves': moves,
+        }
+
+        self.render_template("game.sgf", items, 'application/x-go-sgf')
+
 #------------------------------------------------------------------------------
 # Main WebApp Code
 #------------------------------------------------------------------------------
@@ -1818,6 +1906,7 @@ def main():
         ('/get-going/', GetGoingHandler),
         ('/play/([-\w]+)/', PlayGameHandler),
         ('/history/([-\w]+)/', HistoryHandler),
+        ('/history/([-\w]+)\.sgf', SGFHandler),
         ('/service/create-game/', CreateGameHandler),
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
