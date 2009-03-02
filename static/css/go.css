@@ -427,6 +427,13 @@ tr.not_your_turn, span.not_your_turn
     margin-bottom: 0;
 }
 
+.smaller_action_link
+{
+    font-size: 1em;
+    margin-top: 0.2em;
+    margin-bottom: 0.2em;
+}
+
 .promise
 {
     color: #888;
@@ -476,6 +483,16 @@ p.flash
     color: #DDB45C;
     font-weight: bold;
     font-size: 8em;
+}
+
+.go-smallish
+{
+    margin: 0px 0px 0px -0.25em;
+    padding: 0px;
+    padding-bottom: 0.5em;
+    color: #DDB45C;
+    font-weight: bold;
+    font-size: 4em;
 }
 
 #splash a, #splash a:visited, #splash a:link

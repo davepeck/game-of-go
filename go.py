@@ -67,6 +67,7 @@ class CONST(object):
         [(6, 2), (2, 6), (6, 6), (2, 2), (4, 4)]]
     Email_Contact = "email"
     Twitter_Contact = "twitter"
+    Default_Email = "nobody@example.com"
 
 def opposite_color(color):
     return 3 - color
@@ -811,6 +812,14 @@ class Game(db.Model):
 
 # Because there is no notion of 'account', players are created
 # anew each time a game is constructed.
+
+# NOTE:
+# All of the contact and "email vs. twitter" stuff is a little
+# rough around the edges. That's because go.davepeck.org launched without
+# twitter, and I've got to make sure old player objects continue to behave
+# well. I decided to use a less-than-ideal representation so that I didn't
+# have to go back and fix all the old player objects.
+    
 class Player(db.Model):
     game = db.ReferenceProperty(Game)
     cookie = db.StringProperty()
@@ -822,6 +831,26 @@ class Player(db.Model):
     wants_twitter = db.BooleanProperty(default=False)
     contact_type = db.StringProperty(default=CONST.Email_Contact)
 
+    def get_safe_email(self):
+        try:
+            safe_email = self.email
+        except:
+            safe_email = None
+        if safe_email is None:
+            return ""
+        if safe_email == CONST.Default_Email:
+            return ""
+        return safe_email
+
+    def get_safe_twitter(self):
+        try:
+            safe_twitter = self.twitter
+        except:
+            safe_twitter = None
+        if safe_twitter is None:
+            return ""
+        return safe_twitter
+    
     def get_opponent(self):
         opponent_color = opposite_color(self.color)
         if opponent_color == CONST.Black_Color:
@@ -858,9 +887,6 @@ class Player(db.Model):
         return c_t
 
     def get_contact(self):
-        # This is all a little unpleasant because I have to deal with the
-        # fact that there are hundreds of users at go.davepeck.org that
-        # didn't have the wants_twitter, twitter, and contact_type properties.
         if self.wants_email:
             return self.email
         elif self.does_want_twitter():
@@ -1032,7 +1058,7 @@ class CreateGameHandler(GoHandler):
             your_player.wants_twitter = False
             your_email = your_contact
         else:
-            your_player.email = "nobody@example.com"
+            your_player.email = CONST.Default_Email
             your_player.wants_email = False
             your_player.twitter = your_contact
             your_player.wants_twitter = True
@@ -1052,7 +1078,7 @@ class CreateGameHandler(GoHandler):
             opponent_player.wants_twitter = False
             opponent_email = opponent_contact
         else:
-            opponent_player.email = "nobody@example.com"
+            opponent_player.email = CONST.Default_Email
             opponent_player.wants_email = False
             opponent_player.twitter = opponent_contact
             opponent_player.wants_twitter = True
@@ -1589,6 +1615,47 @@ class HasOpponentMovedHandler(GoHandler):
 
 
 #------------------------------------------------------------------------------
+# "Options" Handler
+#------------------------------------------------------------------------------
+
+class OptionsHandler(GoHandler):
+    def __init__(self):
+        super(OptionsHandler, self).__init__()
+
+    def fail(self, message):
+        self.render_template("fail.html", {'message': message})
+    
+    def get(self, cookie, *args):
+        player = ModelCache.player_by_cookie(cookie)
+        if not player:
+            self.fail("No game with that ID could be found.")
+            return
+
+        items = {
+            'your_cookie': cookie,
+            'your_email': player.get_safe_email(),
+            'your_twitter': player.get_safe_twitter(),
+            'your_contact_type': player.get_contact_type() }
+
+        self.render_template("options.html", items)
+        
+
+#------------------------------------------------------------------------------
+# "Change Contact Info" Handler
+#------------------------------------------------------------------------------
+
+class ChangeContactInfoHandler(GoHandler):
+    def __init__(self):
+        super(ChangeContactOptionsHandler, self).__init__()
+
+    def fail(self, message):
+        pass
+    
+    def post(self, *args):
+        pass
+
+        
+#------------------------------------------------------------------------------
 # "Change Wants Email" Handler        
 #------------------------------------------------------------------------------
 
@@ -1930,6 +1997,7 @@ class SGFHandler(GoHandler):
 
         self.render_template("game.sgf", items, 'application/x-go-sgf')
 
+        
 #------------------------------------------------------------------------------
 # Main WebApp Code
 #------------------------------------------------------------------------------
@@ -1940,9 +2008,11 @@ def main():
         ('/play/([-\w]+)/', PlayGameHandler),
         ('/history/([-\w]+)/', HistoryHandler),
         ('/history/([-\w]+)\.sgf', SGFHandler),
+        ('/options/([-\w]+)/', OptionsHandler),
         ('/service/create-game/', CreateGameHandler),
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
+        ('/service/change-contact-info/', ChangeContactInfoHandler),
         ('/service/change-wants-email/', ChangeWantsEmailHandler),
         ('/service/pass/', PassHandler),
         ('/service/resign/', ResignHandler),
