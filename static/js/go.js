@@ -1025,7 +1025,7 @@ var ChatController = Class.create({
                         self._hide_chat_error();
                         self._set_chat_contents(response['chat_count'], response['recent_chats']);
                         $("chat_textarea").value = ""; /* zero out the text */
-                        this.can_update = true;
+                        self.can_update = true;
                         self._deactivate_chat_update_link();
                     }
                     else
@@ -1061,7 +1061,7 @@ var ChatController = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameController = Class.create({            
-    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_email, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message)
+    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
@@ -1078,7 +1078,8 @@ var GameController = Class.create({
         
         this.your_name = your_name;
         this.opponent_name = opponent_name;
-        this.opponent_email = opponent_email;
+        this.opponent_contact = opponent_contact;
+        this.opponent_contact_type = opponent_contact_type;
 
         this.last_move_message = last_move_message;
 
@@ -1155,14 +1156,14 @@ var GameController = Class.create({
                     }
                     else
                     {
-                        this.toggling_wants_email = false;
+                        self.toggling_wants_email = false;
                     }
                 },
 
                 onFailure : function()
                 {
                     self._stop_loading();
-                    this.toggling_wants_email = false;
+                    self.toggling_wants_email = false;
                 }
             }
         );        
@@ -1623,7 +1624,7 @@ var GameController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        this.finish_game();
+                        self.finish_game();
                     }
                     else
                     {
@@ -1642,7 +1643,14 @@ var GameController = Class.create({
     
     finish_game : function()
     {
-        $("turn_message").update("The game is over! <a href=\"mailto:" + this.opponent_email + "\">Email your opponent</a> to agree on who won!");
+        if (this.opponent_contact_type == CONST.Email_Contact)
+        {
+            $("turn_message").update("The game is over! <a href=\"mailto:" + this.opponent_contact + "\" class=\"subtle-link\">Email your opponent</a> to agree on who won!");
+        }
+        else
+        {
+            $("turn_message").update("The game is over! <a href=\"http://twitter.com/home?status=@" + this.opponent_contact + " Who won the game?\" class=\"subtle-link\">Twitter your opponent</a> to agree on who won!");
+        }
         this.update_pass_links_after_last_was_not_pass();
         this.deactivate_pass_and_resign_links();
         this.deactivate_make_this_move_link();
@@ -1941,9 +1949,9 @@ function init_get_going()
     get_going = new GetGoing();    
 }
 
-function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_email, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message)
+function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message)
 {
-    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_email, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message);
+    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message);
     chat_controller = new ChatController(your_cookie);
     chat_controller.start_listening_to_chat();
 }

@@ -48,7 +48,13 @@
             {% endif %}
             
             {% if game_is_finished_python %}
-            <p id="turn_message">The game is over! <a href="mailto:{{opponent_email}}">Email your opponent</a> to agree on who won!</p>
+            <p id="turn_message">The game is over!
+            {% if opponent_contact_is_email %}
+            <a href="mailto:{{opponent_contact}}" class="subtle-link">Email your opponent</a> to agree on who won!
+            {% else %}
+            <a href="http://twitter.com/home?status=@{{opponent_contact}} Who won the game?" class="subtle-link">Twitter your opponent</a> to agree who won!
+            {% endif %}
+            </p>
             {% else %}
                 {% if your_move %}
                 <p id="turn_message">{{last_move_message}}</p>
