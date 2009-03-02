@@ -819,7 +819,8 @@ class Player(db.Model):
     email = db.EmailProperty()
     wants_email = db.BooleanProperty(default=True)
     twitter = db.StringProperty()
-    wants_twitter = db.BooleanProperty(default=False)    
+    wants_twitter = db.BooleanProperty(default=False)
+    contact_type = db.StringProperty(default=CONST.Email_Contact)
 
     def get_opponent(self):
         opponent_color = opposite_color(self.color)
@@ -845,7 +846,30 @@ class Player(db.Model):
             wants = False
         if wants is None:
             return False
-        return wants    
+        return wants
+
+    def get_contact_type(self):
+        try:
+            c_t = self.contact_type
+        except:
+            c_t = CONST.Email_Contact
+        if c_t is None:
+            return CONST.Email_Contact
+        return c_t
+
+    def get_contact(self):
+        # This is all a little unpleasant because I have to deal with the
+        # fact that there are hundreds of users at go.davepeck.org that
+        # didn't have the wants_twitter, twitter, and contact_type properties.
+        if self.wants_email:
+            return self.email
+        elif self.does_want_twitter():
+            return self.twitter
+        c_t = self.get_contact_type()
+        if c_t == CONST.Email_Contact:
+            return self.email
+        else:
+            return self.twitter
 
         
 #------------------------------------------------------------------------------
@@ -1000,6 +1024,7 @@ class CreateGameHandler(GoHandler):
         your_player.cookie = your_cookie
         your_player.color = your_color
         your_player.name = your_name
+        your_player.contact_type = your_contact_type
         if your_contact_type == CONST.Email_Contact:
             your_player.email = your_contact
             your_player.wants_email = True
@@ -1019,7 +1044,8 @@ class CreateGameHandler(GoHandler):
         opponent_player.cookie = opponent_cookie
         opponent_player.color = opposite_color(your_color)
         opponent_player.name = opponent_name
-        if opponent_contact_type == CONST.Email_Contact:            
+        opponent_player.contact_type = opponent_contact_type
+        if opponent_contact_type == CONST.Email_Contact:
             opponent_player.email = opponent_contact
             opponent_player.wants_email = True
             opponent_player.twitter = ""
@@ -1211,7 +1237,9 @@ class PlayGameHandler(GoHandler):
             'whose_move': state.whose_move,
             'your_name': player.get_friendly_name(),
             'opponent_name': opponent_player.get_friendly_name(),
-            'opponent_email': opponent_player.email,
+            'opponent_contact': opponent_player.get_contact(),
+            'opponent_contact_type': opponent_player.get_contact_type(),
+            'opponent_contact_is_email': opponent_player.get_contact_type() != CONST.Twitter_Contact,
             'last_move_message': state.get_last_move_message(),
             'wants_email': "true" if player.wants_email else "false",
             'wants_email_python': player.wants_email,
@@ -1432,6 +1460,8 @@ class PassHandler(GoHandler):
         opponent = player.get_opponent()
         if opponent.wants_email:
             EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
+        elif opponent.does_want_twitter():
+            TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
                     
         items = {
             'success': True,
@@ -1497,7 +1527,10 @@ class ResignHandler(GoHandler):
         opponent = player.get_opponent()
         if opponent.wants_email:
             EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
-                    
+        elif opponent.does_want_twitter():
+            TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
+
+            
         items = {
             'success': True,
             'flash': 'OK',
