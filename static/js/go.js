@@ -296,6 +296,7 @@ var GetGoing = Class.create({
 
     _succeed_create_game : function(your_cookie, your_turn)
     {
+        this._hide_twitter_password();
         $("play_link").href = "/play/" + your_cookie + "/";
         
         if (your_turn)
@@ -310,7 +311,6 @@ var GetGoing = Class.create({
         }
         
         Effect.Appear("flash");
-        this._hide_twitter_password();
     },
 
     _show_twitter_password : function()
@@ -325,7 +325,6 @@ var GetGoing = Class.create({
         if (!this.showing_twitter_password) { return; }
         $("twitter_password_container").addClassName("hide");
         $("flash").update("");
-        new Effect.Opacity("flash", {to: 0.0});
         this.showing_twitter_password = false;
     },
     
@@ -338,9 +337,9 @@ var GetGoing = Class.create({
     
     _fail_create_game : function(flash)
     {
+        this._hide_twitter_password();
         $("flash").update(flash);        
         Effect.Appear("flash");
-        this._hide_twitter_password();
     },
 
     _activate_play_link : function()
