@@ -2036,6 +2036,17 @@ class SGFHandler(GoHandler):
         positions_handicap = CONST.Handicap_Positions[board.get_size_index()]
         handicap_stones = [pos_to_coord(positions_handicap[i]) for i in range(handicap)]
 
+        # Build a dict of all the games chat messages.
+        chat_blobs = game.get_chat_history_blobs()
+        chats = {}
+        for blob in chat_blobs:
+            entry = pickle.loads(blob)
+            move = entry.get_move_number()
+            if move <= 0: move = 1
+            move_chats = chats.get(move,[])
+            move_chats.append("%s: %s" % (entry.get_player_friendly_name(), entry.get_message()))
+            chats[move] = move_chats
+
         moves = []
         mover = " BW"
         move_number = -1
@@ -2055,11 +2066,16 @@ class SGFHandler(GoHandler):
                 move_number_str = ""
             move_number = state.get_current_move_number()
 
+            try:
+                comment = "C[%s]" % "\n".join(chats[move_number])
+            except KeyError:
+                comment = ""
+
             # Encode the move.
             if state.get_last_move_was_pass():
-                moves.append("%s%s[]" % (move_number_str, mover[whose_move]))
+                moves.append("%s%s[]%s" % (move_number_str, mover[whose_move], comment))
             else:
-                moves.append("%s%s[%s]" % (move_number_str, mover[whose_move], pos_to_coord(state.get_last_move())))
+                moves.append("%s%s[%s]%s" % (move_number_str, mover[whose_move], pos_to_coord(state.get_last_move()), comment))
 
             # Color for next emitted move is based on whose turn
             # it is now.
