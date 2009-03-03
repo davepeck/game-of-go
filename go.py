@@ -590,11 +590,6 @@ It's your turn to make a move against %s. Just follow this link:
 class TwitterHelper(object):
     @staticmethod
     def _open_basic_auth_url(username, password, url, params):
-        if params is None:
-            logging.info("Making call with %s:%s to %s and no params" % (username, password, url))
-        else:
-            logging.info("Making call with %s:%s to %s and params %s" % (username, password, url, params.__repr__()))
-        
         # The "right" way to do this with urllib2 sucks. Why bother?
         data = None
         if params is not None:
