@@ -1851,6 +1851,7 @@ class AddChatHandler(GoHandler):
             self.fail("Unexpected error: couldn't find game for player.")
             return
 
+        message = message.rstrip()
         if len(message) > 140:
             message = message[:136] + '...'
 
