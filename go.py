@@ -2043,10 +2043,10 @@ class SGFHandler(GoHandler):
         # Skip the first history state (the initial board, no move)
         # Make sure the current state is at the end.
         game.history.append(game.current_state)
+        # Ensure we have the first move
+        whose_move = pickle.loads(game.history[0]).get_whose_move()
         for pstate in game.history[1:]:
             state = pickle.loads(pstate)
-            whose_move = state.get_whose_move()
-            assert whose_move in [CONST.Black_Color, CONST.White_Color]
 
             # Set the move number, if necessary.
             if state.get_current_move_number() != move_number + 1:
@@ -2060,6 +2060,11 @@ class SGFHandler(GoHandler):
                 moves.append("%s%s[]" % (move_number_str, mover[whose_move]))
             else:
                 moves.append("%s%s[%s]" % (move_number_str, mover[whose_move], pos_to_coord(state.get_last_move())))
+
+            # Color for next emitted move is based on whose turn
+            # it is now.
+            whose_move = state.get_whose_move()
+            assert whose_move in [CONST.Black_Color, CONST.White_Color]
 
         items = {
             'base_url': AppEngineHelper.base_url(),
