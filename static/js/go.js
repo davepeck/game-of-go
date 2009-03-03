@@ -1893,6 +1893,7 @@ var OptionsController = Class.create({
         this.is_valid = false;
         this.is_save_active = false;
         this.is_finished = false;
+        this.showing_twitter_password = false;
 
         $("contact_info").observe('keyup', this._keyup_contact_info.bindAsEventListener(this));
     },
@@ -1925,6 +1926,7 @@ var OptionsController = Class.create({
             new Effect.Opacity("contact_info_container", {to: 1.0, duration: 0.2});
         }
 
+        this._hide_twitter_password();
         this._update_validity();
     },
 
