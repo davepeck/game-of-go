@@ -36,6 +36,7 @@ CONST.Handicaps = [0, 9, 8, 7, 6, 5, 4, 3, 2];
 CONST.Handicap_Names = ['plays first', 'has a nine stone handicap', 'has an eight stone handicap', 'has a seven stone handicap', 'has a six stone handicap', 'has a five stone handicap', 'has a four stone handicap', 'has a three stone handicap', 'has a two stone handicap'];
 CONST.Email_Contact = "email";
 CONST.Twitter_Contact = "twitter";
+CONST.No_Contact = "none";
 
 
 //-----------------------------------------------------------------------------
@@ -250,12 +251,10 @@ var GetGoing = Class.create({
 
             if (this.showing_twitter_password)
             {
-                alert("wow");
                 var tp = $("twitter_password").value;
                 if (tp && tp.length > 1)
                 {
-                    alert("wow wow");
-                    params["your_twitter_password"] = $("twitter_password").value;
+                    params["your_twitter_password"] = tp;
                 }                
             }
                                 
@@ -273,7 +272,7 @@ var GetGoing = Class.create({
                         {
                             if (response['need_your_twitter_password'])
                             {
-                                self._require_twitter_password(response['flash'])
+                                self._require_twitter_password(response['flash']);
                             }                            
                             else
                             {
@@ -1125,66 +1124,6 @@ var GameController = Class.create({
 
 
     //--------------------------------------------------------------------------
-    // user preferences
-    //--------------------------------------------------------------------------    
-
-    toggle_wants_email : function()
-    {
-        if (this.toggling_wants_email) { return; }
-        this.toggling_wants_email = true;
-        
-        var self = this;
-        this._start_loading();
-        new Ajax.Request(
-            "/service/change-wants-email/",
-            {
-                method: 'POST',
-
-                parameters:
-                {
-                    "your_cookie": this.your_cookie,
-                    "wants_email": (!this.wants_email)
-                },
-
-                onSuccess : function(transport)
-                {
-                    self._stop_loading();
-                    var response = eval_json(transport.responseText);
-                    if (response['success'])
-                    {
-                        self._succeed_toggle_wants_email();
-                    }
-                    else
-                    {
-                        self.toggling_wants_email = false;
-                    }
-                },
-
-                onFailure : function()
-                {
-                    self._stop_loading();
-                    self.toggling_wants_email = false;
-                }
-            }
-        );        
-    },
-
-    _succeed_toggle_wants_email : function()
-    {
-        this.wants_email = !this.wants_email;
-        if (this.wants_email)
-        {
-            $("wants_email_link").update("email is on");
-        }
-        else
-        {
-            $("wants_email_link").update("email is off");
-        }
-        this.toggling_wants_email = false;
-    },
-
-
-    //--------------------------------------------------------------------------
     // switching moves
     //--------------------------------------------------------------------------        
 
@@ -1934,6 +1873,237 @@ var HistoryController = Class.create({
 });
 
 
+//-----------------------------------------------------------------------------
+// Options Controller
+//-----------------------------------------------------------------------------
+
+var OptionsController = Class.create({
+    initialize : function(your_cookie, your_email, your_twitter, your_contact_type)
+    {
+        this.your_cookie = your_cookie;
+        this.your_email = your_email;
+        this.your_twitter = your_twitter;
+        this.your_contact_type = your_contact_type;       
+
+        if (this.your_contact_type == CONST.No_Contact)
+        {
+            // make IE6 and IE7 happy
+            new Effect.Opacity("contact_info_container", {to: 0.0, duration: 0.1});
+        }
+
+        this.is_valid = false;
+        this.is_save_active = false;
+        this.is_finished = false;
+
+        $("contact_info").observe('keyup', this._keyup_contact_info.bindAsEventListener(this));
+    },
+
+    rotate_contact_type : function()
+    {
+        if (this.is_finished) { return; }
+        
+        if (this.your_contact_type == CONST.Email_Contact)
+        {
+            this.your_email = $("contact_info").value;
+            this.your_contact_type = CONST.Twitter_Contact;
+            $("rotate_link").update("notify me via twitter");
+            $("contact_info_label").update("Your twitter:");
+            $("contact_info").value = this.your_twitter;
+        }
+        else if (this.your_contact_type == CONST.Twitter_Contact)
+        {
+            this.your_twitter = $("contact_info").value;
+            this.your_contact_type = CONST.No_Contact;
+            $("rotate_link").update("don&#146;t send me any notification");
+            new Effect.Opacity("contact_info_container", {to: 0.0, duration: 0.2});
+        }
+        else
+        {
+            this.your_contact_type = CONST.Email_Contact;
+            $("rotate_link").update("notify me via email");
+            $("contact_info_label").update("Your email:");
+            $("contact_info").value = this.your_email;
+            new Effect.Opacity("contact_info_container", {to: 1.0, duration: 0.2});
+        }
+
+        this._update_validity();
+    },
+
+    save_options : function()
+    {
+        if (!this.is_valid) { return; }
+
+        var self = this;
+        var params = {
+            "your_cookie": this.your_cookie,
+            "new_contact_type": this.your_contact_type
+        };
+
+        if (this.your_contact_type == CONST.Twitter_Contact)
+        {
+            params["new_contact"] = this.your_twitter;
+        }
+        else if (this.your_contact_type == CONST.Email_Contact)
+        {
+            params["new_contact"] = this.your_email;
+        }
+
+        if (this.showing_twitter_password)
+        {
+            var tp = $("twitter_password").value;
+            if (tp && tp.length > 1)
+            {
+                params["your_twitter_password"] = tp;
+            }
+        }
+
+        new Ajax.Request(
+            "/service/change-options/",
+            {
+                method: 'POST',
+                parameters: params,
+
+                onSuccess: function(transport)
+                {
+                    var response = eval_json(transport.responseText);
+                    if (response['success'])
+                    {
+                        if (response['need_your_twitter_password'])
+                        {
+                            self._require_twitter_password(response['flash']);
+                        }
+                        else
+                        {
+                            self._succeed_save_options();
+                        }
+                    }
+                    else
+                    {
+                        self._fail_save_options(response['flash']);
+                    }
+                },
+
+                onFailure: function()
+                {
+                    self._fail_save_options("Sorry, but an unknown failure occured. Please try again.");
+                }
+            }
+        );
+        
+    },
+
+    _succeed_save_options : function()
+    {
+        this.is_finished = true; /* success! */
+        this._hide_twitter_password();
+        $("flash").update("Your options were updated successfully.");
+        Effect.Appear("flash");
+        $("save_p").addClassName("hide");
+        $("cancel_p").addClassName("hide");
+        $("back_p").removeClassName("hide");
+        $("rotate_link").removeClassName("subtle-link");
+        new Effect.Opacity("contact_info_container", {to: 0.0, duration: 0.2});
+    },
+
+    _fail_save_options : function(flash)
+    {
+        $("flash").update(flash);        
+        Effect.Appear("flash");
+        this._hide_twitter_password();        
+    },
+
+    _show_twitter_password : function()
+    {
+        if (this.showing_twitter_password) { return; }
+        $("twitter_password_container").removeClassName("hide");
+        this.showing_twitter_password = true;
+    },
+
+    _hide_twitter_password : function()
+    {
+        if (!this.showing_twitter_password) { return; }
+        $("twitter_password_container").addClassName("hide");
+        $("flash").update("");
+        this.showing_twitter_password = false;
+    },
+    
+    _require_twitter_password : function(flash)
+    {
+        this._show_twitter_password();
+        $("flash").update(flash);
+        Effect.Appear("flash");
+    },
+
+    _keyup_contact_info : function()
+    {
+        if (this.is_finished) { return; }
+        
+        if (this.your_contact_type == CONST.Email_Contact)
+        {
+            this.your_email = $("contact_info").value;
+            this._update_validity();
+        }
+        else if (this.your_contact_type == CONST.Twitter_Contact)
+        {
+            this.your_twitter = $("contact_info").value;
+            this._update_validity();
+        }
+    },
+
+    _update_validity : function()
+    {
+        this.is_valid = false;
+        if (this.your_contact_type == CONST.Email_Contact)
+        {
+            this._update_email_validity();
+        }
+        else if (this.your_contact_type == CONST.Twitter_Contact)
+        {
+            this._update_twitter_validity();
+        }
+        else
+        {
+            this.is_valid = true;
+        }
+
+        if (this.is_valid)
+        {
+            this._activate_save();
+        }
+        else
+        {
+            this._deactivate_save();
+        }
+    },
+
+    _update_email_validity : function()
+    {
+        this.is_valid = ContactValidator.is_probably_good_email(this.your_email);
+    },
+
+    _update_twitter_validity : function()
+    {
+        this.is_valid = ContactValidator.is_probably_good_twitter(this.your_twitter);
+    },
+
+    _activate_save : function()
+    {
+        if (this.is_save_active) { return; }
+        $("save_link").removeClassName("disabled");
+        this.is_save_active = true;
+    },
+
+    _deactivate_save : function()
+    {
+        if (!this.is_save_active) { return; }
+        $("save_link").addClassName("disabled");
+        this.is_save_active = false;
+    },
+    
+    i_hate_trailing_commas : function() {}
+});
+
+
 
 //-----------------------------------------------------------------------------
 // Initialization And Globals
@@ -1943,6 +2113,7 @@ var get_going = null;
 var game_controller = null;
 var chat_controller = null;
 var history_controller = null;
+var options_controller = null;
 
 function init_get_going()
 {
@@ -1961,4 +2132,7 @@ function init_history(your_cookie, your_color, board_size_index, board_state_str
     history_controller = new HistoryController(your_cookie, your_color, board_size_index, board_state_string, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
 }
 
-                      
+function init_options(your_cookie, your_email, your_twitter, your_contact_type)
+{
+    options_controller = new OptionsController(your_cookie, your_email, your_twitter, your_contact_type)
+}

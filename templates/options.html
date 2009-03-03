@@ -6,50 +6,22 @@
 <body onload="init_options('{{your_cookie}}', '{{your_email|addslashes}}', '{{your_twitter|addslashes}}', '{{your_contact_type}}')">
     <div id="splash">
         <div class="go-smallish">Options...</div>
-        <div id="start_game">
-            <div>
-                <table>
-                    <tr>
-                        <td>
-                            <input type="radio" name="contact_choice" value="email"></input>
-                        </td>
-                        <td>
-                            Email:
-                        </td>
-                        <td>
-                            <input type="text" id="your_email" tabindex="1" class="adjust"></input>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <input type="radio" name="contact_choice" value="twitter"></input>
-                        </td>
-                        <td>
-                            Twitter:
-                        </td>
-                        <td>
-                            <input type="text" id="your_twitter" tabindex="2" class="adjust"></input>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <input type="radio" name="contact_choice" value="none"></input>
-                        </td>
-                        <td>
-                            None.
-                        </td>
-                        <td>
-                            &nbsp;
-                        </td>
-                    </tr>
-                </table>
+        <div id="game_options">
+            <div id="options_presentation">
+
+                <div>
+                    When it is my turn, <a id="rotate_link" href="javascript:options_controller.rotate_contact_type();" class="subtle-link">{% ifequal your_contact_type "email" %}notify me via email{% endifequal %}{% ifequal your_contact_type "twitter" %}notify me via twitter{% endifequal %}{% ifequal your_contact_type "none" %}don&#146;t send me any notification{% endifequal %}</a>.</div>
+           <div id="contact_info_container" {% ifequal your_contact_type "none" %}class="opacity:0.0"{% endifequal %}>
+                <span id="contact_info_label">{% ifequal your_contact_type "email" %}Your email:{% endifequal %}{% ifequal your_contact_type "twitter" %}Your twitter:{% endifequal %}</span>
+                <input type="text" id="contact_info" value="{% ifequal your_contact_type "email" %}{{your_email|addslashes}}{% endifequal %}{% ifequal your_contact_type "twitter" %}{{your_twitter|addslashes}}{% endifequal %}"></input>
             </div>
             <p id="flash" class="flash limited_width" style="opacity: 0.0">&nbsp;</p>
             <div id="twitter_password_container" class="hide">
                 <span>Your twitter password: <span><input type="password" id="twitter_password"></input>
             </div>
-            <p class="smaller_action_link"><a href="javascript:options.save_options()" class="disabled" id="play_link">Save &raquo;</a></p>
-            <p class="smaller_action_link"><a href="/play/{{your_cookie}}/" class="disabled" id="play_link">Cancel &raquo;</a></p>
+            <p id="save_p" class="smaller_action_link"><a href="javascript:options_controller.save_options()" class="disabled" id="save_link">Save &raquo;</a></p>
+            <p id="cancel_p" class="smaller_action_link"><a href="/play/{{your_cookie}}/" id="cancel_link">Cancel &raquo;</a></p>
+           <p id="back_p" class="smaller_action_link hide"><a href="/play/{{your_cookie}}/">Back to the game &raquo;</a></p>
         </div>
     </div>    
 </body>

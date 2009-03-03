@@ -67,6 +67,7 @@ class CONST(object):
         [(6, 2), (2, 6), (6, 6), (2, 2), (4, 4)]]
     Email_Contact = "email"
     Twitter_Contact = "twitter"
+    No_Contact = "none"
     Default_Email = "nobody@example.com"
 
 def opposite_color(color):
@@ -877,6 +878,14 @@ class Player(db.Model):
             return False
         return wants
 
+    def get_active_contact_type(self):
+        if self.wants_email:
+            return CONST.Email_Contact
+        elif self.does_want_twitter():
+            return CONST.Twitter_Contact
+        else:
+            return CONST.No_Contact
+
     def get_contact_type(self):
         try:
             c_t = self.contact_type
@@ -982,7 +991,10 @@ class GoHandler(webapp.RequestHandler):
 
     def is_valid_contact_type(self, contact_type):
         return (contact_type == CONST.Email_Contact) or (contact_type == CONST.Twitter_Contact)
-    
+
+    def is_valid_active_contact_type(self, contact_type):
+        return (contact_type == CONST.Email_Contact) or (contact_type == CONST.Twitter_Contact) or (contact_type == CONST.No_Contact)
+        
     def is_valid_contact(self, contact, contact_type):
         if contact_type == CONST.Email_Contact:
             return self.is_valid_email(contact)
@@ -1635,37 +1647,102 @@ class OptionsHandler(GoHandler):
             'your_cookie': cookie,
             'your_email': player.get_safe_email(),
             'your_twitter': player.get_safe_twitter(),
-            'your_contact_type': player.get_contact_type() }
+            'your_contact_type': player.get_active_contact_type() }
 
         self.render_template("options.html", items)
         
 
 #------------------------------------------------------------------------------
-# "Change Contact Info" Handler
+# "Change Options" Handler
 #------------------------------------------------------------------------------
 
-class ChangeContactInfoHandler(GoHandler):
+class ChangeOptionsHandler(GoHandler):
     def __init__(self):
-        super(ChangeContactOptionsHandler, self).__init__()
+        super(ChangeOptionsHandler, self).__init__()
 
-    def fail(self, message):
-        pass
+    def fail(self, flash="Invalid input."):
+        self.render_json({'success': False, 'need_your_twitter_password': False, 'flash': flash})
+
+    def require_twitter_password(self, flash):
+        self.render_json({'success': True, 'need_your_twitter_password': True, 'flash': flash})    
+
+    def success(self):        
+        self.render_json({'success': True, 'need_your_twitter_password': False, 'flash': 'OK'})
+        
+    def handle_none(self, player):
+        try:
+            player.wants_email = False
+            player.wants_twitter = False
+            try:
+                player.put()
+            except:
+                player.put()                
+            ModelCache.clear_cookie(player.cookie)
+        except:
+            self.fail('Sorry, but we had a timeout; please try again later.')
+        else:
+            self.success()
+
+    def handle_email(self, player, email):
+        if not self.is_valid_email(email):
+            self.fail('Invalid email address.')
+            return
+        
+        try:
+            player.wants_email = True
+            player.wants_twitter = False
+            player.contact_type = CONST.Email_Contact
+            player.email = email
+            try:
+                player.put()
+            except:
+                player.put()                
+            ModelCache.clear_cookie(player.cookie)
+        except:
+            self.fail('Sorry, but we had a timeout; please try again later.')
+        else:
+            self.success()
+
+    def handle_twitter(self, player, twitter):
+        if not self.is_valid_twitter(twitter):
+            self.fail('Invalid twitter account.')
+            return
+
+        if not TwitterHelper.make_go_account_follow_user(twitter):
+            self.fail("Sorry, but we couldn't contact twitter or couldn't follow your account. Try again soon, or use email for now.")
+            return
+
+        try:
+            your_twitter_password = self.request.POST.get("your_twitter_password")
+        except:
+            your_twitter_password = None
+
+        if your_twitter_password is None:
+            if not TwitterHelper.does_user_follow_go_account(twitter):
+                self.require_twitter_password("In order to play go using twitter, you most follow the @%s account. Enter your password to set this up automatically:" % secrets.twitter_user)
+                return
+            # success -- you're already following @davepeckgo
+        else:
+            if not TwitterHelper.make_user_follow_go_account(twitter, your_twitter_password):
+                self.require_twitter_password("Sorry, either your password is incorrect or we couldn't contact twitter. Try entering your password again, or use email for now.")
+                return
+            # success -- you're now following @davepeckgo
+                
+        try:
+            player.wants_email = False
+            player.wants_twitter = True
+            player.contact_type = CONST.Twitter_Contact
+            player.twitter = twitter
+            try:
+                player.put()
+            except:
+                player.put()                
+            ModelCache.clear_cookie(player.cookie)
+        except:
+            self.fail('Sorry, but we had a timeout; please try again later.')
+        else:
+            self.success()
     
-    def post(self, *args):
-        pass
-
-        
-#------------------------------------------------------------------------------
-# "Change Wants Email" Handler        
-#------------------------------------------------------------------------------
-
-class ChangeWantsEmailHandler(GoHandler):
-    def __init__(self):
-        super(ChangeWantsEmailHandler, self).__init__()
-
-    def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-        
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -1677,28 +1754,34 @@ class ChangeWantsEmailHandler(GoHandler):
             self.fail("Unexpected error: invalid player.")
             return
 
-        wants_email_str = self.request.POST.get("wants_email")
-        if wants_email_str.lower() == 'true':
-            player.wants_email = True
-            try:
-                player.put()
-            except:
-                player.put()
-            ModelCache.clear_cookie(player.cookie)
-        elif wants_email_str.lower() == 'false':
-            player.wants_email = False
-            try:
-                player.put()
-            except:
-                player.put()
-            ModelCache.clear_cookie(player.cookie)
-        else:
-            self.fail("Invalid wants_email value.")
+        try:
+            new_contact_type = self.request.POST.get("new_contact_type")
+        except:
+            new_contact_type = None
+            
+        if (new_contact_type is None) or (not self.is_valid_active_contact_type(new_contact_type)):
+            self.fail("Unexpected error: invalid contact type.")
             return
 
-        self.render_json({'success': True, 'flash': 'OK'})
+        new_contact = None
+        if new_contact_type != CONST.No_Contact:
+            try:
+                new_contact = self.request.POST.get("new_contact")
+            except:
+                new_contact = None
 
+            if new_contact is None:
+                self.fail("Unexpected error: invalid contact.")
+                return
         
+        if new_contact_type == CONST.Email_Contact:
+            self.handle_email(player, new_contact)
+        elif new_contact_type == CONST.Twitter_Contact:
+            self.handle_twitter(player, new_contact)
+        else:
+            self.handle_none(player)
+
+            
 #------------------------------------------------------------------------------
 # "Recent Chat" Handler     
 #------------------------------------------------------------------------------
@@ -2012,8 +2095,7 @@ def main():
         ('/service/create-game/', CreateGameHandler),
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
-        ('/service/change-contact-info/', ChangeContactInfoHandler),
-        ('/service/change-wants-email/', ChangeWantsEmailHandler),
+        ('/service/change-options/', ChangeOptionsHandler),
         ('/service/pass/', PassHandler),
         ('/service/resign/', ResignHandler),
         ('/service/recent-chat/', RecentChatHandler),
