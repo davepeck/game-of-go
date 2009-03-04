@@ -1002,9 +1002,9 @@ var ChatController = Class.create({
     update_chat : function()
     {
         if (!this.can_update) { return; }
+        var message = $("chat_textarea").value;
         if (message.length < 1) { return; }
 
-        var message = $("chat_textarea").value;
         var self = this;
         new Ajax.Request(
             "/service/add-chat/",
