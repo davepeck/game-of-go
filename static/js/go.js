@@ -1002,6 +1002,7 @@ var ChatController = Class.create({
     update_chat : function()
     {
         if (!this.can_update) { return; }
+        if (message.length < 1) { return; }
 
         var message = $("chat_textarea").value;
         var self = this;
