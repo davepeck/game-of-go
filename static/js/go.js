@@ -1132,7 +1132,7 @@ var GameController = Class.create({
         return (!this.game_is_finished) && (this.state.get_whose_move() == this.your_color);
     },
 
-    become_your_move : function()
+    become_your_move : function(black_stones_captured, white_stones_captured)
     {
         this.move_x = -1;
         this.move_y = -1;
@@ -1141,6 +1141,8 @@ var GameController = Class.create({
 
         this.state = this.state.clone();
         this.state.set_whose_move(opposite_color(this.state.get_whose_move()));
+        this.state.set_black_stones_captured(black_stones_captured);
+        this.state.set_white_stones_captured(white_stones_captured);
 
         this.activate_view_history_link();
         this.activate_show_previous_link();
@@ -1148,13 +1150,15 @@ var GameController = Class.create({
         this.show_captures_if_needed();
     },
 
-    become_opponents_move : function()
+    become_opponents_move : function(black_stones_captured, white_stones_captured)
     {
         $("turn_message").update("You&#146;re waiting for " + this.opponent_name + " to move.");
 
         this.state = this.state.clone();
         this.state.set_whose_move(opposite_color(this.state.get_whose_move()));
         this.start_waiting_for_opponent();
+        this.state.set_black_stones_captured(black_stones_captured);
+        this.state.set_white_stones_captured(white_stones_captured);
         
         this.move_x = -1;
         this.move_y = -1;
@@ -1352,7 +1356,7 @@ var GameController = Class.create({
         }
         else
         {
-            this.become_your_move();
+            this.become_your_move(black_stones_captured, white_stones_captured);
         }
     },
 
@@ -1447,7 +1451,7 @@ var GameController = Class.create({
         $("white_stones_captured").update(white_stones_captured.toString());
         $("black_stones_captured").update(black_stones_captured.toString());
         this.update_pass_links_after_last_was_not_pass();
-        this.become_opponents_move();
+        this.become_opponents_move(black_stones_captured, white_stones_captured);
     },
 
     _fail_make_this_move : function(flash)
@@ -1525,7 +1529,7 @@ var GameController = Class.create({
         }
         else
         {
-            this.become_opponents_move();
+            this.become_opponents_move(this.state.get_black_stones_captured(), this.state.get_white_stones_captured());
             this.update_pass_links_after_last_was_pass();
         }
     },
