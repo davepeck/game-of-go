@@ -39,5 +39,9 @@ handlers:
   static_files: static/img/favicon.ico
   upload: static/img/favicon.ico
 
+- url: /apple-touch-icon.png
+  static_files: static/img/apple-touch-icon.png
+  upload: static/img/apple-touch-icon.png
+
 - url: /.*
   script: go.py
