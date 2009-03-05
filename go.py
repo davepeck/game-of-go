@@ -565,20 +565,22 @@ Hi %s,
 
         
     @staticmethod
-    def notify_your_turn(your_name, your_email, your_cookie, opponent_name, opponent_email):
+    def notify_your_turn(your_name, your_email, your_cookie, opponent_name, opponent_email, move_message, move_number):
         your_address = EmailHelper._rfc_address(your_name, your_email)
         opponent_address = EmailHelper._rfc_address(opponent_name, opponent_email)
 
         message = mail.EmailMessage()
         message.sender = EmailHelper.No_Reply_Address
-        message.subject = "[GO] It's your turn against %s" % opponent_name
+        message.subject = "[GO - Move #%s] It's your turn against %s" % (str(move_number), opponent_name)
         message.to = your_address
-        message.body = """
-It's your turn to make a move against %s. Just follow this link:
 
-%s
-
-""" % (opponent_name, EmailHelper._game_url(your_cookie))
+        if move_message == "It's your turn to move.":
+            # TODO UNHACK -- ugly, but I'm too lazy to do this well at the moment.
+            email_body = "It's your turn to make a move against %s." % opponent_name
+        else:
+            email_body = move_message
+        email_body += " Just follow this link:\n\n%s\n" % EmailHelper._game_url(your_cookie)        
+        message.body = email_body
 
         message.send()
 
@@ -1416,7 +1418,7 @@ class MakeThisMoveHandler(GoHandler):
         # Send an email, but only if they want it.
         opponent = player.get_opponent()
         if opponent.wants_email:
-            EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
+            EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message, new_state.get_current_move_number())
         elif opponent.does_want_twitter():
             TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
                     
@@ -1492,7 +1494,7 @@ class PassHandler(GoHandler):
         # Send an email, but only if they want it.
         opponent = player.get_opponent()
         if opponent.wants_email:
-            EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
+            EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message, new_state.get_current_move_number())
         elif opponent.does_want_twitter():
             TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
                     
@@ -1559,7 +1561,7 @@ class ResignHandler(GoHandler):
         # Send an email, but only if they want it.
         opponent = player.get_opponent()
         if opponent.wants_email:
-            EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
+            EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message, new_state.get_current_move_number())
         elif opponent.does_want_twitter():
             TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
 
