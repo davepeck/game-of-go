@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 2
+version: 2b
 runtime: python
 api_version: 1
 
