@@ -551,7 +551,7 @@ p.flash
     border: 1px solid #555;
     background: #383838;
     color: #BBB;    
-    padding: 0.4em;
+    padding: 5px;
     font-size: 1.0em;
     font-weight: normal;
     line-height: 1.2em;
@@ -559,8 +559,8 @@ p.flash
     font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
     resize: none;
     outline: none;
-    max-width: 360px;
-    overflow: hidden;
+    max-width: 361px;
+    width: 361px;
 }
 
 #game_info h2.chat_heading
@@ -748,9 +748,12 @@ img.no_email:hover
     
 #chat_contents
 {
-    height: 255px;
-    max-height: 255px;
-    overflow: hidden;
+    height: 263px;
+    max-height: 263px;
+    margin-top: 1em;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* in the future, when browsers support it, style the scrollbar. It looks kinda ugly, actually. */
 }
 
 #chat_contents .chat_entry
@@ -815,4 +818,38 @@ img.no_email:hover
 #game_options #twitter_password_container
 {
     font-size: 0.75em;
+}
+
+#chat_bar
+{
+    position: relative;
+}
+
+#characters_remaining
+{
+    font-size: 1.4em;
+    font-weight: normal;
+    border: 0;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+
+    position: absolute;
+    right: 5;
+    top: 0;
+    display: block;
+}
+
+.dim
+{
+    color: #555555;    
+}
+
+.notable
+{
+    color: #FFF;
+}
+
+.dangerous
+{
+    color: #F00;
 }

@@ -1801,14 +1801,24 @@ class RecentChatHandler(GoHandler):
             self.fail("Unexpected error: invalid player.")
             return
 
+        last_chat_seen = None
+        try:
+            last_chat_seen_str = self.request.POST.get("last_chat_seen")
+            last_chat_seen = int(last_chat_seen_str)
+        except:
+            last_chat_seen = None
+        if last_chat_seen is None:
+            self.fail("Unexpected error: try refreshing your browser window.")
+            return
+        
         game = player.game
         if not game:
             self.fail("Unexpected error: couldn't find game for player.")
             return
 
         blob_history = game.get_chat_history_blobs()
-        recent_blobs = blob_history[-10:]
-        recent_blobs.reverse()
+        recent_blobs = blob_history[last_chat_seen:]            
+        # no longer desirable -- recent_blobs.reverse()
         recent_chats = []
         
         for blob in recent_blobs:
@@ -1844,7 +1854,7 @@ class AddChatHandler(GoHandler):
         if not game:
             self.fail("Unexpected error: couldn't find game for player.")
             return
-
+        
         state = pickle.loads(game.current_state)
         
         # Message, etc.
@@ -1853,12 +1863,27 @@ class AddChatHandler(GoHandler):
             self.fail("Unexpected error: couldn't find game for player.")
             return
 
-        message = message.rstrip()
+        message = message.strip()
         if len(message) > 140:
-            message = message[:136] + '...'
+            message = message[:140] + '...'
 
         clean_message = cgi.escape(message)
 
+        # Do nothing for empty messages
+        if len(message) < 1:
+            self.render_json({'success': True, 'no_message': True, 'flash': 'OK'})
+            return
+
+        last_chat_seen = None
+        try:
+            last_chat_seen_str = self.request.POST.get("last_chat_seen")
+            last_chat_seen = int(last_chat_seen_str)
+        except:
+            last_chat_seen = None
+        if last_chat_seen is None:
+            self.fail("Unexpected error: try refreshing your browser window.")
+            return
+        
         # force game to have chat history
         blob_history = game.get_chat_history_blobs()
         entry = ChatEntry(cookie, clean_message, state.get_current_move_number())
@@ -1870,8 +1895,8 @@ class AddChatHandler(GoHandler):
         except:
             game.put()
 
-        recent_blobs = blob_history[-10:]
-        recent_blobs.reverse()
+        recent_blobs = blob_history[last_chat_seen:]
+        # no longer desirable -- recent_blobs.reverse()
         recent_chats = []
         
         for blob in recent_blobs:

@@ -37,7 +37,9 @@ CONST.Handicap_Names = ['plays first', 'has a nine stone handicap', 'has an eigh
 CONST.Email_Contact = "email";
 CONST.Twitter_Contact = "twitter";
 CONST.No_Contact = "none";
-
+CONST.Dim = "dim";
+CONST.Notable = "notable";
+CONST.Dangerous = "dangerous";
 
 //-----------------------------------------------------------------------------
 // Helpers
@@ -878,7 +880,8 @@ var ChatController = Class.create({
         this.is_listening_to_chat = false;
         this.next_listen_timeout = 10; /* in seconds */
         this.can_update = false;
-        this.last_chat_count = -1;
+        this.remaining_state = CONST.Dim;
+        this.last_chat_seen = 0;
         $("chat_textarea").observe('keyup', this._keyup_chat_textarea.bindAsEventListener(this));        
     },
 
@@ -905,7 +908,8 @@ var ChatController = Class.create({
                 method: 'POST',
                 parameters:
                 {
-                    "your_cookie": this.your_cookie
+                    "your_cookie": this.your_cookie,
+                    "last_chat_seen": this.last_chat_seen
                 },
 
                 onSuccess : function(transport)
@@ -913,7 +917,7 @@ var ChatController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        self._set_chat_contents(response['chat_count'], response['recent_chats']);
+                        self._append_chat_contents(response['chat_count'], response['recent_chats']);
                     }
                     self._keep_listening_to_chat();
                 },
@@ -938,16 +942,21 @@ var ChatController = Class.create({
         this._check_for_chat.bind(this).delay(this.next_listen_timeout);
     },
 
-    _set_chat_contents : function(chat_count, chats)
+    _append_chat_contents : function(chat_count, chats)
     {
-        if (this.last_chat_count == chat_count) { return; }
+        if (this.last_chat_seen == chat_count) { return; }
         
-        var chat_html = "<br />";
+        var chat_html = $("chat_contents").innerHTML;
+
+        if (!chat_html)
+        {
+            chat_html = "";
+        }
         
         chats.each(function(chat) {
             var name = chat['name'];
             var message = chat['message'];
-            chat_html += '<div class="chat_entry"><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + message + '</span></div>';
+            chat_html = '<div class="chat_entry"><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + message + '</span></div>' + chat_html;
         });
 
         if (chat_html.length < 1)
@@ -957,26 +966,65 @@ var ChatController = Class.create({
 
         $("chat_contents").update(chat_html);
 
-        this.last_chat_count = chat_count;
+        this.last_chat_seen = chat_count;
         this.next_listen_timeout = 0;
     },
 
     _keyup_chat_textarea : function(e)
     {
-        var amount_o_text = $("chat_textarea").value.length;
+        var amount_o_text =  $("chat_textarea").value.length;
         if (amount_o_text < 1)
         {
             this._deactivate_chat_update_link();
+            $("chat_textarea").value = ""; /* zero out the text */
+            this._update_characters_remaining();
         }
         else
         {
             this._activate_chat_update_link();
         }
 
+        this._update_characters_remaining();        
+        
         if (e.keyCode == Event.KEY_RETURN)
         {
             this.update_chat();
         }
+    },
+
+    _update_characters_remaining : function()
+    {
+        var characters_remaining = 140 - $("chat_textarea").value.length;
+
+        $("characters_remaining").update(characters_remaining.toString());
+        
+        if (characters_remaining > 20)
+        {
+            if (this.remaining_state == CONST.Dim) { return; }
+
+            this.remaining_state = CONST.Dim;
+            $("characters_remaining").removeClassName("notable");
+            $("characters_remaining").removeClassName("dangerous");
+            $("characters_remaining").addClassName("dim");
+        }
+        else if (characters_remaining > 10)
+        {
+            if (this.remaining_state == CONST.Notable) { return; }
+
+            this.remaining_state = CONST.Notable;
+            $("characters_remaining").removeClassName("dim");
+            $("characters_remaining").removeClassName("dangerous");
+            $("characters_remaining").addClassName("notable");
+        }
+        else
+        {
+            if (this.remaining_state == CONST.Dangerous) { return; }
+
+            this.remaining_state = CONST.Dangerous;
+            $("characters_remaining").removeClassName("dim");
+            $("characters_remaining").removeClassName("notable");
+            $("characters_remaining").addClassName("dangerous");            
+        }        
     },
 
     _activate_chat_update_link : function()
@@ -995,6 +1043,7 @@ var ChatController = Class.create({
 
         $("chat_update_link").removeClassName("move_link");
         $("chat_update_link").addClassName("disabled_move_link");
+        $("chat_update_link").update("update &raquo;");
         
         this.can_update = false;
     },
@@ -1013,7 +1062,8 @@ var ChatController = Class.create({
                 parameters:
                 {
                     "your_cookie": this.your_cookie,
-                    "message": message
+                    "message": message,
+                    "last_chat_seen": this.last_chat_seen
                 },
 
                 onSuccess : function(transport)
@@ -1022,10 +1072,15 @@ var ChatController = Class.create({
                     if (response['success'])
                     {
                         self._hide_chat_error();
-                        self._set_chat_contents(response['chat_count'], response['recent_chats']);
+
+                        if (!(response['no_message']))
+                        {
+                            self._append_chat_contents(response['chat_count'], response['recent_chats']);
+                        }
+                        
                         $("chat_textarea").value = ""; /* zero out the text */
                         self.can_update = true;
-                        self._deactivate_chat_update_link();
+                        self._deactivate_chat_update_link();                                                    
                     }
                     else
                     {
