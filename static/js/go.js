@@ -880,8 +880,15 @@ var ChatController = Class.create({
         this.is_listening_to_chat = false;
         this.next_listen_timeout = 10; /* in seconds */
         this.can_update = false;
-        this.remaining_state = CONST.Dim;
         this.last_chat_seen = 0;
+
+        this.remaining_state = CONST.Dim;
+        this.remaining_visible = false;
+        this.is_focused = false;
+        new Effect.Opacity("characters_remaining", {to: 0.0, duration: 0.1});
+
+        $("chat_textarea").observe('focus', this._focus_chat_textarea.bindAsEventListener(this));
+        $("chat_textarea").observe('blur', this._blur_chat_textarea.bindAsEventListener(this));
         $("chat_textarea").observe('keyup', this._keyup_chat_textarea.bindAsEventListener(this));        
     },
 
@@ -970,14 +977,34 @@ var ChatController = Class.create({
         this.next_listen_timeout = 0;
     },
 
+    _focus_chat_textarea : function(e)
+    {
+        this._show_characters_remaining();
+        this.is_focused = true;
+    },
+
+    _blur_chat_textarea : function(e)
+    {
+        this.is_focused = false;
+        if (this._get_characters_remaining() == 140)
+        {
+            this._hide_characters_remaining();
+        }
+    },
+    
     _keyup_chat_textarea : function(e)
     {
+        if (!this.is_focused)
+        {
+            /* will only happen if user quickly clicks in text area while browser is loading */
+            this._focus_chat_textarea(e);
+        }
+        
         var amount_o_text =  $("chat_textarea").value.length;
         if (amount_o_text < 1)
         {
             this._deactivate_chat_update_link();
-            $("chat_textarea").value = ""; /* zero out the text */
-            this._update_characters_remaining();
+            this._zero_text();
         }
         else
         {
@@ -992,9 +1019,41 @@ var ChatController = Class.create({
         }
     },
 
+    _zero_text : function()
+    {
+        $("chat_textarea").value = ""; /* zero out the text */
+        this._update_characters_remaining();
+        if (!this.is_focused)
+        {
+            this._hide_characters_remaining();
+        }
+    },
+
+    _show_characters_remaining : function()
+    {
+        if (this.remaining_visible) { return; }
+
+        this.remaining_visible = true;
+        this._update_characters_remaining();
+        new Effect.Opacity("characters_remaining", {to: 1.0, duration: 0.2});        
+    },
+
+    _hide_characters_remaining : function()
+    {
+        if (!this.remaining_visible) { return; }
+
+        this.remaining_visible = false;
+        new Effect.Opacity("characters_remaining", {to: 0.0, duration: 0.2});
+    },
+
+    _get_characters_remaining : function()
+    {
+        return (140 - $("chat_textarea").value.length);
+    },
+    
     _update_characters_remaining : function()
     {
-        var characters_remaining = 140 - $("chat_textarea").value.length;
+        var characters_remaining = this._get_characters_remaining();
 
         $("characters_remaining").update(characters_remaining.toString());
         
@@ -1077,8 +1136,8 @@ var ChatController = Class.create({
                         {
                             self._append_chat_contents(response['chat_count'], response['recent_chats']);
                         }
-                        
-                        $("chat_textarea").value = ""; /* zero out the text */
+
+                        self._zero_text();
                         self.can_update = true;
                         self._deactivate_chat_update_link();                                                    
                     }
