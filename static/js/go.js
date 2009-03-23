@@ -949,6 +949,47 @@ var ChatController = Class.create({
         this._check_for_chat.bind(this).delay(this.next_listen_timeout);
     },
 
+    _linkify : function(string, extra_anchor_content)
+    {
+        if (!extra_anchor_content)
+        {
+            extra_anchor_content = "";
+        }
+        
+        var url_regex = /((http\:\/\/|https\:\/\/|ftp\:\/\/)|(www\.))+(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/gi;
+
+        var self = this;
+        string = string.replace
+        (
+            url_regex,
+            function(matched_text)
+            {
+                var test_text = matched_text.toLowerCase();
+                var format_match = test_text.match(/^([a-z]+:\/\/)/);                
+                var final_url;
+
+                if (format_match)
+                {
+                    final_url = matched_text;
+                }
+                else
+                {
+                    final_url = 'http://' + matched_text;
+                }
+                
+                return '<a href="' + final_url + '" ' + extra_anchor_content + '>' + matched_text + '</a>';
+            }
+        );
+
+        return string;        
+    },
+
+    _process_chat_message : function(message)
+    {
+        var processed_message = this._linkify(message, 'class="subtle-link" target="_blank" rel="nofollow"');
+        return processed_message;
+    },
+    
     _append_chat_contents : function(chat_count, chats)
     {
         if (this.last_chat_seen == chat_count) { return; }
@@ -959,11 +1000,14 @@ var ChatController = Class.create({
         {
             chat_html = "";
         }
+
+        var self = this;
         
         chats.each(function(chat) {
             var name = chat['name'];
             var message = chat['message'];
-            chat_html = '<div class="chat_entry"><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + message + '</span></div>' + chat_html;
+            var processed_message = self._process_chat_message(message);
+            chat_html = '<div class="chat_entry"><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + processed_message + '</span></div>' + chat_html;
         });
 
         if (chat_html.length < 1)
