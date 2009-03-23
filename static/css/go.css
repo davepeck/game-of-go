@@ -751,14 +751,24 @@ img.no_email:hover
     height: 263px;
     max-height: 263px;
     margin-top: 1em;
-    overflow-y: auto;
-    overflow-x: hidden;
     /* in the future, when browsers support it, style the scrollbar. It looks kinda ugly, actually. */
+}
+
+#chat_contents.recent_chat
+{
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#chat_contents.all_chat
+{
+    overflow-y: auto;
+    overflow-x: hidden;    
 }
 
 #chat_contents .chat_entry
 {
-    padding-left: 2em;
+/*    padding-left: 2em; */
 }
 
 #chat_contents .chat_entry .chat_name
