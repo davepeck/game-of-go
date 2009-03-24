@@ -20,14 +20,14 @@ along with Dave Peck's Go.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 
-.hard_to_see
+#chat
 {
-	-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
-	filter: alpha(opacity=0);
+    padding-top: 1em;
 }
 
-.easy_to_see 
+#grid_information
 {
-	-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=100)";
-	filter: alpha(opacity=100);
+    position: absolute;
+    top: -2px;
+    right: 0px;
 }

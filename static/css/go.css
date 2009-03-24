@@ -51,16 +51,6 @@ a
     text-decoration: none;
 }
 
-.hard_to_see
-{
-    opacity: 0.0;
-}
-
-.easy_to_see
-{
-    opacity: 1.0;
-}
-
 
 /*----------------------------------------------------------------------------
  * Sprites
@@ -552,7 +542,7 @@ p.flash
     border: 1px solid #555;
     background: #383838;
     color: #BBB;    
-    padding: 5px;
+/*    padding: 5px; */
     font-size: 1.0em;
     font-weight: normal;
     line-height: 1.2em;
@@ -560,8 +550,11 @@ p.flash
     font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
     resize: none;
     outline: none;
-    max-width: 361px;
-    width: 361px;
+/*    max-width: 349px; */
+/*    width: 349px; */
+    margin: 0;
+    padding: 5px 0px 5px 5px;
+    width: 354px;
 }
 
 #game_info h2.chat_heading
@@ -745,46 +738,6 @@ p.flash
 {
     padding-left: 2em;
 }
-
-#game_info #game_status div.email_settings
-{
-    border: 0;
-    margin: 0;
-    padding: 0;
-    float: right;
-}
-
-img.yes_email
-{
-    width: 25px;
-    height: 25px;
-    border: 0;
-    background:url(/img/email-on.png);
-}
-
-img.no_email
-{
-    width: 25px;
-    height: 25px;
-    border: 0;
-    background:url(/img/email-off.png);
-}
-
-img.yes_email:hover
-{
-    width: 25px;
-    height: 25px;
-    border: 0;
-    background:url(/img/email-on-hover.png);
-}
-
-img.no_email:hover
-{
-    width: 25px;
-    height: 25px;
-    border: 0;
-    background:url(/img/email-off-hover.png);
-}
     
 #chat_contents
 {
@@ -884,7 +837,7 @@ img.no_email:hover
     padding-bottom: 0px;
 
     position: absolute;
-    right: 5;
+    right: 0px;
     top: 0;
     display: block;
 }
