@@ -40,6 +40,8 @@ CONST.No_Contact = "none";
 CONST.Dim = "dim";
 CONST.Notable = "notable";
 CONST.Dangerous = "dangerous";
+CONST.ColumnNames = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S"];
+
 
 //-----------------------------------------------------------------------------
 // Helpers
@@ -422,6 +424,16 @@ var GameBoard = Class.create({
         this.board = null;
         this.speculation = null;        
         this._make_blank_board(); 
+    },
+
+    get_width : function()
+    {
+        return this.width;
+    },
+
+    get_height : function()
+    {
+        return this.height;
     },
 
     set_point : function(x, y, color, speculation)
@@ -834,6 +846,11 @@ var GameBoardView = Class.create({
         return 'piece_' + x.toString() + '_' + y.toString();
     },
 
+    _point_name : function(x, y)
+    {
+        return CONST.ColumnNames[x] + '' + (y+1).toString();
+    },                          
+
     _make_board_dom : function()
     {
         var container = $("board_container");
@@ -949,7 +966,7 @@ var ChatController = Class.create({
         this._check_for_chat.bind(this).delay(this.next_listen_timeout);
     },
 
-    _linkify : function(string, extra_anchor_content)
+    _linkify_urls : function(string, extra_anchor_content)
     {
         if (!extra_anchor_content)
         {
@@ -984,9 +1001,65 @@ var ChatController = Class.create({
         return string;        
     },
 
+    _linkify_board_coordinates : function(string)
+    {
+        var board_regex = /\b[A-S]\d{1,2}\b/g;
+
+        var self = this;
+        string = string.replace
+        (
+            board_regex,
+            function(matched_text)
+            {
+                var inner_regex = /[A-S]\d{1,2}/;
+                return matched_text.replace
+                (
+                    inner_regex,
+                    function(inner_matched_text)                    
+                    {
+                        // compute x
+                        var x_name = inner_matched_text.charAt(0);
+
+                        var x = -1;
+                        for (var i = 0; i < 19; i++)
+                        {
+                            if (CONST.ColumnNames[i] == x_name)
+                            {
+                                x = i + 1;
+                                break;
+                            }
+                        }
+
+                        // bounds check x
+                        if (x < 1 || x > game_controller.get_board_width())
+                        {
+                            return inner_matched_text;
+                        }
+
+                        // compute y
+                        var y_str = inner_matched_text.substr(1);                        
+                        y = parseInt(y_str, 10);
+
+                        // bounds check y
+                        if (isNaN(y) || y < 1 || y > game_controller.get_board_height())
+                        {
+                            return inner_matched_text;
+                        }
+
+                        // linkify! (and account for the fact that we're 1-based when writing out grid squares as text.)
+                        return '<a href="javascript:game_controller.blink_square(' + (x-1).toString() + ',' + (y-1).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
+                    }
+                );
+            }
+        );
+
+        return string;
+    },
+
     _process_chat_message : function(message)
     {
-        var processed_message = this._linkify(message, 'class="subtle-link" target="_blank" rel="nofollow"');
+        var processed_message = this._linkify_urls(message, 'class="subtle-link" target="_blank" rel="nofollow"');
+        processed_message = this._linkify_board_coordinates(processed_message);
         return processed_message;
     },
     
@@ -1272,8 +1345,28 @@ var GameController = Class.create({
 
 
     //--------------------------------------------------------------------------
-    // show last move
+    // accessor methods to get at information about the board
     //--------------------------------------------------------------------------
+
+    get_board_width : function()
+    {
+        return this.board.get_width();
+    },
+
+    get_board_height : function()
+    {
+        return this.board.get_height();
+    },
+
+    
+    //--------------------------------------------------------------------------
+    // show last move and highlight squares
+    //--------------------------------------------------------------------------
+
+    blink_square : function(x, y)
+    {
+        this.board_view.force_blink_at(x, y);
+    },
     
     show_last_move : function()
     {

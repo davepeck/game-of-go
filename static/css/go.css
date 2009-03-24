@@ -159,6 +159,7 @@ a
 {
     font-size: 1.4em;
     line-height: 1.6em;
+    position: relative;
 }
 
 #board_extras a.extra_link, #board_extras a.extra_link:link, #board_extras a.extra_link:visited
@@ -627,12 +628,18 @@ p.flash
 {
 }
 
+#grid_information
+{
+    position: absolute;
+    top: 2px;
+    right: 0px;
+}
+
 .text_button
 {
     border: solid 1px #555;
-    width: 25px;
-    height: 25px;
-    padding: 5px;
+    width: 16px;
+    height: 16px;
 }
 
 .text_button:hover
