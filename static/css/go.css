@@ -635,6 +635,39 @@ p.flash
     right: 0px;
 }
 
+#grid_location
+{
+    position: absolute;
+    top: -2px;
+    right: 20px;
+}
+
+#grid_information:hover
+{
+}
+
+#grid_button
+{
+    border: solid 1px #555;
+    width: 15px;
+    height: 15px;    
+}
+
+#grid_button.grid_disabled
+{
+    background: url(/img/grid-disabled.png) top left no-repeat;
+}
+
+#grid_button.grid_enabled
+{
+    background: url(/img/grid-enabled.png) top left no-repeat;
+}
+
+#grid_button:hover
+{
+    border: solid 1px #DDB45C;
+}
+
 .text_button
 {
     border: solid 1px #555;

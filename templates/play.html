@@ -21,20 +21,17 @@
         <img src="/img/first-hover.png" />
         <img src="/img/last.png" />
         <img src="/img/last-hover.png" />
-        <img src="/img/grid.png" />
-        <img src="/img/grid-hover.png" />
-        <img src="/img/email-off.png" />
-        <img src="/img/email-off-hover.png" />
-        <img src="/img/email-on.png" />
-        <img src="/img/email-on-hover.png" />
-    </div>
+        <img src="/img/grid-disabled.png" />
+        <img src="/img/grid-enabled.png" />
+   </div>
 
     <!-- this will be dynamically generated -->
     <div id="board_area">
         <div id="board_container" class="{{board_class}}">&nbsp;</div>
         <div id="board_extras"><a href="/options/{{your_cookie}}/" class="extra_link">options</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a>
         <span id="grid_information">
-<!--            <img src="/img/grid.png" class="text_button" /> -->
+            <span id="grid_location">&nbsp;</span>
+            <img id="grid_button" src="/img/transparent-1x1.png" class="grid_disabled" />
         </div>
     </div>
 

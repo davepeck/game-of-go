@@ -77,6 +77,32 @@ function opposite_color(color)
     return 3 - color;
 }
 
+function set_selection_range(input, selection_start, selection_end)
+{
+    if (input.setSelectionRange)
+    {
+        input.focus();
+        input.setSelectionRange(selection_start, selection_end);
+    }
+    else if (input.createTextRange)
+    {
+        var range = input.createTextRange();
+        range.collapse(true);
+        range.moveEnd('character', selection_end);
+        range.moveStart('character', selection_start);
+        range.select();
+    }
+    else
+    {
+        input.focus();
+    }
+}
+
+function set_cursor_position(input, position)
+{
+    set_selection_range(input, position, position);
+}
+
 
 //-----------------------------------------------------------------------------
 // Validators
@@ -619,6 +645,7 @@ var GameBoardView = Class.create({
 
         // set up event management
         this.click_callback = click_callback;
+        this.hover_callback = null;
 
         // generate the visuals
         this._make_board_dom();
@@ -656,6 +683,46 @@ var GameBoardView = Class.create({
         point.src = this._point_src(x, y);
     },
 
+    observe_hovers : function(new_hover_callback)
+    {
+        if (this.hover_callback != null) { return; }
+
+        this.hover_callback = new_hover_callback;
+        
+        for (var y = 0; y < this.height; y++)
+        {
+            for (var x = 0; x < this.width; x++)
+            {
+                var piece = $(this._point_id(x, y));
+                piece.observe('mouseover', this._mouseover_point.bindAsEventListener(this, x, y));
+            }
+        }
+    },
+
+    stop_observing_hovers : function()
+    {
+        if (this.hover_callback == null) { return; }
+        
+        for (var y = 0; y < this.height; y++)
+        {
+            for (var x = 0; x < this.width; x++)
+            {
+                var piece = $(this._point_id(x, y));
+                piece.stopObserving('mouseover');
+            }
+        }
+
+        this.hover_callback = null;
+    },
+
+    _mouseover_point : function(e, x, y)
+    {
+        if (this.hover_callback != null)
+        {
+            this.hover_callback(x, y);
+        }
+    },
+    
     highlight_at : function(x, y)
     {
         var point = $(this._point_id(x, y));
@@ -846,7 +913,7 @@ var GameBoardView = Class.create({
         return 'piece_' + x.toString() + '_' + y.toString();
     },
 
-    _point_name : function(x, y)
+    point_name : function(x, y)
     {
         return CONST.ColumnNames[x] + '' + (y+1).toString();
     },                          
@@ -921,6 +988,35 @@ var ChatController = Class.create({
     {
         if (!this.is_listening_to_chat) { return; }
         this.is_listening_to_chat = false;
+    },
+
+    paste_text : function(extra_text)
+    {
+        var current_text = $("chat_textarea").value;
+        if (!current_text) { current_text = ""; }
+
+        if (current_text.length > 0)
+        {
+            // does it end with a space character? if so, directly append the extra text.
+            // if not, append a space and _then_ the extra text.
+            var ends_with_space = current_text.match(/\s$/);
+            if (ends_with_space)
+            {
+                $("chat_textarea").value = current_text + extra_text;
+            }
+            else
+            {
+                $("chat_textarea").value = current_text + " " + extra_text;
+            }
+        }
+        else
+        {
+            $("chat_textarea").value = extra_text;
+        }
+
+        this._update_characters_remaining();
+        this._show_characters_remaining();
+        set_cursor_position($("chat_textarea"), $("chat_textarea").value.length);
     },
 
     _check_for_chat : function()
@@ -1047,7 +1143,7 @@ var ChatController = Class.create({
                         }
 
                         // linkify! (and account for the fact that we're 1-based when writing out grid squares as text.)
-                        return '<a href="javascript:game_controller.blink_square(' + (x-1).toString() + ',' + (y-1).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
+                        return '<a href="javascript:game_controller.get_board_view().force_blink_at(' + (x-1).toString() + ',' + (y-1).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
                     }
                 );
             }
@@ -1335,6 +1431,11 @@ var GameController = Class.create({
         // hack to make IE happy (since the POS ignores initial inline opacity values)
         this.is_loading = true;
         this._stop_loading();
+
+        this.is_grid_active = false;
+        this.grid_highlight_x = -1;
+        this.grid_highlight_y = -1;
+        $("grid_button").observe('click', this._click_grid_button.bindAsEventListener(this));        
         
         // TODO handle "not your move"
         if (!this.is_your_move() && !this.is_game_finished) 
@@ -1345,9 +1446,84 @@ var GameController = Class.create({
 
 
     //--------------------------------------------------------------------------
+    // grid square naming/button management
+    //--------------------------------------------------------------------------
+
+    _click_grid_button : function(e)
+    {
+        if (this.is_grid_active)
+        {
+            this.deactivate_grid();
+        }
+        else
+        {
+            this.activate_grid();
+        }
+    },
+
+    _selected_square : function(x, y)
+    {
+        var name = game_controller.get_board_view().point_name(x, y);        
+        this.deactivate_grid();
+        this.board_view.force_blink_at(x, y);
+        chat_controller.paste_text(name + " ");
+    },
+
+    activate_grid : function()
+    {
+        if (this.is_grid_active) { return; }
+        this.is_grid_active = true;
+        $("grid_button").removeClassName("grid_disabled");
+        $("grid_button").addClassName("grid_enabled");
+        this._set_grid_location(game_controller.get_board_width() - 1, game_controller.get_board_height() - 1);
+        var self = this;
+        game_controller.get_board_view().observe_hovers(function(x, y) { self._set_grid_location(x, y); });
+    },
+
+    deactivate_grid : function()
+    {
+        if (!this.is_grid_active) { return; }
+        this._set_grid_location(-1, -1);
+        this.is_grid_active = false;
+        $("grid_button").removeClassName("grid_enabled");
+        $("grid_button").addClassName("grid_disabled");
+        game_controller.get_board_view().stop_observing_hovers();
+    },
+
+    _set_grid_location : function(x, y)
+    {
+        if (!this.is_grid_active) { return; }
+
+        if (this.grid_highlight_x != -1)
+        {
+            game_controller.get_board_view().unhighlight_at(this.grid_highlight_x, this.grid_highlight_y);
+            $("grid_location").update("");
+        }
+        
+        if (x == -1 || y == -1)
+        {
+            this.grid_highlight_x = -1;
+            this.grid_highlight_y = -1;
+            return;
+        }
+
+        this.grid_highlight_x = x;
+        this.grid_highlight_y = y;
+        var name = game_controller.get_board_view().point_name(x, y);
+        $("grid_location").update(name);
+        game_controller.get_board_view().highlight_at(x, y);
+    },
+    
+    
+    //--------------------------------------------------------------------------
     // accessor methods to get at information about the board
     //--------------------------------------------------------------------------
 
+    get_point_name : function(x, y)
+    {
+        return this.board_view.point_name(x, y);
+    },
+    
     get_board_width : function()
     {
         return this.board.get_width();
@@ -1358,15 +1534,15 @@ var GameController = Class.create({
         return this.board.get_height();
     },
 
+    get_board_view : function()
+    {
+        return this.board_view;
+    },
+    
     
     //--------------------------------------------------------------------------
-    // show last move and highlight squares
+    // show last move
     //--------------------------------------------------------------------------
-
-    blink_square : function(x, y)
-    {
-        this.board_view.force_blink_at(x, y);
-    },
     
     show_last_move : function()
     {
@@ -1882,6 +2058,10 @@ var GameController = Class.create({
         {
             // clicking has no effect when you're looking through history
             return;
+        }
+        else if (this.is_grid_active)
+        {
+            this._selected_square(x, y);
         }
         else if (this.isSpeculating)
         {
