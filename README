@@ -66,6 +66,8 @@ COOL STUFF RECENTLY DONE:
 
 4. Auto-linkification of valid http, https, and ftp URLs.
 
+- Make all pages fully XHTML 1.0 STRICT valid, according to the W3C validator. 
+
 
 
 COOL STUFF I HOPE TO SEE PEOPLE WORK ON:
@@ -121,8 +123,6 @@ This list is in "no particular order":
 - Make it look better in IE7. 
 
   For example, I use :hover CSS pseudo-classes on a bunch of non-anchor-tags. That's an IE no-no, but I did it anyway.
-
-- Make sure the HTML is strict and compliant
 
 - Clean up the madness that is my CSS file.
 
