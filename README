@@ -52,7 +52,19 @@ COOL STUFF RECENTLY DONE:
 
 - Support for the SGF Go file format. (Thanks to Emil Sit! -- "sit" on github)
 
+- Support for chat in the SGF Go file format. (Thanks again, Emil.)
+
 - Support for notification via twitter. (A suggestion of Ray Krueger. Dave Peck implemented it.)
+
+- Lots of new chat features and improvements, including: 
+
+1. Ability to see the full chat history.
+
+2. Ability to refer to specific board squares when chatting. For example, "Dude, you should have moved at A11." will show up with "A11" underlined; clicking on it will cause that grid square to flash.
+
+3. Ability to easily figure out board square names and get them into the chat box.
+
+4. Auto-linkification of valid http, https, and ftp URLs.
 
 
 
@@ -78,15 +90,7 @@ This list is in "no particular order":
 
   I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made, so they can try a new path.
 
-- Better chat features
-
-  At the moment, when you chat, the internal representation ties what you said to a particular move. But I don't expose this in the UI anywhere. It would be helpful!
-
-  Other "chat features" that would rock:
-
-    1. Ability to "see" older chats. Right now the overflow is clipped. Using a standard scrollbar looked ugly. Is there a better way?
-    2. Ability to refer to specific board squares when chatting. For example, if you say "you should have moved at A-13 dude" then the words "A-13" become a clickable link that causes the appropriate grid square to flash.
-    3. Ability to put links into chat (maybe just scan for http:// and auto-create a link?)
+- Chat improvement: At the moment, when you chat, the internal representation ties what you said to a particular move. But I don't expose this in the UI anywhere. It would be helpful!
 
 - Visual grid numbers/letters
   
