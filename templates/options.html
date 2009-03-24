@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" dir="ltr" lang="en-US" id="go-davepeck-org">
 <head>
     <title>[Dave Peck's Go &raquo; Options]</title>
     {% include "head.html" %}
@@ -17,12 +18,13 @@
             </div>
             <p id="flash" class="flash limited_width" style="opacity: 0.0">&nbsp;</p>
             <div id="twitter_password_container" class="hide">
-                <span>Your twitter password: <span><input type="password" id="twitter_password"></input>
+                <span>Your twitter password: </span><input type="password" id="twitter_password"></input>
             </div>
             <p id="save_p" class="smaller_action_link"><a href="javascript:options_controller.save_options()" class="disabled" id="save_link">Save &raquo;</a></p>
             <p id="cancel_p" class="smaller_action_link"><a href="/play/{{your_cookie}}/" id="cancel_link">Cancel &raquo;</a></p>
            <p id="back_p" class="smaller_action_link hide"><a href="/play/{{your_cookie}}/">Back to the game &raquo;</a></p>
         </div>
-    </div>    
+    </div>
+    </div>
 </body>
 </html>
