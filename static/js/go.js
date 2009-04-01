@@ -40,7 +40,7 @@ CONST.No_Contact = "none";
 CONST.Dim = "dim";
 CONST.Notable = "notable";
 CONST.Dangerous = "dangerous";
-CONST.ColumnNames = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S"];
+CONST.ColumnNames = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
 
 
 //-----------------------------------------------------------------------------
@@ -915,7 +915,7 @@ var GameBoardView = Class.create({
 
     point_name : function(x, y)
     {
-        return CONST.ColumnNames[x] + '' + (y+1).toString();
+        return CONST.ColumnNames[x] + '' + (game_controller.get_board_height()-y).toString();
     },                          
 
     _make_board_dom : function()
@@ -1143,7 +1143,7 @@ var ChatController = Class.create({
                         }
 
                         // linkify! (and account for the fact that we're 1-based when writing out grid squares as text.)
-                        return '<a href="javascript:game_controller.get_board_view().force_blink_at(' + (x-1).toString() + ',' + (y-1).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
+                        return '<a href="javascript:game_controller.get_board_view().force_blink_at(' + (x-1).toString() + ',' + (game_controller.get_board_height()-y).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
                     }
                 );
             }

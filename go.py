@@ -1107,7 +1107,7 @@ class CreateGameHandler(GoHandler):
             EmailHelper.notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn)
         elif opponent_player.does_want_twitter():
             TwitterHelper.notify_opponent_new_game(your_name, opponent_name, opponent_twitter, opponent_cookie, your_turn)        
-        
+        print >>sys.stderr, ("creating game between",your_cookie,opponent_cookie) 
         # Great; the game is created!
         return (your_cookie, your_turn)
 
