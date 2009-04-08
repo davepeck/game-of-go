@@ -1101,7 +1101,7 @@ var ChatController = Class.create({
 
     _linkify_board_coordinates : function(string)
     {
-        var board_regex = /\b[A-S]\d{1,2}\b/g;
+        var board_regex = /\b[A-T]\d{1,2}\b/g;
 
         var self = this;
         string = string.replace
@@ -1109,7 +1109,7 @@ var ChatController = Class.create({
             board_regex,
             function(matched_text)
             {
-                var inner_regex = /[A-S]\d{1,2}/;
+                var inner_regex = /[A-T]\d{1,2}/;
                 return matched_text.replace
                 (
                     inner_regex,
