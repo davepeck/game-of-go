@@ -40,6 +40,8 @@ CONST.No_Contact = "none";
 CONST.Dim = "dim";
 CONST.Notable = "notable";
 CONST.Dangerous = "dangerous";
+
+// "I" is purposfully skipped because, historically, people got confused between "I" and "J"
 CONST.ColumnNames = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
 
 
