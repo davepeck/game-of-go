@@ -653,19 +653,29 @@ var GameBoardView = Class.create({
         
         // generate the visuals
         this._make_board_dom(show_grid);
+        this._observe_point_clicks();
+    },
+
+    board_class : function()
+    {
+        return CONST.Board_Classes[this.size_index];
     },
 
     show_grid : function()
     {
         if (this.showing_grid) { return; }
-        // XXX TODO DAVEPECK
+        this._stop_observing_point_clicks();
+        this._make_board_dom(true);
+        this._observe_point_clicks();
         this.showing_grid = true;
     },
 
     hide_grid : function()
     {
         if (!this.showing_grid) { return; }
-        // XXX TODO DAVEPECK
+        this._stop_observing_point_clicks();
+        this._make_board_dom(false);
+        this._observe_point_clicks();
         this.showing_grid = false;
     },
 
@@ -974,7 +984,7 @@ var GameBoardView = Class.create({
                     html += '<div class="board_row">';
                     for (var inner_x = 0; inner_x < this.width; inner_x++)
                     {
-                        html += '<img id="' + this._point_id(inner_x, inner_y) + '" src="/img/transparent-1x1.png" class="' + this._point_class(inner_x, inner_y) + '" />';
+                        html += '<img id="' + this._point_id(inner_x, inner_y) + '" src="' + this._point_src(inner_x, inner_y) + '" class="' + this._point_class(inner_x, inner_y) + '" />';
                     }
                     html += "</div>";
                 }
@@ -989,20 +999,35 @@ var GameBoardView = Class.create({
         html += '</table>';
 
         container.innerHTML = html;
+    },
 
+    _observe_point_clicks : function()
+    {
         for (var y = 0; y < this.height; y++)
         {
             for (var x = 0; x < this.width; x++)
             {
                 var piece = $(this._point_id(x, y));
-                piece.observe('click', this._click_point.bindAsEventListener(this, x, y))
+                piece.observe('click', this._click_point.bindAsEventListener(this, x, y));
             }
-        }
+        }        
     },
 
+    _stop_observing_point_clicks : function()
+    {
+        for (var y = 0; y < this.height; y++)
+        {
+            for (var x = 0; x < this.width; x++)
+            {
+                var piece = $(this._point_id(x, y));
+                piece.stopObserving('click');
+            }
+        }        
+    },
+    
     _click_point : function(e, x, y)
     {
-        this.click_callback(x, y);
+        this.click_callback(e, x, y);
     }
 
 });
@@ -1479,7 +1504,7 @@ var GameController = Class.create({
 
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(x, y) { self._click_board(x, y); }, show_grid);
+        this.board_view = new GameBoardView(this.board, function(e, x, y) { self._click_board(e, x, y); }, show_grid);
 
         this.state = new GameState(this.board, whose_move, white_stones_captured, black_stones_captured);
 
@@ -1487,9 +1512,7 @@ var GameController = Class.create({
         this.is_loading = true;
         this._stop_loading();
 
-        this.is_grid_active = false;
-        this.grid_highlight_x = -1;
-        this.grid_highlight_y = -1;
+        this.is_grid_active = show_grid;
         $("grid_button").observe('click', this._click_grid_button.bindAsEventListener(this));        
         
         // TODO handle "not your move"
@@ -1519,7 +1542,6 @@ var GameController = Class.create({
     _selected_square : function(x, y)
     {
         var name = game_controller.get_board_view().point_name(x, y);        
-        this.deactivate_grid();
         this.board_view.force_blink_at(x, y);
         chat_controller.paste_text(name + " ");
     },
@@ -1530,43 +1552,32 @@ var GameController = Class.create({
         this.is_grid_active = true;
         $("grid_button").removeClassName("grid_disabled");
         $("grid_button").addClassName("grid_enabled");
-        this._set_grid_location(game_controller.get_board_width() - 1, game_controller.get_board_height() - 1);
-        var self = this;
-        game_controller.get_board_view().observe_hovers(function(x, y) { self._set_grid_location(x, y); });
+        game_controller.get_board_view().show_grid();
+        
+        var board_class = game_controller.get_board_view().board_class();
+        var right_board_class = "right_" + board_class;
+        var with_grid = right_board_class + "_grid";
+        $("game_info").removeClassName(right_board_class);
+        $("game_info").addClassName(with_grid);
+
+        // XXX TODO DAVEPECK -- save the preference
     },
 
     deactivate_grid : function()
     {
         if (!this.is_grid_active) { return; }
-        this._set_grid_location(-1, -1);
         this.is_grid_active = false;
         $("grid_button").removeClassName("grid_enabled");
         $("grid_button").addClassName("grid_disabled");
-        game_controller.get_board_view().stop_observing_hovers();
-    },
+        game_controller.get_board_view().hide_grid();
 
-    _set_grid_location : function(x, y)
-    {
-        if (!this.is_grid_active) { return; }
-
-        if (this.grid_highlight_x != -1)
-        {
-            game_controller.get_board_view().unhighlight_at(this.grid_highlight_x, this.grid_highlight_y);
-            $("grid_location").update("");
-        }
+        var board_class = game_controller.get_board_view().board_class();
+        var right_board_class = "right_" + board_class;
+        var with_grid = right_board_class + "_grid";
+        $("game_info").removeClassName(with_grid);
+        $("game_info").addClassName(right_board_class);
         
-        if (x == -1 || y == -1)
-        {
-            this.grid_highlight_x = -1;
-            this.grid_highlight_y = -1;
-            return;
-        }
-
-        this.grid_highlight_x = x;
-        this.grid_highlight_y = y;
-        var name = game_controller.get_board_view().point_name(x, y);
-        $("grid_location").update(name);
-        game_controller.get_board_view().highlight_at(x, y);
+        // XXX TODO DAVEPECK -- save the preference
     },
     
     
@@ -2107,14 +2118,14 @@ var GameController = Class.create({
     // board click callbacks
     //--------------------------------------------------------------------------    
 
-    _click_board : function(x, y)
+    _click_board : function(e, x, y)
     {
         if (this.inHistory)
         {
             // clicking has no effect when you're looking through history
             return;
         }
-        else if (this.is_grid_active)
+        else if (e.shiftKey && e.shiftKey == 1)
         {
             this._selected_square(x, y);
         }
@@ -2177,7 +2188,7 @@ var HistoryController = Class.create({
 
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(x, y) { self._click_board(x, y); }), show_grid);
+        this.board_view = new GameBoardView(this.board, function(e, x, y) { /* no-op */ }, show_grid);
 
         this.max_move_number = max_move_number;
         this.current_move_number = max_move_number;

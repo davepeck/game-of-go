@@ -220,6 +220,13 @@ a
     max-width: 370px;
 }
 
+.right_nineteen_board_grid
+{
+    margin-left: 610px; 
+    width: 370px;
+    max-width: 370px;
+}
+
 .right_thirteen_board
 {
     margin-left: 415px;    
@@ -227,9 +234,23 @@ a
     max-width: 370px;
 }
 
+.right_thirteen_board_grid
+{
+    margin-left: 430px;    
+    width: 370px;
+    max-width: 370px;
+}
+
 .right_nine_board
 {
     margin-left: 295px;
+    width: 370px;
+    max-width: 370px;
+}
+
+.right_nine_board_grid
+{
+    margin-left: 310px;
     width: 370px;
     max-width: 370px;
 }
