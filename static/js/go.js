@@ -1476,7 +1476,6 @@ var GameController = Class.create({
         this.is_grid_active = show_grid;
         $("grid_button").observe('click', this._click_grid_button.bindAsEventListener(this));        
         
-        // TODO handle "not your move"
         if (!this.is_your_move() && !this.is_game_finished) 
         {
             this.start_waiting_for_opponent();
@@ -1523,7 +1522,7 @@ var GameController = Class.create({
 
         $("board_extras").addClassName("extras_grid");
 
-        // XXX TODO DAVEPECK -- save the preference
+        this._save_grid_preferences();
     },
 
     deactivate_grid : function()
@@ -1542,7 +1541,38 @@ var GameController = Class.create({
 
         $("board_extras").removeClassName("extras_grid");        
         
-        // XXX TODO DAVEPECK -- save the preference
+        this._save_grid_preferences();
+    },
+
+    _save_grid_preferences : function()
+    {
+        var self = this;
+        this._start_loading();
+
+        new Ajax.Request(
+            "/service/change-grid-options/",
+            {
+                method: 'POST',
+
+                parameters:
+                {
+                    "your_cookie": this.your_cookie,
+                    "show_grid": (this.is_grid_active ? "true" : "false")
+                },
+
+                onSuccess : function(transport)
+                {
+                    // doesn't really matter whether we succeed...
+                    self._stop_loading();
+                },
+
+                onFailure : function()
+                {
+                    // ...or fail. it's just a preference.
+                    self._stop_loading();
+                }
+            }
+        );
     },
     
     

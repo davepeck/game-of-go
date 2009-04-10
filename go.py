@@ -1804,6 +1804,53 @@ class ChangeOptionsHandler(GoHandler):
         else:
             self.handle_none(player)
 
+
+#------------------------------------------------------------------------------
+# "Change Grid Options" Handler
+#------------------------------------------------------------------------------
+
+class ChangeGridOptionsHandler(GoHandler):
+    def __init__(self):
+        super(ChangeGridOptionsHandler, self).__init__()
+
+    def fail(self, flash="Invalid input."):
+        self.render_json({'success': False, 'flash': flash})
+
+    def post(self, *args):
+        cookie = self.request.POST.get("your_cookie")
+        if not cookie:
+            self.fail("Unexpected error: no cookie found.")
+            return
+
+        player = ModelCache.player_by_cookie(cookie)
+        if not player:
+            self.fail("Unexpected error: invalid player.")
+            return
+
+        try:
+            show_grid_str = self.request.POST.get("show_grid").strip()
+
+            # be stupidly restrictive in what we accept
+            if show_grid_str == "true":
+                show_grid = True
+            elif show_grid_str == "false":
+                show_grid = False
+        except:
+            show_grid = None
+
+        if show_grid is None:
+            self.fail("Unexpected error: invalid show_grid value.")
+            return
+
+        player.show_grid = show_grid
+        try:
+            player.put()
+        except:
+            player.put()
+        ModelCache.clear_cookie(player.cookie)
+
+        self.render_json({'success': True, 'flash': 'OK'})
+
             
 #------------------------------------------------------------------------------
 # "Recent Chat" Handler     
@@ -2171,6 +2218,7 @@ def main():
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
         ('/service/change-options/', ChangeOptionsHandler),
+        ('/service/change-grid-options/', ChangeGridOptionsHandler),
         ('/service/pass/', PassHandler),
         ('/service/resign/', ResignHandler),
         ('/service/recent-chat/', RecentChatHandler),
