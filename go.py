@@ -188,7 +188,7 @@ class GameBoard(object):
     def is_in_bounds(self, x, y):
         return (x >= 0) and (x < self.get_width()) and (y >= 0) and (y < self.get_height())
         
-    def is_stone_in_self_atari(self, x, y):
+    def is_stone_in_suicide(self, x, y):
         liberties = LibertyFinder(self, x, y)
         return liberties.get_liberty_count() == 0
 
@@ -828,7 +828,7 @@ class Player(db.Model):
     twitter = db.StringProperty()
     wants_twitter = db.BooleanProperty(default=False)
     contact_type = db.StringProperty(default=CONST.Email_Contact)
-    show_grid = db.BooleanProperty(default=True)
+    show_grid = db.BooleanProperty(default=False)
 
     def get_safe_show_grid(self):
         try:
@@ -1394,8 +1394,8 @@ class MakeThisMoveHandler(GoHandler):
             else:
                 new_state.set_black_stones_captured(new_state.get_black_stones_captured() + len(captures))
 
-        # okay, now that we've handled captures, do we have self-atari?
-        if new_board.is_stone_in_self_atari(move_x, move_y):
+        # okay, now that we've handled captures, do we have a situation where this move would be suicidal?
+        if new_board.is_stone_in_suicide(move_x, move_y):
             self.fail("You can't move there; your stone would immediately be captured!")
             return
         
