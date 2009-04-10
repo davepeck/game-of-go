@@ -122,21 +122,21 @@ a
     margin-top: 5px;    
 }
 
-#board_and_grid_container table .top td.topleft
+#board_and_grid_container table .grid-top td.grid-topleft
 {
     width: 4px;
     height: 4px;
     text-align: center;
 }
 
-#board_and_grid_container table .top td
+#board_and_grid_container table .grid-top td
 {
     width: 30px;
     height: 4px;
     text-align: center;
 }
 
-#board_and_grid_container table td.left
+#board_and_grid_container table td.grid-left
 {
     width: 4px;
     height: 30px;
@@ -172,6 +172,11 @@ a
     font-size: 1.4em;
     line-height: 1.6em;
     position: relative;
+}
+
+.extras_grid
+{
+    padding-left: 14px;
 }
 
 #board_extras a.extra_link, #board_extras a.extra_link:link, #board_extras a.extra_link:visited

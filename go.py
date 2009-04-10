@@ -828,7 +828,7 @@ class Player(db.Model):
     twitter = db.StringProperty()
     wants_twitter = db.BooleanProperty(default=False)
     contact_type = db.StringProperty(default=CONST.Email_Contact)
-    show_grid = db.BooleanProperty(default=False)
+    show_grid = db.BooleanProperty(default=True)
 
     def get_safe_show_grid(self):
         try:

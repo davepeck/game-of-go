@@ -664,18 +664,16 @@ var GameBoardView = Class.create({
     show_grid : function()
     {
         if (this.showing_grid) { return; }
-        this._stop_observing_point_clicks();
-        this._make_board_dom(true);
-        this._observe_point_clicks();
+        $('board_and_grid_container').select(".grid-top").each( function f(elt) { elt.removeClassName("hide"); } );
+        $('board_and_grid_container').select(".grid-left").each( function f(elt) { elt.removeClassName("hide"); } );
         this.showing_grid = true;
     },
 
     hide_grid : function()
     {
         if (!this.showing_grid) { return; }
-        this._stop_observing_point_clicks();
-        this._make_board_dom(false);
-        this._observe_point_clicks();
+        $('board_and_grid_container').select(".grid-top").each( function f(elt) { elt.addClassName("hide"); } );
+        $('board_and_grid_container').select(".grid-left").each( function f(elt) { elt.addClassName("hide"); } );
         this.showing_grid = false;
     },
 
@@ -953,31 +951,25 @@ var GameBoardView = Class.create({
         
         html += '<table cellspacing="0" cellpadding="0" border="0">';
 
-        if (show_grid)
+        // TOP ROW: grid text
+        html += '<tr class="grid-top' + (show_grid ? "" : " hide") + '">';
+        html += '<td class="grid-topleft">&nbsp;</td>';
+        for (var x = 0; x < this.width; x++)
         {
-            // TOP ROW: grid text
-            html += '<tr class="top">';
-            html += '<td class="topleft">&nbsp;</td>';
-            for (var x = 0; x < this.width; x++)
-            {
-                html += '<td>' + CONST.ColumnNames[x] + '</td>';            
-            }
-            html += '</tr>';
+            html += '<td>' + CONST.ColumnNames[x] + '</td>';            
         }
+        html += '</tr>';
         
         for (var y = 0; y < this.height; y++)
         {
             html += '<tr>';
 
-            if (show_grid)
-            {
-                html += '<td class="left">' + (this.height - y).toString() + '</td>';
-            }
+            html += '<td class="grid-left' + (show_grid ? "" : " hide") + '">' + (this.height - y).toString() + '</td>';
             
             if (y == 0)
             {
                 html += '<td rowspan="' + this.height.toString() + '" colspan="' + this.width.toString() + '">';
-                html += '<div id="board_container" class="nineteen_board">';
+                html += '<div id="board_container" class="' + this.board_class() + '">';
                 
                 for (var inner_y = 0; inner_y < this.height; inner_y++)
                 {
@@ -1179,7 +1171,7 @@ var ChatController = Class.create({
 
     _linkify_board_coordinates : function(string)
     {
-        var board_regex = /\b[A-T]\d{1,2}\b/g;
+        var board_regex = /\b[A-T]\d{1,2}\b/gi;
 
         var self = this;
         string = string.replace
@@ -1187,14 +1179,14 @@ var ChatController = Class.create({
             board_regex,
             function(matched_text)
             {
-                var inner_regex = /[A-T]\d{1,2}/;
+                var inner_regex = /[A-T]\d{1,2}/i;
                 return matched_text.replace
                 (
                     inner_regex,
                     function(inner_matched_text)                    
                     {
                         // compute x
-                        var x_name = inner_matched_text.charAt(0);
+                        var x_name = inner_matched_text.toUpperCase().charAt(0);
 
                         var x = -1;
                         for (var i = 0; i < 19; i++)
@@ -1560,6 +1552,8 @@ var GameController = Class.create({
         $("game_info").removeClassName(right_board_class);
         $("game_info").addClassName(with_grid);
 
+        $("board_extras").addClassName("extras_grid");
+
         // XXX TODO DAVEPECK -- save the preference
     },
 
@@ -1576,6 +1570,8 @@ var GameController = Class.create({
         var with_grid = right_board_class + "_grid";
         $("game_info").removeClassName(with_grid);
         $("game_info").addClassName(right_board_class);
+
+        $("board_extras").removeClassName("extras_grid");        
         
         // XXX TODO DAVEPECK -- save the preference
     },
