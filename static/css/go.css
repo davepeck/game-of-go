@@ -127,6 +127,7 @@ a
     width: 4px;
     height: 4px;
     text-align: center;
+    color: #888;
 }
 
 #board_and_grid_container table .grid-top td
@@ -134,6 +135,7 @@ a
     width: 30px;
     height: 4px;
     text-align: center;
+    color: #888;
 }
 
 #board_and_grid_container table td.grid-left
@@ -142,6 +144,7 @@ a
     height: 30px;
     text-align: right;
     padding-right: 3px;
+    color: #888;
 }
 
 #board_container

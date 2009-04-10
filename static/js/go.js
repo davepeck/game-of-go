@@ -43,7 +43,7 @@ CONST.Dangerous = "dangerous";
 CONST.Board_Classes = ['nineteen_board', 'thirteen_board', 'nine_board'];
 
 // "I" is purposfully skipped because, historically, people got confused between "I" and "J"
-CONST.ColumnNames = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
+CONST.Column_Names = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
 
 
 //-----------------------------------------------------------------------------
@@ -941,54 +941,23 @@ var GameBoardView = Class.create({
 
     point_name : function(x, y)
     {
-        return CONST.ColumnNames[x] + '' + (game_controller.get_board_height()-y).toString();
+        return CONST.Column_Names[x] + '' + (game_controller.get_board_height()-y).toString();
     },                          
 
     _make_board_dom : function(show_grid)
     {
-        var container = $("board_and_grid_container");
+        var container = $("board_container");
         var html = "";
-        
-        html += '<table cellspacing="0" cellpadding="0" border="0">';
-
-        // TOP ROW: grid text
-        html += '<tr class="grid-top' + (show_grid ? "" : " hide") + '">';
-        html += '<td class="grid-topleft">&nbsp;</td>';
-        for (var x = 0; x < this.width; x++)
-        {
-            html += '<td>' + CONST.ColumnNames[x] + '</td>';            
-        }
-        html += '</tr>';
         
         for (var y = 0; y < this.height; y++)
         {
-            html += '<tr>';
-
-            html += '<td class="grid-left' + (show_grid ? "" : " hide") + '">' + (this.height - y).toString() + '</td>';
-            
-            if (y == 0)
+            html += '<div class="board_row">';
+            for (var x = 0; x < this.width; x++)
             {
-                html += '<td rowspan="' + this.height.toString() + '" colspan="' + this.width.toString() + '">';
-                html += '<div id="board_container" class="' + this.board_class() + '">';
-                
-                for (var inner_y = 0; inner_y < this.height; inner_y++)
-                {
-                    html += '<div class="board_row">';
-                    for (var inner_x = 0; inner_x < this.width; inner_x++)
-                    {
-                        html += '<img id="' + this._point_id(inner_x, inner_y) + '" src="' + this._point_src(inner_x, inner_y) + '" class="' + this._point_class(inner_x, inner_y) + '" />';
-                    }
-                    html += "</div>";
-                }
-
-                html += '</div>';
-                html += '</td>';                
+                html += '<img id="' + this._point_id(x, y) + '" src="' + this._point_src(x, y) + '" class="' + this._point_class(x, y) + '" />';
             }
-            
-            html += '</tr>';
+            html += "</div>";
         }
-
-        html += '</table>';
 
         container.innerHTML = html;
     },
@@ -1191,7 +1160,7 @@ var ChatController = Class.create({
                         var x = -1;
                         for (var i = 0; i < 19; i++)
                         {
-                            if (CONST.ColumnNames[i] == x_name)
+                            if (CONST.Column_Names[i] == x_name)
                             {
                                 x = i + 1;
                                 break;

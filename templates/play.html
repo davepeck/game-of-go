@@ -26,9 +26,31 @@
         <img src="/img/grid-enabled.png" alt="grid-enabled" />
    </div>
 
-    <!-- this will be dynamically generated -->
-    <div id="board_area">
-       <div id="board_and_grid_container"><div id="board_container" class="{{board_class}}">&nbsp;</div></div>
+   <div id="board_area">
+       <div id="board_and_grid_container">
+           <table cellspacing="0" cellpadding="0" border="0">
+               <tr class="grid-top {% if not show_grid_python %}hide{% endif %}">
+                   <td class="grid-topleft">&nbsp;</td>
+                   {% for column_name in column_names %}
+                   <td>{{column_name}}</td>
+                   {% endfor %}
+               </tr>
+
+               {% for row_name in row_names %}
+               <tr>
+                   <td class="grid-left {% if not show_grid_python %}hide{% endif %}">{{row_name}}</td>
+                   {% if forloop.first %}
+                   <td rowspan="{{board_height}}" colspan="{{board_width}}">
+                       <div id="board_container" class="{{board_class}}">
+                           <!-- this area will be dynamically generated -->
+                           &nbsp;
+                       </div>
+                   </td>
+                   {% endif %}
+              </tr>
+              {% endfor %}
+          </table>
+       </div>
        <div id="board_extras" {% if show_grid_python %}class="extras_grid"{% endif %}><a href="/options/{{your_cookie}}/" class="extra_link">options</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a>
         <span id="grid_information">
             <span id="grid_location">&nbsp;</span>

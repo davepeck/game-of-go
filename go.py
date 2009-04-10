@@ -69,6 +69,9 @@ class CONST(object):
     Twitter_Contact = "twitter"
     No_Contact = "none"
     Default_Email = "nobody@example.com"
+    
+    # "I" is purposfully skipped because, historically, people got confused between "I" and "J"
+    Column_Names = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]    
 
 def opposite_color(color):
     return 3 - color
@@ -161,6 +164,15 @@ class GameBoard(object):
 
     def get_size_index(self):
         return self.size_index
+
+    def get_column_names(self):
+        return CONST.Column_Names[:self.width]
+
+    def get_row_names(self):
+        row_names = []
+        for i in range(self.height, 0, -1):
+            row_names.append(str(i))
+        return row_names
 
     def get_komi(self):
         if self.handicap_index:
@@ -1297,7 +1309,11 @@ class PlayGameHandler(GoHandler):
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
             'board_class': board.get_class(),
             'show_grid': "true" if player.get_safe_show_grid() else "false",
-            'show_grid_python': player.get_safe_show_grid() }
+            'show_grid_python': player.get_safe_show_grid(),
+            'row_names': board.get_row_names(),
+            'column_names': board.get_column_names(),
+            'board_width': board.get_width(),
+            'board_height': board.get_height() }
                                 
         self.render_template("play.html", items)
 
@@ -1971,7 +1987,11 @@ class HistoryHandler(GoHandler):
             'board_class': board.get_class(),
             'you_are_black': player.color == CONST.Black_Color,
             'show_grid': "true" if player.get_safe_show_grid() else "false",
-            'show_grid_python': player.get_safe_show_grid()
+            'show_grid_python': player.get_safe_show_grid(),
+            'row_names': board.get_row_names(),
+            'column_names': board.get_column_names(),
+            'board_width': board.get_width(),
+            'board_height': board.get_height()            
         }
                                 
         self.render_template("history.html", items)

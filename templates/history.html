@@ -28,8 +28,31 @@
 
     <!-- this will be dynamically generated -->
     <div id="board_area">
-        <div id="board_container" class="{{board_class}}">&nbsp;</div>
-        <div id="board_extras"><a href="/play/{{your_cookie}}/" class="extra_link">play the game</a> | <a href="/history/{{your_cookie}}.sgf" class="extra_link">download sgf</a></div>
+       <div id="board_and_grid_container">
+           <table cellspacing="0" cellpadding="0" border="0">
+               <tr class="grid-top {% if not show_grid_python %}hide{% endif %}">
+                   <td class="grid-topleft">&nbsp;</td>
+                   {% for column_name in column_names %}
+                   <td>{{column_name}}</td>
+                   {% endfor %}
+               </tr>
+
+               {% for row_name in row_names %}
+               <tr>
+                   <td class="grid-left {% if not show_grid_python %}hide{% endif %}">{{row_name}}</td>
+                   {% if forloop.first %}
+                   <td rowspan="{{board_height}}" colspan="{{board_width}}">
+                       <div id="board_container" class="{{board_class}}">
+                           <!-- this area will be dynamically generated -->
+                           &nbsp;
+                       </div>
+                   </td>
+                   {% endif %}
+              </tr>
+              {% endfor %}
+          </table>
+       </div>
+       <div id="board_extras" {% if show_grid_python %}class="extras_grid"{% endif %}><a href="/play/{{your_cookie}}/" class="extra_link">play the game</a> | <a href="/history/{{your_cookie}}.sgf" class="extra_link">download sgf</a></div>
     </div>
 
     <div id="game_info" class="{% if show_grid_python %}right_{{board_class}}_grid{% else %}right_{{board_class}}{% endif %}">        
