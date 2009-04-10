@@ -40,6 +40,7 @@ CONST.No_Contact = "none";
 CONST.Dim = "dim";
 CONST.Notable = "notable";
 CONST.Dangerous = "dangerous";
+CONST.Board_Classes = ['nineteen_board', 'thirteen_board', 'nine_board'];
 
 // "I" is purposfully skipped because, historically, people got confused between "I" and "J"
 CONST.ColumnNames = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
@@ -630,7 +631,7 @@ var GameState = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameBoardView = Class.create({
-    initialize : function(board, click_callback)
+    initialize : function(board, click_callback, show_grid)
     {
         this.board = board;
         this.size_index = board.size_index;
@@ -648,9 +649,24 @@ var GameBoardView = Class.create({
         // set up event management
         this.click_callback = click_callback;
         this.hover_callback = null;
-
+        this.showing_grid = show_grid;
+        
         // generate the visuals
-        this._make_board_dom();
+        this._make_board_dom(show_grid);
+    },
+
+    show_grid : function()
+    {
+        if (this.showing_grid) { return; }
+        // XXX TODO DAVEPECK
+        this.showing_grid = true;
+    },
+
+    hide_grid : function()
+    {
+        if (!this.showing_grid) { return; }
+        // XXX TODO DAVEPECK
+        this.showing_grid = false;
     },
 
     set_board : function(board)
@@ -920,20 +936,57 @@ var GameBoardView = Class.create({
         return CONST.ColumnNames[x] + '' + (game_controller.get_board_height()-y).toString();
     },                          
 
-    _make_board_dom : function()
+    _make_board_dom : function(show_grid)
     {
-        var container = $("board_container");
+        var container = $("board_and_grid_container");
         var html = "";
+        
+        html += '<table cellspacing="0" cellpadding="0" border="0">';
 
-        for (var y = 0; y < this.height; y++)
+        if (show_grid)
         {
-            html += '<div class="board_row">';
+            // TOP ROW: grid text
+            html += '<tr class="top">';
+            html += '<td class="topleft">&nbsp;</td>';
             for (var x = 0; x < this.width; x++)
             {
-                html += '<img id="' + this._point_id(x, y) + '" src="/img/transparent-1x1.png" class="' + this._point_class(x, y) + '" />';
+                html += '<td>' + CONST.ColumnNames[x] + '</td>';            
             }
-            html += "</div>";
+            html += '</tr>';
         }
+        
+        for (var y = 0; y < this.height; y++)
+        {
+            html += '<tr>';
+
+            if (show_grid)
+            {
+                html += '<td class="left">' + (this.height - y).toString() + '</td>';
+            }
+            
+            if (y == 0)
+            {
+                html += '<td rowspan="' + this.height.toString() + '" colspan="' + this.width.toString() + '">';
+                html += '<div id="board_container" class="nineteen_board">';
+                
+                for (var inner_y = 0; inner_y < this.height; inner_y++)
+                {
+                    html += '<div class="board_row">';
+                    for (var inner_x = 0; inner_x < this.width; inner_x++)
+                    {
+                        html += '<img id="' + this._point_id(inner_x, inner_y) + '" src="/img/transparent-1x1.png" class="' + this._point_class(inner_x, inner_y) + '" />';
+                    }
+                    html += "</div>";
+                }
+
+                html += '</div>';
+                html += '</td>';                
+            }
+            
+            html += '</tr>';
+        }
+
+        html += '</table>';
 
         container.innerHTML = html;
 
@@ -1389,7 +1442,7 @@ var ChatController = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameController = Class.create({            
-    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message)
+    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message, show_grid)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
@@ -1426,7 +1479,7 @@ var GameController = Class.create({
 
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(x, y) { self._click_board(x, y); });
+        this.board_view = new GameBoardView(this.board, function(x, y) { self._click_board(x, y); }, show_grid);
 
         this.state = new GameState(this.board, whose_move, white_stones_captured, black_stones_captured);
 
@@ -2117,14 +2170,14 @@ var GameController = Class.create({
 //-----------------------------------------------------------------------------
 
 var HistoryController = Class.create({            
-    initialize : function(your_cookie, your_color, board_size_index, board_state_string, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
+    initialize : function(your_cookie, your_color, board_size_index, board_state_string, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
 
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(x, y) { self._click_board(x, y); });
+        this.board_view = new GameBoardView(this.board, function(x, y) { self._click_board(x, y); }), show_grid);
 
         this.max_move_number = max_move_number;
         this.current_move_number = max_move_number;
@@ -2559,16 +2612,16 @@ function init_get_going()
     get_going = new GetGoing();    
 }
 
-function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message)
+function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message, show_grid)
 {
-    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message);
+    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message, show_grid);
     chat_controller = new ChatController(your_cookie);
     chat_controller.start_listening_to_chat();
 }
 
-function init_history(your_cookie, your_color, board_size_index, board_state_string, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
+function init_history(your_cookie, your_color, board_size_index, board_state_string, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
 {
-    history_controller = new HistoryController(your_cookie, your_color, board_size_index, board_state_string, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
+    history_controller = new HistoryController(your_cookie, your_color, board_size_index, board_state_string, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid);
 }
 
 function init_options(your_cookie, your_email, your_twitter, your_contact_type)

@@ -828,7 +828,15 @@ class Player(db.Model):
     twitter = db.StringProperty()
     wants_twitter = db.BooleanProperty(default=False)
     contact_type = db.StringProperty(default=CONST.Email_Contact)
+    show_grid = db.BooleanProperty(default=False)
 
+    def get_safe_show_grid(self):
+        try:
+            safe_show_grid = self.show_grid
+        except:
+            safe_show_grid = False            
+        return safe_show_grid
+    
     def get_safe_email(self):
         try:
             safe_email = self.email
@@ -1287,7 +1295,9 @@ class PlayGameHandler(GoHandler):
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
-            'board_class': board.get_class() }
+            'board_class': board.get_class(),
+            'show_grid': "true" if player.get_safe_show_grid() else "false",
+            'show_grid_python': player.get_safe_show_grid() }
                                 
         self.render_template("play.html", items)
 
@@ -1955,12 +1965,13 @@ class HistoryHandler(GoHandler):
             'last_move_x': last_move_x,
             'last_move_y': last_move_y,
             'last_move_was_pass': "true" if state.get_last_move_was_pass() else "false",
-            'whose_move': state.whose_move,
-            
+            'whose_move': state.whose_move,            
             'white_name': white_player.get_friendly_name(),
             'black_name': black_player.get_friendly_name(),
             'board_class': board.get_class(),
-            'you_are_black': player.color == CONST.Black_Color
+            'you_are_black': player.color == CONST.Black_Color,
+            'show_grid': "true" if player.get_safe_show_grid() else "false",
+            'show_grid_python': player.get_safe_show_grid()
         }
                                 
         self.render_template("history.html", items)

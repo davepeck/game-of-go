@@ -122,6 +122,28 @@ a
     margin-top: 5px;    
 }
 
+#board_and_grid_container table .top td.topleft
+{
+    width: 4px;
+    height: 4px;
+    text-align: center;
+}
+
+#board_and_grid_container table .top td
+{
+    width: 30px;
+    height: 4px;
+    text-align: center;
+}
+
+#board_and_grid_container table td.left
+{
+    width: 4px;
+    height: 30px;
+    text-align: right;
+    padding-right: 3px;
+}
+
 #board_container
 {
     background: #DDB45C;
