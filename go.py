@@ -598,12 +598,12 @@ Hi %s,
 
     @staticmethod
     def remind_player(player_name, player_email, player_cookie, opponent_name, move_number):
-        your_address = EmailHelper._rfc_address(your_name, your_email)
+        player_address = EmailHelper._rfc_address(player_name, player_email)
         message = mail.EmailMessage()
         message.sender = EmailHelper.No_Reply_Address
         message.subject = "[GO - Move #%s] REMINDER: It's still your turn against %s" % (str(move_number), opponent_name)
-        message.to = your_address
-        message.body = "Just a reminder that it's still your turn to move against %s. Your last move was over a week ago. To make a move, just follow this link:\n\n%s\n" % (opponent_name, EmailHelper._game_url(your_cookie))
+        message.to = player_address
+        message.body = "Just a reminder that it's still your turn to move against %s. Your last move was over a week ago. To make a move, just follow this link:\n\n%s\n" % (opponent_name, EmailHelper._game_url(player_cookie))
         message.send()
 
 
@@ -757,7 +757,7 @@ class TwitterHelper(object):
 
     @staticmethod
     def remind_player(player_name, player_twitter, player_cookie):
-        message = "Just a reminder: it's still your turn to move; you haven't moved in over a week. %s" % TwitterHelper._game_url(your_cookie)
+        message = "Just a reminder: it's still your turn to move; you haven't moved in over a week. %s" % TwitterHelper._game_url(player_cookie)
         return TwitterHelper.send_notification_to_user(player_twitter, message)
         
 #------------------------------------------------------------------------------
@@ -781,8 +781,8 @@ class ModelCache(object):
         memcache.delete(cookie)
         
 class Game(db.Model):
-    date_created = db.DateTimeProperty(auto_now = True)
-    date_last_moved = db.DateTimeProperty(auto_now = True)    
+    date_created = db.DateTimeProperty(auto_now = False)
+    date_last_moved = db.DateTimeProperty(auto_now = False)    
     history = db.ListProperty(db.Blob)
     current_state = db.BlobProperty()
 
@@ -794,7 +794,7 @@ class Game(db.Model):
     chat_history = db.ListProperty(db.Blob)
 
     is_finished = db.BooleanProperty(default=False)    
-    reminder_send_time = db.DateTimeProperty()
+    reminder_send_time = db.DateTimeProperty(auto_now = False)
     
     def get_black_player(self):
         return ModelCache.player_by_cookie(self.black_cookie)
@@ -805,8 +805,7 @@ class Game(db.Model):
     def get_player_whose_move(self):
         if self.is_finished:
             return None        
-        state = pickle.loads(self.history[0])
-        whose_move = pickle.loads(self.history[0]).get_whose_move()
+        whose_move = pickle.loads(self.current_state).get_whose_move()
         if whose_move == CONST.Black_Color:
             return self.get_black_player()
         else:
@@ -974,7 +973,11 @@ class GoHandler(webapp.RequestHandler):
     def render_json(self, obj):
         self.response.headers['Content-Type'] = 'application/json'
         self.response.out.write(simplejson.dumps(obj))
-    
+
+    def render_json_as_text(self, obj):
+        self.response.headers['Content-Type'] = 'text/plain'        
+        self.response.out.write(simplejson.dumps(obj))
+        
     def render_text(self, text):
         self.response.headers['Content-Type'] = 'text/plain'        
         self.response.out.write(text)
@@ -1093,6 +1096,9 @@ class CreateGameHandler(GoHandler):
         
         # Create a game model instance
         game = Game()
+        game.date_created = datetime.now()
+        game.date_last_moved = datetime.now()
+        game.reminder_send_time = datetime.now()
         game.history = [] # unused value to make appengine happy
         game.chat_history = []
         game.current_state = db.Blob(pickle.dumps(state))
@@ -2250,11 +2256,11 @@ class EnsureReminderTimesHandler(GoHandler):
     def __init__(self):
         super(EnsureReminderTimesHandler, self).__init__()
 
-    def get(self, cookie, *args):
+    def get(self, *args):
         game_count = 0
         
         try:
-            all_games = game.all()
+            all_games = Game.all()
 
             games_to_write = []
 
@@ -2278,27 +2284,26 @@ class EnsureReminderTimesHandler(GoHandler):
             if len(games_to_write) > 0:
                 db.put(games_to_write)
         except:
-            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': game_count})
+            self.render_json_as_text({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': game_count})
         else:
-            self.render_json({'success': True, 'game_count': game_count})
+            self.render_json_as_text({'success': True, 'game_count': game_count})
         
 class SendRemindersHandler(GoHandler):
     def __init__(self):
         super(SendRemindersHandler, self).__init__()
 
-    def get(self, cookie, *args):
+    def get(self, *args):
         # Handle one game at a time!
         # (TODO -- this code is ugly -- too many nested tests.)        
         message = "No action taken."
         try:
-            one_week_ago = datetime.now() - timedetla(weeks=1)
+            one_week_ago = datetime.now() - timedelta(weeks=1)
             two_months_ago = datetime.now() - timedelta(weeks=8)
-            stale_games = db.GqlQuery("SELECT * FROM Game WHERE reminder_send_time < :1", one_week_ago).get()
-            if len(stale_games) == 0:
+            stale_game = db.GqlQuery("SELECT * FROM Game WHERE reminder_send_time < :1", one_week_ago).get()
+            if (stale_game is None):
                 message = "No stale games to remind about."
                 
-            if len(stale_games) == 1:
-                stale_game = stale_games[0]
+            if (stale_game is not None):
                 if stale_game.is_finished:
                     stale_game.dont_remind_for_long_time()
                     message = "Found a finished 'stale' game. Ignoring."
@@ -2326,9 +2331,9 @@ class SendRemindersHandler(GoHandler):
                             stale_game.reminder_send_time = datetime.now()
                             stale_game.put()
         except:
-            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'message': message})
+            self.render_json_as_text({'success': False, 'Error': ExceptionHelper.exception_string(), 'message': message})
         else:
-            self.render_json({'success': True, 'message': message})
+            self.render_json_as_text({'success': True, 'message': message})
         
 #------------------------------------------------------------------------------
 # Main WebApp Code
