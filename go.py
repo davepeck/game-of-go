@@ -596,6 +596,16 @@ Hi %s,
 
         message.send()
 
+    @staticmethod
+    def remind_player(player_name, player_email, player_cookie, opponent_name, move_number):
+        your_address = EmailHelper._rfc_address(your_name, your_email)
+        message = mail.EmailMessage()
+        message.sender = EmailHelper.No_Reply_Address
+        message.subject = "[GO - Move #%s] REMINDER: It's still your turn against %s" % (str(move_number), opponent_name)
+        message.to = your_address
+        message.body = "Just a reminder that it's still your turn to move against %s. Your last move was over a week ago. To make a move, just follow this link:\n\n%s\n" % (opponent_name, EmailHelper._game_url(your_cookie))
+        message.send()
+
 
 #------------------------------------------------------------------------------
 # Twitter Support
@@ -744,7 +754,11 @@ class TwitterHelper(object):
             message = move_message
         message += " " + TwitterHelper._game_url(your_cookie)
         return TwitterHelper.send_notification_to_user(your_twitter, message)    
-        
+
+    @staticmethod
+    def remind_player(player_name, player_twitter, player_cookie):
+        message = "Just a reminder: it's still your turn to move; you haven't moved in over a week. %s" % TwitterHelper._game_url(your_cookie)
+        return TwitterHelper.send_notification_to_user(player_twitter, message)
         
 #------------------------------------------------------------------------------
 # Models
@@ -779,14 +793,25 @@ class Game(db.Model):
     # Recent chat
     chat_history = db.ListProperty(db.Blob)
 
-    is_finished = db.BooleanProperty(default=False)
-
+    is_finished = db.BooleanProperty(default=False)    
+    reminder_send_time = db.DateTimeProperty()
+    
     def get_black_player(self):
         return ModelCache.player_by_cookie(self.black_cookie)
 
     def get_white_player(self):
         return ModelCache.player_by_cookie(self.white_cookie)
-    
+
+    def get_player_whose_move(self):
+        if self.is_finished:
+            return None        
+        state = pickle.loads(self.history[0])
+        whose_move = pickle.loads(self.history[0]).get_whose_move()
+        if whose_move == CONST.Black_Color:
+            return self.get_black_player()
+        else:
+            return self.get_white_player()
+        
     def get_black_friendly_name(self):
         return self.get_black_player().get_friendly_name()
 
@@ -818,8 +843,19 @@ class Game(db.Model):
             blob_history = []
 
         return blob_history
-                
 
+    def get_reminder_send_time(self):
+        __reminder_send_time = None
+        try:
+            __reminder_send_time = self.reminder_send_time
+        except:
+            __reminder_send_time
+        return __reminder_send_time
+
+    def dont_remind_for_long_time(self):
+        self.reminder_send_time = datetime.now() + timedelta(weeks=52)
+        self.put()
+    
 # Because there is no notion of 'account', players are created
 # anew each time a game is constructed.
 
@@ -1434,7 +1470,8 @@ class MakeThisMoveHandler(GoHandler):
         
         game.history.append(game.current_state)
         game.current_state = db.Blob(pickle.dumps(new_state))
-        game.date_last_moved = datetime.now()        
+        game.date_last_moved = datetime.now()
+        game.reminder_send_time = datetime.now()
 
         try:
             game.put()
@@ -1510,7 +1547,8 @@ class PassHandler(GoHandler):
 
         game.history.append(game.current_state)
         game.current_state = db.Blob(pickle.dumps(new_state))
-        game.date_last_moved = datetime.now()        
+        game.date_last_moved = datetime.now()
+        game.reminder_send_time = datetime.now()
 
         try:
             game.put()
@@ -1578,7 +1616,8 @@ class ResignHandler(GoHandler):
         game.history.append(game.current_state)
         game.current_state = db.Blob(pickle.dumps(new_state))
         game.date_last_moved = datetime.now()        
-
+        game.reminder_send_time = datetime.now()
+        
         try:
             game.put()
         except:
@@ -2204,6 +2243,94 @@ class SGFHandler(GoHandler):
 
         
 #------------------------------------------------------------------------------
+# Reminders!
+#------------------------------------------------------------------------------
+
+class EnsureReminderTimesHandler(GoHandler):
+    def __init__(self):
+        super(EnsureReminderTimesHandler, self).__init__()
+
+    def get(self, cookie, *args):
+        game_count = 0
+        
+        try:
+            all_games = game.all()
+
+            games_to_write = []
+
+            for game in all_games:
+                game_count += 1
+                rst = None
+                try:
+                    rst = game.reminder_send_time
+                except:
+                    rst = None
+                if rst is None:
+                    dlm = game.date_last_moved
+                    if dlm is None:
+                        dlm = datetime.now()
+                    game.reminder_send_time = dlm
+                    games_to_write.append(game)
+                    if len(games_to_write) == 50:
+                        db.put(games_to_write)
+                        games_to_write = []
+
+            if len(games_to_write) > 0:
+                db.put(games_to_write)
+        except:
+            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': game_count})
+        else:
+            self.render_json({'success': True, 'game_count': game_count})
+        
+class SendRemindersHandler(GoHandler):
+    def __init__(self):
+        super(SendRemindersHandler, self).__init__()
+
+    def get(self, cookie, *args):
+        # Handle one game at a time!
+        # (TODO -- this code is ugly -- too many nested tests.)        
+        message = "No action taken."
+        try:
+            one_week_ago = datetime.now() - timedetla(weeks=1)
+            two_months_ago = datetime.now() - timedelta(weeks=8)
+            stale_games = db.GqlQuery("SELECT * FROM Game WHERE reminder_send_time < :1", one_week_ago).get()
+            if len(stale_games) == 0:
+                message = "No stale games to remind about."
+                
+            if len(stale_games) == 1:
+                stale_game = stale_games[0]
+                if stale_game.is_finished:
+                    stale_game.dont_remind_for_long_time()
+                    message = "Found a finished 'stale' game. Ignoring."
+                else:
+                    if stale_game.date_last_moved < two_months_ago:
+                        stale_game.dont_remind_for_long_time()
+                        message = "Found a two-month-old 'stale' game. Giving up!"
+                    else:
+                        player = stale_game.get_player_whose_move()
+                        if player is None:
+                            stale_game.dont_remind_for_long_time()
+                            message = "Found a 'stale' game with no current player. Was it finished? Hrm."
+                        else:
+                            if player.wants_email:
+                                opponent = player.get_opponent()
+                                state = pickle.loads(stale_game.current_state)
+                                EmailHelper.remind_player(player.get_friendly_name(), player.email, player.cookie, opponent.get_friendly_name(), state.get_current_move_number())
+                                message = "Sent an email reminder to %s about game %s!" % (player.email, player.cookie)
+                            elif player.does_want_twitter():
+                                TwitterHelper.remind_player(player.get_friendly_name(), player.twitter, player.cookie)
+                                message = "Sent a twitter reminder to %s about game %s!" % (player.twitter, player.cookie)
+                            else:
+                                message = "Found 'stale' game %s that I couldn't notify about: player did not want notification." % player.cookie
+
+                            stale_game.reminder_send_time = datetime.now()
+                            stale_game.put()
+        except:
+            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'message': message})
+        else:
+            self.render_json({'success': True, 'message': message})
+        
+#------------------------------------------------------------------------------
 # Main WebApp Code
 #------------------------------------------------------------------------------
 
@@ -2223,7 +2350,9 @@ def main():
         ('/service/resign/', ResignHandler),
         ('/service/recent-chat/', RecentChatHandler),
         ('/service/add-chat/', AddChatHandler),
-        ('/service/get-historical-state/', GetHistoricalStateHandler)
+        ('/service/get-historical-state/', GetHistoricalStateHandler),
+        ('/cron/ensure-reminder-times/', EnsureReminderTimesHandler),
+        ('/cron/send-reminders/', SendRemindersHandler),
     ]
     
     application = webapp.WSGIApplication(url_map, debug=True)

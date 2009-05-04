@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 2b
+version: 2remind
 runtime: python
 api_version: 1
 
@@ -43,5 +43,17 @@ handlers:
   static_files: static/img/apple-touch-icon.png
   upload: static/img/apple-touch-icon.png
 
+- url: /cron/.*
+  script: go.py
+  login: admin
+
 - url: /.*
   script: go.py
+
+
+cron:
+- description: check for games that haven't been played in a while
+  url: /cron/send-reminders
+  schedule: every 10 minutes
+  
+
