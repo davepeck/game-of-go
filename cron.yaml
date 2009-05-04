@@ -16,37 +16,8 @@
 # along with Dave Peck's Go.  If not, see <http://www.gnu.org/licenses/>.
 
 
-application: davepeck-go
-version: 2remind
-runtime: python
-api_version: 1
-
-handlers:
-- url: /img
-  static_dir: static/img
+cron:
+- description: check for games that haven't been played in a while
+  url: /cron/send-reminders
+  schedule: every 10 minutes
   
-- url: /css
-  static_dir: static/css
-  
-- url: /js
-  static_dir: static/js
-
-- url: /
-  static_files: static/index.html
-  upload: static/index.html
-
-- url: /favicon.ico
-  static_files: static/img/favicon.ico
-  upload: static/img/favicon.ico
-
-- url: /apple-touch-icon.png
-  static_files: static/img/apple-touch-icon.png
-  upload: static/img/apple-touch-icon.png
-
-- url: /cron/.*
-  script: go.py
-  login: admin
-
-- url: /.*
-  script: go.py
-
