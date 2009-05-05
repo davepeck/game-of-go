@@ -2602,6 +2602,95 @@ var OptionsController = Class.create({
 });
 
 
+//-----------------------------------------------------------------------------
+// Database Update Controller
+//-----------------------------------------------------------------------------
+
+var DatabaseUpdateController = Class.create({
+    initialize : function()
+    {
+        this.updating_database = false;
+    },
+
+    ensure_reminder_times : function()
+    {
+        if (this.updating_database) { return; }
+        this._start_updating();
+
+        this.total_found = 0;
+        this.total_modified = 0;
+        this._inner_ensure_reminder_times(null, 5);
+    },
+
+    _inner_ensure_reminder_times : function(last_key_seen, amount)
+    {
+        var self = this;
+
+        var parameters = {};
+        parameters["amount"] = amount.toString();
+        if (last_key_seen != null)
+        {
+            parameters["last_key_seen"] = last_key_seen;
+        }
+                
+        new Ajax.Request
+        (
+            "/cron/ensure-reminder-times/",
+            {
+                method: 'POST',
+                
+                onSuccess: function(result)
+                {
+                    var json = eval_json(result.responseText);
+                    if (json['success'])
+                    {
+                        self._handle_ensure_url_response(amount, json['amount_found'], json['amount_modified'], json['new_last_key']);
+                    }
+                    else
+                    {
+                        self._stop_updating();
+                        alert("Queue updating failed. Please try again. Error: " + json['Error']);
+                    }
+                },
+
+                onFailure: function()
+                {
+                    self._stop_updating();
+                    alert("Database update network request failed. Please try again.");
+                }
+            }
+        );
+    },
+
+    _handle_ensure_url_response : function(amount, amount_found, amount_modified, new_last_key)
+    {
+        this.total_found += amount_found;
+        this.total_modified += amount_modified;
+        if (amount_found > 0)
+        {
+            $("updating").innerHTML = "UPDATING: Modified " + this.total_modified.toString() + " out of " + this.total_found.toString() + ".";
+            this._inner_ensure_reminder_times(new_last_key, amount);            
+        }
+        else
+        {
+            this._stop_updating();
+            alert("Finished Updating! Modified " + this.total_modified.toString() + " out of " + this.total_found.toString() + ".");
+        }
+    },
+    
+    _start_updating : function()
+    {
+        this.updating_database = true;
+        $("updating").removeClassName("hide");
+    },
+
+    _stop_updating : function()
+    {
+        $("updating").addClassName("hide");
+        this.updating_database = false;
+    }
+});
+
 
 //-----------------------------------------------------------------------------
 // Initialization And Globals
@@ -2612,6 +2701,7 @@ var game_controller = null;
 var chat_controller = null;
 var history_controller = null;
 var options_controller = null;
+var database_update_controller = null;
 
 function init_get_going()
 {
@@ -2633,4 +2723,9 @@ function init_history(your_cookie, your_color, board_size_index, board_state_str
 function init_options(your_cookie, your_email, your_twitter, your_contact_type)
 {
     options_controller = new OptionsController(your_cookie, your_email, your_twitter, your_contact_type)
+}
+
+function init_database_update()
+{
+    database_update_controller = new DatabaseUpdateController();
 }

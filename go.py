@@ -2256,38 +2256,82 @@ class EnsureReminderTimesHandler(GoHandler):
     def __init__(self):
         super(EnsureReminderTimesHandler, self).__init__()
 
-    def get(self, *args):
-        game_count = 0
-        
+    def post(self, *args):
+        # Grab some games and make sure that they each have a reminder_send_time set.
+        # If not, set it!        
         try:
-            all_games = Game.all()
+            # get our request data
+            try:
+                last_key_seen = self.request.get('last_key_seen')
+            except:
+                last_key_seen = None
 
-            games_to_write = []
+            try:
+                amount = int(self.request.get('amount'))
+            except:
+                amount = 10
 
-            for game in all_games:
-                game_count += 1
-                rst = None
-                try:
-                    rst = game.reminder_send_time
-                except:
+            # get some games -- if a key is specified, start there.
+            if (last_key_seen is None) or len(last_key_seen) < 1:
+                query = db.GqlQuery('SELECT * from Game ORDER BY __key__')
+                games = query.fetch(amount)
+            else:
+                last_entity = Game.get_by_key_name(last_key_seen)
+                last_key = last_entity.key()
+                query = db.GqlQuery('SELECT * from Game WHERE __key__ > :1 ORDER BY __key__', last_key)
+                games = query.fetch(amount)
+
+            # sanity check
+            if games is None:
+                self.render_json({'success': True, 'amount_found': 0, 'amount_modified': 0, 'new_last_key': ''})
+            else:
+                # figure out what the next key will be -- we've got to do
+                # this stuff in batches, after all
+                amount_found = len(games)
+                if amount_found < 1:
+                    last_item = None
+                    new_last_key = ""
+                else:
+                    logging.info(repr(games))
+                    last_item = games[-1]
+                    new_last_key = last_item.key().name()
+
+                # batch up any games that are missing a key
+                games_to_write = []
+                for game in games:
                     rst = None
-                if rst is None:
-                    dlm = game.date_last_moved
-                    if dlm is None:
-                        dlm = datetime.now()
-                    game.reminder_send_time = dlm
-                    games_to_write.append(game)
-                    if len(games_to_write) == 50:
-                        db.put(games_to_write)
-                        games_to_write = []
+                    try:
+                        rst = game.reminder_send_time
+                    except:
+                        rst = None
+                    if rst is None:
+                        dlm = game.date_last_moved
+                        if dlm is None:
+                            dlm = datetime.now()
+                        game.reminder_send_time = dlm
+                        games_to_write.append(game)
 
-            if len(games_to_write) > 0:
-                db.put(games_to_write)
+                if len(games_to_write) > 0:
+                    try:
+                        db.put(games_to_write)
+                    except:
+                        db.put(games_to_write)
+
+                logging.info("AMOUNT FOUND: %d; AMOUNT MODIFIED: %d" % (amount_found, len(games_to_write)))
+                logging.info("new last key: %s" % new_last_key)
+                
+                self.render_json({'success': True, 'amount_found': amount_found, 'amount_modified': len(games_to_write), 'new_last_key': new_last_key})
         except:
-            self.render_json_as_text({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': game_count})
-        else:
-            self.render_json_as_text({'success': True, 'game_count': game_count})
-        
+            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': game_count})
+
+            
+class UpdateDatabaseHandler(GoHandler):
+    def __init__(self):
+        super(UpdateDatabaseHandler, self).__init__()
+
+    def get(self, *args):
+        self.render_template("update-database.html", {})
+            
 class SendRemindersHandler(GoHandler):
     def __init__(self):
         super(SendRemindersHandler, self).__init__()
@@ -2302,8 +2346,7 @@ class SendRemindersHandler(GoHandler):
             stale_game = db.GqlQuery("SELECT * FROM Game WHERE reminder_send_time < :1", one_week_ago).get()
             if (stale_game is None):
                 message = "No stale games to remind about."
-                
-            if (stale_game is not None):
+            else:
                 if stale_game.is_finished:
                     stale_game.dont_remind_for_long_time()
                     message = "Found a finished 'stale' game. Ignoring."
@@ -2356,8 +2399,9 @@ def main():
         ('/service/recent-chat/', RecentChatHandler),
         ('/service/add-chat/', AddChatHandler),
         ('/service/get-historical-state/', GetHistoricalStateHandler),
-        ('/cron/ensure-reminder-times/', EnsureReminderTimesHandler),
         ('/cron/send-reminders/', SendRemindersHandler),
+        ('/cron/ensure-reminder-times/', EnsureReminderTimesHandler),
+        ('/cron/update-database/', UpdateDatabaseHandler)        
     ]
     
     application = webapp.WSGIApplication(url_map, debug=True)

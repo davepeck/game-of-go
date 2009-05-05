@@ -1,0 +1,24 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" dir="ltr" lang="en-US" id="go-davepeck-org">
+<head>
+    <title>[Dave Peck's Go &raquo; Options]</title>
+    {% include "head.html" %}
+</head>
+<body onload="init_database_update()">
+    <div id="splash">
+        <div class="go-smallish">Database Update...</div>
+        <div id="game_options">
+            <div id="options_presentation">
+
+                <div>
+                    <a href="javascript:database_update_controller.ensure_reminder_times();">Ensure reminder times</a> for all items.
+                </div>
+
+                <div id="updating" class="hide">UPDATING...</div>
+                    
+            </div>
+        </div>
+    </div>
+{% include "foot.html" %}            
+</body>
+</html>
