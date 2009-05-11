@@ -2622,15 +2622,15 @@ var DatabaseUpdateController = Class.create({
         this._inner_ensure_reminder_times(null, 5);
     },
 
-    _inner_ensure_reminder_times : function(last_key_seen, amount)
+    _inner_ensure_reminder_times : function(last_id_seen, amount)
     {
         var self = this;
 
         var parameters = {};
         parameters["amount"] = amount.toString();
-        if (last_key_seen != null)
+        if (last_id_seen != null)
         {
-            parameters["last_key_seen"] = last_key_seen;
+            parameters["last_id_seen"] = last_id_seen.toString();
         }
                 
         new Ajax.Request
@@ -2638,13 +2638,14 @@ var DatabaseUpdateController = Class.create({
             "/cron/ensure-reminder-times/",
             {
                 method: 'POST',
+                parameters: parameters,
                 
                 onSuccess: function(result)
                 {
                     var json = eval_json(result.responseText);
                     if (json['success'])
                     {
-                        self._handle_ensure_url_response(amount, json['amount_found'], json['amount_modified'], json['new_last_key']);
+                        self._handle_ensure_url_response(amount, json['amount_found'], json['amount_modified'], json['new_last_id']);
                     }
                     else
                     {
@@ -2662,14 +2663,14 @@ var DatabaseUpdateController = Class.create({
         );
     },
 
-    _handle_ensure_url_response : function(amount, amount_found, amount_modified, new_last_key)
+    _handle_ensure_url_response : function(amount, amount_found, amount_modified, new_last_id)
     {
         this.total_found += amount_found;
         this.total_modified += amount_modified;
         if (amount_found > 0)
         {
             $("updating").innerHTML = "UPDATING: Modified " + this.total_modified.toString() + " out of " + this.total_found.toString() + ".";
-            this._inner_ensure_reminder_times(new_last_key, amount);            
+            this._inner_ensure_reminder_times(new_last_id, amount);            
         }
         else
         {

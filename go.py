@@ -2262,9 +2262,9 @@ class EnsureReminderTimesHandler(GoHandler):
         try:
             # get our request data
             try:
-                last_key_seen = self.request.get('last_key_seen')
+                last_id_seen = int(self.request.get('last_id_seen'))                
             except:
-                last_key_seen = None
+                last_id_seen = 0
 
             try:
                 amount = int(self.request.get('amount'))
@@ -2272,29 +2272,27 @@ class EnsureReminderTimesHandler(GoHandler):
                 amount = 10
 
             # get some games -- if a key is specified, start there.
-            if (last_key_seen is None) or len(last_key_seen) < 1:
+            if last_id_seen == 0:
                 query = db.GqlQuery('SELECT * from Game ORDER BY __key__')
                 games = query.fetch(amount)
             else:
-                last_entity = Game.get_by_key_name(last_key_seen)
-                last_key = last_entity.key()
-                query = db.GqlQuery('SELECT * from Game WHERE __key__ > :1 ORDER BY __key__', last_key)
+                last_key_seen = db.Key.from_path('Game', last_id_seen)
+                query = db.GqlQuery('SELECT * from Game WHERE __key__ > :1 ORDER BY __key__', last_key_seen)
                 games = query.fetch(amount)
 
             # sanity check
             if games is None:
-                self.render_json({'success': True, 'amount_found': 0, 'amount_modified': 0, 'new_last_key': ''})
+                self.render_json({'success': True, 'amount_found': 0, 'amount_modified': 0, 'new_last_id': -1})
             else:
                 # figure out what the next key will be -- we've got to do
                 # this stuff in batches, after all
                 amount_found = len(games)
                 if amount_found < 1:
                     last_item = None
-                    new_last_key = ""
+                    new_last_id = -1
                 else:
-                    logging.info(repr(games))
                     last_item = games[-1]
-                    new_last_key = last_item.key().name()
+                    new_last_id = int(last_item.key().id())
 
                 # batch up any games that are missing a key
                 games_to_write = []
@@ -2316,20 +2314,17 @@ class EnsureReminderTimesHandler(GoHandler):
                         db.put(games_to_write)
                     except:
                         db.put(games_to_write)
-
-                logging.info("AMOUNT FOUND: %d; AMOUNT MODIFIED: %d" % (amount_found, len(games_to_write)))
-                logging.info("new last key: %s" % new_last_key)
                 
-                self.render_json({'success': True, 'amount_found': amount_found, 'amount_modified': len(games_to_write), 'new_last_key': new_last_key})
+                self.render_json({'success': True, 'amount_found': amount_found, 'amount_modified': len(games_to_write), 'new_last_id': new_last_id})
         except:
-            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': game_count})
-
+            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': 0})
             
 class UpdateDatabaseHandler(GoHandler):
     def __init__(self):
         super(UpdateDatabaseHandler, self).__init__()
 
     def get(self, *args):
+        self.response.headers['Content-Type'] = "text/plain"
         self.render_template("update-database.html", {})
             
 class SendRemindersHandler(GoHandler):
@@ -2377,7 +2372,8 @@ class SendRemindersHandler(GoHandler):
             self.render_json_as_text({'success': False, 'Error': ExceptionHelper.exception_string(), 'message': message})
         else:
             self.render_json_as_text({'success': True, 'message': message})
-        
+
+            
 #------------------------------------------------------------------------------
 # Main WebApp Code
 #------------------------------------------------------------------------------
