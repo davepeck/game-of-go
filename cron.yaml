@@ -19,5 +19,5 @@
 cron:
 - description: check for games that haven't been played in a while
   url: /cron/send-reminders/
-  schedule: every 10 minutes
+  schedule: every 3 minutes
   
