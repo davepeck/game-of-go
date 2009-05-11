@@ -51,8 +51,8 @@
               {% endfor %}
           </table>
        </div>
-       <div id="board_extras" {% if show_grid_python %}class="extras_grid"{% endif %}><a href="/options/{{your_cookie}}/" class="extra_link">options</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a>
-        <span id="grid_information">
+       <div id="board_extras" {% if show_grid_python %}class="extras_grid"{% endif %}><a href="/options/{{your_cookie}}/" class="extra_link">options</a> | <a href="/history/{{your_cookie}}/" id="view_history" class="{% if has_last_move %}extra_link{% else %}disabled_extra_link{% endif %}">view history</a> | <a href="javascript:document.location=['mxilto',':dxv','zpzck','@','dxv','zpzc','k.org', '?subject=Your Go Game...'].join('').replace(/x/g,'a').replace(/z/g, 'e');" class="extra_link">send feedback</a>
+       <span id="grid_information">
             <span id="grid_location">&nbsp;</span>
             <img id="grid_button" src="/img/transparent-1x1.png" class="{% if show_grid_python %}grid_enabled{% else %}grid_disabled{% endif %}" alt="Click this to toggle the grid on and off. Shift-click a square to chat about it." title="Click this to toggle the grid on and off. Shift-click a square to chat about it." />
         </span>
