@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 2remind
+version: 2twitterfix
 runtime: python
 api_version: 1
 

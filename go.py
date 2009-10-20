@@ -86,6 +86,12 @@ def pos_to_coord(pos):
 # Exception Handling & AppEngine Helpers
 #------------------------------------------------------------------------------
 
+# Work around dev_appserver limitations (stdout goes to browser.)
+def BREAKPOINT():
+  import pdb
+  p = pdb.Pdb(None, sys.__stdin__, sys.__stdout__)
+  p.set_trace()
+
 class ExceptionHelper:
     @staticmethod
     def _typename(t):
@@ -611,6 +617,14 @@ Hi %s,
 # Twitter Support
 #------------------------------------------------------------------------------
 
+class TwitterBuffer(object):
+    def __init__(self, text):
+        super(TwitterBuffer, self).__init__()
+        self._text = text
+        
+    def read(self):
+        return self._text
+        
 class TwitterHelper(object):
     @staticmethod
     def _open_basic_auth_url(username, password, url, params):
@@ -618,15 +632,29 @@ class TwitterHelper(object):
         data = None
         if params is not None:
             data = urllib.urlencode(params)
+        # BREAKPOINT()
         req = urllib2.Request(url, data)
         base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
         authheader =  "Basic %s" % base64string
         req.add_header("Authorization", authheader)
         try:
             handle = urllib2.urlopen(req)
-        except:
-            logging.warn("Failed to make twitter request: %s" % ExceptionHelper.exception_string())
-            return None
+        except urllib2.HTTPError, e:
+            raw_message = e.read()
+            message = raw_message
+            try:
+                message = simplejson.loads(message)[u'error']
+            except:
+                pass
+            logging.warn("Got HTTP %d during twitter request for URL %s: %s" % (e.code, url, message))
+            # HACK HACK HACK to get around the new (and, I think, bad) change to the twitter API
+            # that causes an HTTP 403 (forbidden) to get returned on friendship creation 
+            # IF you're already following that person. 403 seems like the wrong answer, and it
+            # screws up the design of my code...            
+            if (e.code == 403) and ('friendships/create' in url):
+                return TwitterBuffer(raw_message)
+            else:
+                return None            
         return handle
 
     @staticmethod
@@ -639,7 +667,7 @@ class TwitterHelper(object):
         except:
             logging.warn("Couldn't process json result from twitter: %s" % ExceptionHelper.exception_string())
             return None
-        return result        
+        return result
     
     @staticmethod
     def _make_twitter_call(url, params):
@@ -679,7 +707,7 @@ class TwitterHelper(object):
     @staticmethod
     def does_follow(a, b):
         # Does "a" follow "b"?
-        return TwitterHelper._make_boolean_twitter_call("http://twitter.com/friendships/exists.json", {"user_a": a, "user_b": b})
+        return TwitterHelper._make_boolean_twitter_call("http://twitter.com/friendships/exists.json?user_a=%s&user_b=%s" % (a, b), None)
 
     @staticmethod
     def are_mutual_followers(a, b):
@@ -696,7 +724,8 @@ class TwitterHelper(object):
     @staticmethod
     def create_follow(a, b, a_password):
         # {"ignore": "this"} forces a POST
-        return TwitterHelper._make_success_twitter_call_as("http://twitter.com/friendships/create/%s.json?follow=true" % b, {"ignore": "this"}, a, a_password)
+        # NOTE: WAS _make_success_twitter_call_as, but they changed the API -- you now get a HTTP 403 when you attempt to follow someone you're already following.
+        return TwitterHelper._make_twitter_call_as("http://twitter.com/friendships/create/%s.json?follow=true" % b, {"ignore": "this"}, a, a_password)
 
     @staticmethod
     def does_go_account_follow_user(user):
