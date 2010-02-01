@@ -22,8 +22,8 @@
 # on github. (Sorry, but I can't give carte blanche to my twitter accounts :-)
 #------
 
-twitter_user = "davepeckgo"
-twitter_pass = "SECR3T"
+twitter_user = "twitter_screen_name"
+twitter_pass = "twitter_password"
 
 dashboard_user = "dashboard"
 dashboard_pass = "dashboard"
