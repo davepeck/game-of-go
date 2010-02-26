@@ -242,17 +242,13 @@ class GameBoard(object):
             if count == 0:
                 captures.append(connected)
 
-        # remove duplicate captures
-        nodup_captures = []
-        for capture in captures:
-            if capture not in nodup_captures:
-                nodup_captures.append(capture)
-
-        # flatten all captured stones into one batch
+        # flatten all captured stones into one (duplicate-free) batch
         final_captures = []
-        for capture in nodup_captures:
+        for capture in captures:
             for x, y in capture:
-                final_captures.append((x, y))
+                # Remove duplicates (n^2 operation but shouldn't be bad in even extreme go cases)
+                if (x, y) not in final_captures:
+                    final_captures.append((x, y))
 
         return (ataris, final_captures)
 
