@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 2twitterfix
+version: 3-liberty-count-fix
 runtime: python
 api_version: 1
 
