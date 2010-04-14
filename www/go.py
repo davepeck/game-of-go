@@ -291,6 +291,7 @@ class GameState(object):
         self.current_move_number = 0
         self.last_move = (-1, -1)
         self.last_move_was_pass = False
+        self.marking_dead_stones = False
     
     def get_board(self):
         return self.board
@@ -342,6 +343,12 @@ class GameState(object):
 
     def set_last_move_was_pass(self, was_pass):
         self.last_move_was_pass = was_pass
+
+    def get_marking_dead_stones(self):
+        return self.marking_dead_stones
+
+    def set_marking_dead_stones(self, marking_dead):
+        self.marking_dead_stones = marking_dead
         
     def clone(self):
         clone = GameState()
@@ -353,6 +360,7 @@ class GameState(object):
         clone.board = self.board.clone()
         clone.last_move = self.last_move
         clone.last_move_was_pass = self.last_move_was_pass
+        clone.marking_dead_stones = self.marking_dead_stones
         return clone
 
 class ChatEntry(object):
@@ -1393,6 +1401,8 @@ class PlayGameHandler(GoHandler):
             'last_move_was_pass': "true" if state.get_last_move_was_pass() else "false",
             'last_move_was_pass_python': state.get_last_move_was_pass(),
             'has_last_move': last_move_x != -1,
+            'marking_dead_stones' : "true" if game.marking_dead_stones else "false",
+            'marking_dead_stones_python' : game.marking_dead_stones,
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
@@ -1592,8 +1602,9 @@ class PassHandler(GoHandler):
         previous_also_passed = state.get_last_move_was_pass()        
 
         if previous_also_passed:
-            move_message = "The game is over!" 
-            game.is_finished = True
+            move_message = "Mark the dead stones. Click done when finished. If you and your opponent agree, the game will end and be scored." 
+            # TODO(awong): Needs set game.is_finished = True after hitting done.
+            new_state.set_marking_dead_stones(True)
         else:
             move_message = "Your opponent passed. You can make a move, or you can pass again to end the game."
         new_state.set_last_move_message(move_message)
