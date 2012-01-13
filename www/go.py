@@ -73,6 +73,17 @@ class CONST(object):
     # "I" is purposfully skipped because, historically, people got confused between "I" and "J"
     Column_Names = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]    
 
+def handicap_position(stone, handicap, size_index, version):
+    # Placement of the centre stone was changed in version 1.
+    if version >= 1 and stone >= 4 and (handicap == 6 or handicap == 8):
+        # If the handicap is 6 or 8, skip the centre stone.
+        return CONST.Handicap_Positions[size_index][stone + 1]
+    else
+        return CONST.Handicap_Positions[size_index][stone]
+
+def handicap_positions(handicap, size_index, version):
+    return [handicap_position(i, handicap, size_index, version) for i in range(handicap)]
+
 def opposite_color(color):
     return 3 - color
 
@@ -142,6 +153,7 @@ class GameBoard(object):
         self.height = CONST.Board_Sizes[board_size_index][1]
         self.size_index = board_size_index
         self.handicap_index = handicap_index
+        self._version = 1 # this field should be accessed via get_version
         self._make_board()
         self._apply_handicap()
         
@@ -151,9 +163,9 @@ class GameBoard(object):
             self.board.append( [CONST.No_Color] * self.height )
     
     def _apply_handicap(self):
-        stones_handicap = CONST.Handicaps[self.handicap_index]
-        positions_handicap = CONST.Handicap_Positions[self.size_index]
-        for i in range(stones_handicap):
+        positions_handicap = self.get_handicap_positions()
+
+        for i in range(self.get_handicap()):
             self.set(positions_handicap[i][0], positions_handicap[i][1], CONST.Black_Color)                    
     
     def get(self, x, y):
@@ -170,6 +182,16 @@ class GameBoard(object):
 
     def get_size_index(self):
         return self.size_index
+
+    def get_handicap_positions(self):
+        return handicap_positions(self.get_handicap(), self.size_index, self.get_version())
+
+    def get_version(self):
+        # Since "_version" is new, it won't exist for old game pickles.
+        try:
+            return self._version
+        except:
+            return 0
 
     def get_column_names(self):
         return CONST.Column_Names[:self.width]
@@ -2208,8 +2230,8 @@ class SGFHandler(GoHandler):
         board = current_state.get_board()
 
         handicap = board.get_handicap()
-        positions_handicap = CONST.Handicap_Positions[board.get_size_index()]
-        handicap_stones = [pos_to_coord(positions_handicap[i]) for i in range(handicap)]
+        positions_handicap = board.get_handicap_positions()
+        handicap_stones = [pos_to_coord(positions_handicap[i]) for i in range(board.get_handicap())]
 
         # Build a dict of all the games chat messages.
         chat_blobs = game.get_chat_history_blobs()
