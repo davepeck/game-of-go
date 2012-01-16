@@ -423,7 +423,7 @@ tr.not_your_turn, span.not_your_turn
     color: #BBB;
 }
 
-#start_game input, #game_options input
+#start_game input, #game_options input, #current_move_number
 {
     background: #383838;
     color: #BBB;
@@ -435,9 +435,17 @@ tr.not_your_turn, span.not_your_turn
     outline: none;
 }    
 
-#start_game input:focus, #game_options input:focus
+#start_game input:focus, #game_options input:focus, #current_move_number:focus
 {
     border: solid 1px #DDB45C;
+}
+
+#current_move_number
+{
+    font-size: 1em;
+    line-height: 1em;
+    width: 2.5em;
+    text-align: center;
 }
 
 .adjust
@@ -856,7 +864,7 @@ p.flash
     padding-left: 1.5em;
 }
 
-#game_options input
+#game_options input, #current_move_number
 {
     vertical-align: middle;
 }

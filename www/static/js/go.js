@@ -2229,6 +2229,15 @@ var HistoryController = Class.create({
         this.set_move_number(this.current_move_number + 1);
     },
 
+    goto_move : function()
+    {
+        new_move = parseInt($("current_move_number").value);
+        if (isNaN(new_move) || new_move < 0 || new_move > this.max_move_number)
+            $("current_move_number").value = this.current_move_number;
+        else if (new_move != this.current_move_number)
+            this.set_move_number(new_move);
+    },
+
     last : function()
     {
         this.set_move_number(this.max_move_number);
@@ -2301,7 +2310,7 @@ var HistoryController = Class.create({
         $("black_stones_captured").update(black_stones_captured.toString());
 
         this.current_move_number = current_move_number;
-        $("current_move_number").update(current_move_number.toString());
+        $("current_move_number").value = current_move_number.toString();
 
         this.last_move_message = last_move_message; /* TODO anything we can do with this? */
 
