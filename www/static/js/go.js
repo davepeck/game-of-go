@@ -352,6 +352,7 @@ var GetGoing = Class.create({
                 "your_color": this.your_color,
                 "board_size_index": this.board_size_index,
                 "handicap_index": this.handicap_index,
+                "komi_index": this.komi_index,
                 "your_contact_type": this.your_contact_type,
                 "opponent_contact_type": this.opponent_contact_type
             };
