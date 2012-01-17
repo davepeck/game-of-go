@@ -11,6 +11,10 @@
             <div>
                 <table>
                     <tr>
+                        <td></td>
+                        <td colspan="2" class="divide">The board is <a href="javascript:get_going.rotate_board_sizes();" class="subtle-link" id="board_size" tabindex="7">19 x 19</a>.</td>
+                    </tr>
+                    <tr>
                         <th>Your name:</th>
                         <td><input type="text" id="your_name" tabindex="1" class="adjust"></input></td>
                         <td class="divide">You are <a href="javascript:get_going.swap_colors()" id="your_color" class="subtle-link" tabindex="5">black</a>.</td>
@@ -18,17 +22,17 @@
                     <tr>                  
                         <th>Your <a id="your_contact_type" href="javascript:get_going.swap_your_contact_type()" class="subtle-link" tabindex="8">email</a>:</th>
                         <td><input type="text" id="your_contact" tabindex="2" class="adjust"></input></td>
-                        <td class="divide">Your opponent is <a href="javascript:get_going.swap_colors()" class="subtle-link" id="opponent_color">white</a>.</td>
+                        <td class="divide"><span id="your_color2">Black</span> <a id="your_handicap" href="javascript:get_going.rotate_your_handicap();" class="subtle-link" tabindex="6">plays first</a>.</td>
                     </tr>
                     <tr>
                         <th>Opponent&#146;s name:</th>
                         <td><input type="text" id="opponent_name" tabindex="3" class="adjust"></input></td>                        
-                        <td class="divide">Black <a id="handicap" href="javascript:get_going.rotate_handicap();" class="subtle-link" tabindex="6">plays first</a>.</td>
+                        <td class="divide">Your opponent is <a href="javascript:get_going.swap_colors()" class="subtle-link" id="opponent_color">white</a>.</td>
                     </tr>
                     <tr>
                         <th>Opponent&#146;s <a id="opponent_contact_type" href="javascript:get_going.swap_opponent_contact_type()" class="subtle-link" tabindex="8">email</a>:</th>
                         <td><input type="text" id="opponent_contact" tabindex="4" class="adjust"></input></td>
-                        <td class="divide">The board is <a href="javascript:get_going.rotate_board_sizes();" class="subtle-link" id="board_size" tabindex="7">19 x 19</a>.</td>
+                        <td class="divide"><span id="opponent_color2">White</span> <a id="opponent_handicap" href="javascript:get_going.rotate_opponent_handicap();" class="subtle-link" tabindex="6">has six komi</a>.</td>
                     </tr>
                 </table>
             </div>
