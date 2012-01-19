@@ -2315,9 +2315,9 @@ var HistoryController = Class.create({
 
     goto_move : function()
     {
-        new_move = parseInt($("current_move_number").value);
+        new_move = parseInt($("current_move_number").value, 10);
         if (isNaN(new_move) || new_move < 0 || new_move > this.max_move_number)
-            $("current_move_number").value = this.current_move_number;
+            this.sync_move_number();
         else if (new_move != this.current_move_number)
             this.set_move_number(new_move);
     },
@@ -2373,6 +2373,7 @@ var HistoryController = Class.create({
                     else
                     {
                         self._display_error(response['flash']);
+                        self.sync_move_number();
                     }
                 },
 
@@ -2380,6 +2381,7 @@ var HistoryController = Class.create({
                 {
                     self._stop_loading();
                     self._display_error("Sorry, but an unexpected error occured. Try again later.");
+                    self.sync_move_number();
                 }
             }
         );        
@@ -2394,7 +2396,7 @@ var HistoryController = Class.create({
         $("black_stones_captured").update(black_stones_captured.toString());
 
         this.current_move_number = current_move_number;
-        $("current_move_number").value = current_move_number.toString();
+        this.sync_move_number();
 
         this.last_move_message = last_move_message; /* TODO anything we can do with this? */
 
@@ -2419,6 +2421,11 @@ var HistoryController = Class.create({
     {
         $("history_error").update(message);
         $("history_error").removeClassName("hide");        
+    },
+
+    sync_move_number : function()
+    {
+        $("current_move_number").value = this.current_move_number.toString();
     },
 
     _hide_error : function()
