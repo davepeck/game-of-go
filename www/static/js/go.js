@@ -34,6 +34,9 @@ CONST.Star_Ordinals = [[3, 9, 15], [3, 6, 9], [2, 4, 6]];
 CONST.Board_Size_Names = ['19 x 19', '13 x 13', '9 x 9'];
 CONST.Handicaps = [0, 9, 8, 7, 6, 5, 4, 3, 2];
 CONST.Handicap_Names = ['plays first', 'has a nine stone handicap', 'has an eight stone handicap', 'has a seven stone handicap', 'has a six stone handicap', 'has a five stone handicap', 'has a four stone handicap', 'has a three stone handicap', 'has a two stone handicap'];
+CONST.Komis = [6.5, 5.5, 0.5, -4.5, -5.5];
+CONST.Komi_Names = ['has six komi', 'has five komi', 'has no komi', 'has five reverse komi', 'has six reverse komi'];
+CONST.Komi_None = 2;
 CONST.Email_Contact = "email";
 CONST.Twitter_Contact = "twitter";
 CONST.No_Contact = "none";
@@ -162,6 +165,11 @@ var GetGoing = Class.create({
         this.opponent_color = CONST.White_Color;
         this.board_size_index = 0;
         this.handicap_index = 0;
+        this.handicap_id = "your_handicap";
+        this.komi_index = 0;
+        this.komi_id = "opponent_handicap";
+
+        this.auto_komi = true;
 
         this.your_contact_type = CONST.Email_Contact;
         this.opponent_contact_type = CONST.Email_Contact;
@@ -216,15 +224,27 @@ var GetGoing = Class.create({
         {
             this.your_color = CONST.White_Color;
             this.opponent_color = CONST.Black_Color;
+            this.komi_id = "your_handicap";
+            this.handicap_id = "opponent_handicap";
             $("your_color").update("white");
+            $("your_color2").update("White");
+            $("your_handicap").update(CONST.Komi_Names[this.komi_index]);
             $("opponent_color").update("black");            
+            $("opponent_color2").update("Black");            
+            $("opponent_handicap").update(CONST.Handicap_Names[this.handicap_index]);
         }
         else
         {
             this.your_color = CONST.Black_Color;
             this.opponent_color = CONST.White_Color;
+            this.handicap_id = "your_handicap";
+            this.komi_id = "opponent_handicap";
             $("your_color").update("black");
+            $("your_color2").update("Black");
+            $("your_handicap").update(CONST.Handicap_Names[this.handicap_index]);
             $("opponent_color").update("white");
+            $("opponent_color2").update("White");
+            $("opponent_handicap").update(CONST.Komi_Names[this.komi_index]);
         }            
     },
     
@@ -244,7 +264,7 @@ var GetGoing = Class.create({
             if (CONST.Handicaps[this.handicap_index] > 5)
             {
                 this.handicap_index = 5; // a little sloppy
-                $("handicap").update(CONST.Handicap_Names[this.handicap_index]);
+                this.update_handicap();
             }            
         }
     },
@@ -262,7 +282,61 @@ var GetGoing = Class.create({
             this.handicap_index = 5;
         }
         
-        $("handicap").update(CONST.Handicap_Names[this.handicap_index]);
+        this.update_handicap();
+    },
+    
+    update_handicap : function()
+    {
+        $(this.handicap_id).update(CONST.Handicap_Names[this.handicap_index]);
+
+        if (this.auto_komi)
+            this.auto_update_komi();
+    },
+
+    rotate_komi : function()
+    {
+        this.auto_komi = false;
+        this.komi_index += 1;
+        if (this.komi_index >= CONST.Komi_Names.length)
+        {
+            this.komi_index = 0;
+        }
+        
+        this.update_komi();
+    },
+
+    update_komi : function()
+    {
+        $(this.komi_id).update(CONST.Komi_Names[this.komi_index]);
+    },
+
+    auto_update_komi : function()
+    {
+        if (this.handicap_index == 0)
+            komi_index = 0;
+        else
+            komi_index = CONST.Komi_None;
+
+        if (this.komi_index != komi_index) {
+            this.komi_index = komi_index;
+            this.update_komi();
+        }
+    },
+
+    rotate_your_handicap : function()
+    {
+        if (this.your_color == CONST.Black_Color)
+            this.rotate_handicap();
+        else
+            this.rotate_komi();
+    },
+    
+    rotate_opponent_handicap : function()
+    {
+        if (this.opponent_color == CONST.Black_Color)
+            this.rotate_handicap();
+        else
+            this.rotate_komi();
     },
     
     create_game : function()
@@ -278,6 +352,7 @@ var GetGoing = Class.create({
                 "your_color": this.your_color,
                 "board_size_index": this.board_size_index,
                 "handicap_index": this.handicap_index,
+                "komi_index": this.komi_index,
                 "your_contact_type": this.your_contact_type,
                 "opponent_contact_type": this.opponent_contact_type
             };
@@ -2229,6 +2304,15 @@ var HistoryController = Class.create({
         this.set_move_number(this.current_move_number + 1);
     },
 
+    goto_move : function()
+    {
+        new_move = parseInt($("current_move_number").value, 10);
+        if (isNaN(new_move) || new_move < 0 || new_move > this.max_move_number)
+            this.sync_move_number();
+        else if (new_move != this.current_move_number)
+            this.set_move_number(new_move);
+    },
+
     last : function()
     {
         this.set_move_number(this.max_move_number);
@@ -2280,6 +2364,7 @@ var HistoryController = Class.create({
                     else
                     {
                         self._display_error(response['flash']);
+                        self.sync_move_number();
                     }
                 },
 
@@ -2287,6 +2372,7 @@ var HistoryController = Class.create({
                 {
                     self._stop_loading();
                     self._display_error("Sorry, but an unexpected error occured. Try again later.");
+                    self.sync_move_number();
                 }
             }
         );        
@@ -2301,7 +2387,7 @@ var HistoryController = Class.create({
         $("black_stones_captured").update(black_stones_captured.toString());
 
         this.current_move_number = current_move_number;
-        $("current_move_number").update(current_move_number.toString());
+        this.sync_move_number();
 
         this.last_move_message = last_move_message; /* TODO anything we can do with this? */
 
@@ -2326,6 +2412,11 @@ var HistoryController = Class.create({
     {
         $("history_error").update(message);
         $("history_error").removeClassName("hide");        
+    },
+
+    sync_move_number : function()
+    {
+        $("current_move_number").value = this.current_move_number.toString();
     },
 
     _hide_error : function()

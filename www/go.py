@@ -65,6 +65,9 @@ class CONST(object):
         [(15, 3), (3, 15), (15, 15), (3, 3), (9, 9), (3, 9), (15, 9), (9, 3), (9, 15)],
         [(9, 3), (3, 9), (9, 9), (3, 3), (6, 6), (3, 6), (9, 6), (6, 3), (6, 9)],
         [(6, 2), (2, 6), (6, 6), (2, 2), (4, 4)]]
+    Komis = [6.5, 5.5, 0.5, -4.5, -5.5]
+    Komi_Names = ['has six komi', 'has five komi', 'has no komi', 'has five reverse komi', 'has six reverse komi']
+    Komi_None = 2
     Email_Contact = "email"
     Twitter_Contact = "twitter"
     No_Contact = "none"
@@ -72,6 +75,17 @@ class CONST(object):
     
     # "I" is purposfully skipped because, historically, people got confused between "I" and "J"
     Column_Names = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]    
+
+def handicap_position(stone, handicap, size_index, version):
+    # Placement of the centre stone was changed in version 1.
+    if version >= 1 and stone >= 4 and (handicap == 6 or handicap == 8):
+        # If the handicap is 6 or 8, skip the centre stone.
+        return CONST.Handicap_Positions[size_index][stone + 1]
+    else
+        return CONST.Handicap_Positions[size_index][stone]
+
+def handicap_positions(handicap, size_index, version):
+    return [handicap_position(i, handicap, size_index, version) for i in range(handicap)]
 
 def opposite_color(color):
     return 3 - color
@@ -136,12 +150,19 @@ class AppEngineHelper:
 #------------------------------------------------------------------------------
 
 class GameBoard(object):
-    def __init__(self, board_size_index = 0, handicap_index = 0):
+    def __init__(self, board_size_index = 0, handicap_index = 0, komi_index = 0):
         super(GameBoard, self).__init__()
         self.width = CONST.Board_Sizes[board_size_index][0]
         self.height = CONST.Board_Sizes[board_size_index][1]
         self.size_index = board_size_index
         self.handicap_index = handicap_index
+
+        # v1: access via get_version.
+        self._version = 2
+
+        # v2: access via get_komi_index.
+        self._komi_index = komi_index
+        
         self._make_board()
         self._apply_handicap()
         
@@ -151,9 +172,9 @@ class GameBoard(object):
             self.board.append( [CONST.No_Color] * self.height )
     
     def _apply_handicap(self):
-        stones_handicap = CONST.Handicaps[self.handicap_index]
-        positions_handicap = CONST.Handicap_Positions[self.size_index]
-        for i in range(stones_handicap):
+        positions_handicap = self.get_handicap_positions()
+
+        for i in range(self.get_handicap()):
             self.set(positions_handicap[i][0], positions_handicap[i][1], CONST.Black_Color)                    
     
     def get(self, x, y):
@@ -171,6 +192,16 @@ class GameBoard(object):
     def get_size_index(self):
         return self.size_index
 
+    def get_handicap_positions(self):
+        return handicap_positions(self.get_handicap(), self.size_index, self.get_version())
+
+    def get_version(self):
+        # Since "_version" is new, it won't exist for old game pickles.
+        try:
+            return self._version
+        except:
+            return 0
+
     def get_column_names(self):
         return CONST.Column_Names[:self.width]
 
@@ -180,11 +211,17 @@ class GameBoard(object):
             row_names.append(str(i))
         return row_names
 
-    def get_komi(self):
-        if self.handicap_index:
-            return 0.5
+    def get_komi_index(self):
+        if self.get_version() >= 2:
+            return self._komi_index
         else:
-            return 6.5
+            if self.handicap_index:
+                return CONST.Komi_None
+            else:
+                return 0
+
+    def get_komi(self):
+        return CONST.Komis[self.get_komi_index()]
 
     def get_handicap(self):
         return CONST.Handicaps[self.handicap_index]
@@ -1109,12 +1146,12 @@ class CreateGameHandler(GoHandler):
     def require_twitter_password(self, flash):
         self.render_json({'success': True, 'need_your_twitter_password': True, 'flash': flash})    
 
-    def create_game(self, your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index):
+    def create_game(self, your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index, komi_index):
         # Create cookies for accessing the game        
         your_cookie, opponent_cookie = GameCookie.unique_pair()                
 
         # Create the game state and board blobs
-        board = GameBoard(board_size_index, handicap_index)
+        board = GameBoard(board_size_index, handicap_index, komi_index)
         state = GameState()
         state.set_board(board)
         state.whose_move = CONST.Black_Color if CONST.Handicaps[handicap_index] == 0 else CONST.White_Color
@@ -1210,6 +1247,7 @@ class CreateGameHandler(GoHandler):
             your_color = int(self.request.POST.get("your_color"))
             board_size_index = int(self.request.POST.get("board_size_index"))
             handicap_index = int(self.request.POST.get("handicap_index"))
+            komi_index = int(self.request.POST.get("komi_index"))
             your_contact_type = self.request.POST.get("your_contact_type")
             opponent_contact_type = self.request.POST.get("opponent_contact_type")
         except:
@@ -1231,6 +1269,10 @@ class CreateGameHandler(GoHandler):
         
         if (handicap_index < 0) or (handicap_index >= len(CONST.Handicaps)):
             self.fail("Invalid handicap.")
+            return
+            
+        if (komi_index < 0) or (komi_index >= len(CONST.Komis)):
+            self.fail("Invalid komi.")
             return
             
         if not self.is_valid_name(your_name):
@@ -1290,7 +1332,7 @@ class CreateGameHandler(GoHandler):
             # success -- opponent is following @davepeckgo
             
         try:
-            your_cookie, your_turn = self.create_game(your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index) 
+            your_cookie, your_turn = self.create_game(your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index, komi_index) 
             self.success(your_cookie, your_turn)
         except:
             logging.error("An unexpected error occured in CreateGameHandler: %s" % ExceptionHelper.exception_string())
@@ -1375,6 +1417,7 @@ class PlayGameHandler(GoHandler):
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
             'board_class': board.get_class(),
+            'komi': board.get_komi(),
             'show_grid': "true" if player.get_safe_show_grid() else "false",
             'show_grid_python': player.get_safe_show_grid(),
             'row_names': board.get_row_names(),
@@ -2208,8 +2251,8 @@ class SGFHandler(GoHandler):
         board = current_state.get_board()
 
         handicap = board.get_handicap()
-        positions_handicap = CONST.Handicap_Positions[board.get_size_index()]
-        handicap_stones = [pos_to_coord(positions_handicap[i]) for i in range(handicap)]
+        positions_handicap = board.get_handicap_positions()
+        handicap_stones = [pos_to_coord(positions_handicap[i]) for i in range(board.get_handicap())]
 
         # Build a dict of all the games chat messages.
         chat_blobs = game.get_chat_history_blobs()
