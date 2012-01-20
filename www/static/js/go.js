@@ -2255,6 +2255,7 @@ var HistoryCacheItem = Class.create({
     {
         this.is_cached = false;
     },
+
     save : function(board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
     {
         this.board_state_string    = board_state_string;
@@ -2266,7 +2267,9 @@ var HistoryCacheItem = Class.create({
         this.last_move_was_pass    = last_move_was_pass;
         this.whose_move            = whose_move;
         this.is_cached = true;
-    }
+    },
+    
+    i_hate_trailing_commas : function() {}
 });
 
 var HistoryCache = Class.create({
@@ -2286,10 +2289,12 @@ var HistoryCache = Class.create({
         return this.move(move_number).is_cached;
     },
 
-    move : function(move)
+    get_move : function(move)
     {
         return this.items[move_number];
-    }
+    },
+    
+    i_hate_trailing_commas : function() {}
 });
 
 var HistoryController = Class.create({            
@@ -2304,6 +2309,7 @@ var HistoryController = Class.create({
 
         this.max_move_number = max_move_number;
         this.current_move_number = max_move_number;
+        this.next_move_number = max_move_number;
 
         this.cache = new HistoryCache(max_move_number);
         this._save_move(max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
@@ -2341,19 +2347,12 @@ var HistoryController = Class.create({
 
     rewind : function()
     {
-        this.set_move_number(this.current_move_number - 1);
+        this.set_move_number(this.next_move_number - 1);
     },
 
     fast_forward : function()
     {
-        this.set_move_number(this.current_move_number + 1);
-    },
-
-    goto_move : function()
-    {
-        new_move = parseInt($("current_move_number").value, 10);
-        if (new_move != this.current_move_number)
-            this.set_move_number(new_move);
+        this.set_move_number(this.next_move_number + 1);
     },
 
     last : function()
@@ -2361,29 +2360,81 @@ var HistoryController = Class.create({
         this.set_move_number(this.max_move_number);
     },
 
+    goto_move : function()
+    {
+        new_move = parseInt($("current_move_number").value, 10);
+        this.set_move_number(new_move);
+    },
     
-    //--------------------------------------------------------------------------
-    // ajax state callbacks
-    //--------------------------------------------------------------------------    
+    update_next_move_number : function(new_number)
+    {
+        this.next_move_number = new_number;
+        this.sync_move_number();
+    },
+
+    sync_move_number : function()
+    {
+        $("current_move_number").value = this.next_move_number;
+    },
 
     set_move_number : function(new_number)
     {
-        // Check the cache... if the move isn't there, retrieve it.
-        if (!this.cache.has_move(new_number))
-            this.retrieve_move_number(new_number);
+        if (isNaN(new_number) || new_number < 0 || new_number > this.max_move_number) {
+            this.sync_move_number();
+            return;
+        }
 
+        if (this.next_move_number == new_number)
+            return;
+
+        this.update_next_move_number(new_number);
+
+        // Check the cache...
         if (this.cache.has_move(new_number))
-            // If we now know about the move, update.
-            this.update_to_move(new_number);
+            this.update_move_number();
         else
-            // Syncronize the move number, since something failed.
-            self.sync_move_number();
+            this.retrieve_move_number();
     },
 
-    _save_move : function(move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
+    update_move_number : function()
     {
-        this.cache.move(move_number).save(board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
+        if (this.next_move_number == this.current_move_number) { return; }
+
+        // Save this.next_move_number in a local variable to avoid race
+        // conditions.
+        var next_move_number = this.next_move_number;
+
+        var move = this.cache.get_move(next_move_number);
+        this.board.set_from_state_string(move.board_state_string);
+        this.board_view.update_dom();
+
+        $("white_stones_captured").update(move.white_stones_captured.toString());
+        $("black_stones_captured").update(move.black_stones_captured.toString());
+
+        this.current_move_number = next_move_number;
+
+        this.last_move_message = move.last_move_message; /* TODO anything we can do with this? */
+
+        this.last_move_x = move.last_move_x;
+        this.last_move_y = move.last_move_y;
+        this.last_move_was_pass = move.last_move_was_pass;
+        if (!move.last_move_was_pass)
+        {
+            this._hide_pass();
+            this.board_view.force_blink_at(move.last_move_x, move.last_move_y);
+        }
+        else
+        {
+            this._show_pass();
+            this.board_view.cancel_blink();
+        }
+        
+        this.whose_move = move.whose_move; /* TODO anything we can do with THIS? */
     },
+
+    //--------------------------------------------------------------------------
+    // ajax state callbacks
+    //--------------------------------------------------------------------------    
 
     retrieve_move_number : function(new_number)
     {
@@ -2427,6 +2478,7 @@ var HistoryController = Class.create({
                     else
                     {
                         self._display_error(response['flash']);
+                        self._check_number_after_error(new_number);
                     }
                 },
 
@@ -2434,51 +2486,31 @@ var HistoryController = Class.create({
                 {
                     self._stop_loading();
                     self._display_error("Sorry, but an unexpected error occured. Try again later.");
+                    self._check_number_after_error(new_number);
                 }
             }
         );        
     },
 
-    update_to_move : function(current_move_number)
+    _save_move : function(move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
     {
-        var move = this.cache.move(current_move_number);
-        this.board.set_from_state_string(move.board_state_string);
-        this.board_view.update_dom();
+        this.cache.get_move(move_number).save(board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
+        if (this.next_move_number == move_number)
+            this.update_move_number();
+    },
 
-        $("white_stones_captured").update(move.white_stones_captured.toString());
-        $("black_stones_captured").update(move.black_stones_captured.toString());
-
-        this.current_move_number = current_move_number;
-        this.sync_move_number();
-
-        this.last_move_message = move.last_move_message; /* TODO anything we can do with this? */
-
-        this.last_move_x = move.last_move_x;
-        this.last_move_y = move.last_move_y;
-        this.last_move_was_pass = move.last_move_was_pass;
-        if (!move.last_move_was_pass)
-        {
-            this._hide_pass();
-            this.board_view.force_blink_at(move.last_move_x, move.last_move_y);
-        }
-        else
-        {
-            this._show_pass();
-            this.board_view.cancel_blink();
-        }
-        
-        this.whose_move = move.whose_move; /* TODO anything we can do with THIS? */
+    _check_number_after_error : function(new_number)
+    {
+        // Only reset the move numbers of "new_number" is the next one to
+        // display.
+        if (this.next_move_number == new_number)
+            update_next_move_number(this.current_move_number);
     },
 
     _display_error : function(message)
     {
         $("history_error").update(message);
         $("history_error").removeClassName("hide");        
-    },
-
-    sync_move_number : function()
-    {
-        $("current_move_number").value = this.current_move_number.toString();
     },
 
     _hide_error : function()
