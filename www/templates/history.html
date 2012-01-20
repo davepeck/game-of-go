@@ -4,7 +4,7 @@
     <title>[Dave Peck's Go &raquo; History of {{black_name}} vs. {{white_name}}]</title>    
     {% include "head.html" %}
 </head>
-<body onload="init_history('{{your_cookie}}', {{your_color}}, {{board_size_index}}, '{{board_state_string}}', {{max_move_number}}, '{{last_move_message|addslashes}}', {{last_move_x}}, {{last_move_y}}, {{last_move_was_pass}}, {{whose_move}}, {{show_grid}})">
+<body onload="init_history('{{your_cookie}}', {{your_color}}, {{board_size_index}}, '{{board_state_string}}', {{white_stones_captured}}, {{black_stones_captured}}, {{max_move_number}}, '{{last_move_message|addslashes}}', {{last_move_x}}, {{last_move_y}}, {{last_move_was_pass}}, {{whose_move}}, {{show_grid}})">
    <!-- preload all relevant images since I use CSS to swap them out. -->
     <div id="preload" class="hide">
         <img src="/img/transparent-1x1.png" alt="transparent-1x1" />
