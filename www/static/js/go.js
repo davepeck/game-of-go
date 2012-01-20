@@ -2286,10 +2286,10 @@ var HistoryCache = Class.create({
     {
         if (isNaN(move_number) || move_number < 0 || move_number > this.max_move_number)
             return false;
-        return this.move(move_number).is_cached;
+        return this.get_move(move_number).is_cached;
     },
 
-    get_move : function(move)
+    get_move : function(move_number)
     {
         return this.items[move_number];
     },
@@ -2310,6 +2310,9 @@ var HistoryController = Class.create({
         this.max_move_number = max_move_number;
         this.current_move_number = max_move_number;
         this.next_move_number = max_move_number;
+
+        // Sync with the DOM to avoid a funny reload interaction.
+        this.sync_move_number();
 
         this.cache = new HistoryCache(max_move_number);
         this._save_move(max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
@@ -2393,7 +2396,7 @@ var HistoryController = Class.create({
         if (this.cache.has_move(new_number))
             this.update_move_number();
         else
-            this.retrieve_move_number();
+            this.retrieve_move_number(new_number);
     },
 
     update_move_number : function()
