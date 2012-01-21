@@ -527,7 +527,7 @@ p.flash
 
 .go
 {
-    margin: 0px 0px 0px -0.25em;
+    margin: -0.125em 0px 0px -0.25em;
     padding: 0px;
     color: #DDB45C;
     font-weight: bold;
