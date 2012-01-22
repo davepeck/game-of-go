@@ -66,9 +66,9 @@
 
             {% if any_captures %}
                 {% if you_are_black %}
-                <div id="capture_message">You have captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> stones; {{white_name}} has captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span> and has <span class="count" id="komi">{{komi}}</span> komi.</div>
+                <div id="capture_message">You have captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span> stones; {{white_name}} has captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> and has <span class="count" id="komi">{{komi}}</span> komi.</div>
                 {% else %}
-                <div id="capture_message">You have captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span> stones and have <span class="count" id="komi">{{komi}}</span> komi; {{black_name}} has captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span>.</div>
+                <div id="capture_message">You have captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> stones and have <span class="count" id="komi">{{komi}}</span> komi; {{black_name}} has captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span>.</div>
                 {% endif %}
             {% else %}
                 {% if you_are_black %}
