@@ -526,6 +526,7 @@ var GameBoard = Class.create({
 
         // empty out the board's contents
         this.board = null;
+        this.owner = null;
         this.speculation = null;        
         this._make_blank_board(); 
     },
@@ -540,21 +541,28 @@ var GameBoard = Class.create({
         return this.height;
     },
 
-    set_point : function(x, y, color, speculation)
+    set_point : function(x, y, color, owner, speculation)
     {
         this.board[x][y] = color;
+        this.owner[x][y] = owner;
         this.speculation[x][y] = speculation;
     },
 
     clear_point : function(x, y)
     {
         this.board[x][y] = CONST.No_Color;
+        this.owner[x][y] = CONST.No_Color;
         this.speculation[x][y] = false;
     },
 
     get_point : function(x, y)
     {
         return this.board[x][y];
+    },
+
+    get_owner : function(x, y)
+    {
+        return this.owner[x][y];
     },
 
     is_speculation : function(x, y)
@@ -572,6 +580,17 @@ var GameBoard = Class.create({
             {
                 this.speculation[x][y] = false;
 
+                // State string legend:
+                //  b = black stone
+                //  B = black stone; owned by black
+                //  C = black stone; owned by white
+                //  w = white stone
+                //  W = white stone; owned by white
+                //  X = white stone; owned by black
+                //  . = no stone
+                //  D = no stone; owned by black
+                //  Y = no stone; owned by white
+
                 // I NEVER knew this, but charAt() is the only x-browser-safe
                 // way to access individual characters in a string. Array
                 // notation works okay in chrome, firefox, and safari but
@@ -579,15 +598,36 @@ var GameBoard = Class.create({
                 switch (state_string.charAt(i))
                 {
                 case 'b':
+                case 'c':
                     this.board[x][y] = CONST.Black_Color;
                     break;
 
                 case 'w':
+                case 'x':
                     this.board[x][y] = CONST.White_Color;
                     break;
 
                 default:
                     this.board[x][y] = CONST.No_Color;
+                    break;
+                }
+
+                switch (state_string.charAt(i))
+                {
+                case 'B':
+                case 'D':
+                case 'X':
+                    this.owner[x][y] = CONST.Black_Color;
+                    break;
+
+                case 'W':
+                case 'C':
+                case 'Y':
+                    this.owner[x][y] = CONST.White_Color;
+                    break;
+
+                default:
+                    this.owner[x][y] = CONST.No_Color;
                     break;
                 }
 
@@ -603,7 +643,7 @@ var GameBoard = Class.create({
         {
             for (var y = 0; y < this.height; y++)
             {
-                cloned.set_point(x, y, this.board[x][y], this.speculation[x][y]);
+                cloned.set_point(x, y, this.board[x][y], this.owner[x][y], this.speculation[x][y]);
             }
         }
 
@@ -613,6 +653,7 @@ var GameBoard = Class.create({
     _make_blank_board : function()
     {
         this.board = [];
+        this.owner = [];
         this.speculation = [];
         
         for (var x = 0; x < this.width; x++)
@@ -627,6 +668,7 @@ var GameBoard = Class.create({
             }
 
             this.board.push(x_row);
+            this.owner.push(x_row);
             this.speculation.push(spec_row);
         }        
     }
@@ -913,6 +955,24 @@ var GameBoardView = Class.create({
                 return "/img/ghost-white.png";
             }          
         }
+        else
+        {
+            var o = this.board.get_owner(x, y);
+            if (o == CONST.Black_Color)
+            {
+                if (this.board.get_point(x, y) == CONST.White_Color)
+                    return "/img/dead-white.png";
+                else
+                    return "/img/territory-black.png";
+            }
+            else if (o == CONST.White_Color)
+            {
+                if (this.board.get_point(x, y) == CONST.Black_Color)
+                    return "/img/dead-black.png";
+                else
+                    return "/img/territory-white.png";
+            }
+        }
 
         return "/img/transparent-1x1.png";
     },
@@ -922,12 +982,13 @@ var GameBoardView = Class.create({
         if (!this.board.is_speculation(x, y))
         {
             var b = this.board.get_point(x, y);
+            var o = this.board.get_owner(x, y);
 
-            if (b == CONST.Black_Color)
+            if (b == CONST.Black_Color && o != CONST.White_Color)
             {
                 return "black";
             }
-            else if (b == CONST.White_Color)
+            else if (b == CONST.White_Color && o != CONST.Black_Color)
             {
                 return "white";
             }
