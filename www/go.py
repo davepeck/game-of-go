@@ -1,5 +1,3 @@
-# (c) 2009 Dave Peck, All Rights Reserved. (http://davepeck.org/)
-
 # This file is part of Dave Peck's Go.
 
 # Dave Peck's Go is free software: you can redistribute it and/or modify
@@ -81,7 +79,7 @@ def handicap_position(stone, handicap, size_index, version):
     if version >= 1 and stone >= 4 and (handicap == 6 or handicap == 8):
         # If the handicap is 6 or 8, skip the centre stone.
         return CONST.Handicap_Positions[size_index][stone + 1]
-    else
+    else:
         return CONST.Handicap_Positions[size_index][stone]
 
 def handicap_positions(handicap, size_index, version):
@@ -199,7 +197,7 @@ class GameBoard(object):
         # Since "_version" is new, it won't exist for old game pickles.
         try:
             return self._version
-        except:
+        except Exception:
             return 0
 
     def get_column_names(self):
@@ -214,11 +212,10 @@ class GameBoard(object):
     def get_komi_index(self):
         if self.get_version() >= 2:
             return self._komi_index
+        elif self.handicap_index:
+            return CONST.Komi_None
         else:
-            if self.handicap_index:
-                return CONST.Komi_None
-            else:
-                return 0
+            return 0
 
     def get_komi(self):
         return CONST.Komis[self.get_komi_index()]
