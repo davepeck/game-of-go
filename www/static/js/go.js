@@ -1824,7 +1824,8 @@ var GameController = Class.create({
     {
         if (this.state.are_stones_captured())
         {
-            $("capture_message").removeClassName("hide");
+            $("capture_submessage_1").removeClassName("hide");
+            $("capture_submessage_2").removeClassName("hide");
         }
     },
 

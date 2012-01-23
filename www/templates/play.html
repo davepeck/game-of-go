@@ -64,18 +64,10 @@
             
             <h2 class="normal-heading">{{black_name}} <img src="/img/simple-black.png" alt="black player" /> vs. {{white_name}} <img src="/img/simple-white.png" alt="white player" /></h2>
 
-            {% if any_captures %}
-                {% if you_are_black %}
-                <div id="capture_message">You have captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span> stones; {{white_name}} has captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> and has <span class="count" id="komi">{{komi}}</span> komi.</div>
-                {% else %}
-                <div id="capture_message">You have captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> stones and have <span class="count" id="komi">{{komi}}</span> komi; {{black_name}} has captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span>.</div>
-                {% endif %}
+            {% if you_are_black %}
+            <div id="capture_message"><span id="capture_submessage_1" {% if not any_captures %}class="hide"{% endif %}>You have captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span> stones; </span>{{white_name}} <span id="capture_submessage_2" {% if not any_captures %}class="hide"{% endif %}>has captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> and</span> has <span class="count" id="komi">{{komi}}</span> komi.</div>
             {% else %}
-                {% if you_are_black %}
-                <div id="capture_message">{{white_name}} has <span class="count" id="komi">{{komi}}</span> komi.</div>
-                {% else %}
-                <div id="capture_message">You have <span class="count" id="komi">{{komi}}</span> komi.</div>
-                {% endif %}
+            <div id="capture_message">You <span id="capture_submessage_1" {% if not any_captures %}class="hide"{% endif %}>have captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> stones and</span> have <span class="count" id="komi">{{komi}}</span> komi<span id="capture_submessage_2" {% if not any_captures %}class="hide"{% endif %}>; {{black_name}} has captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span></span>.</div>
             {% endif %}
             
             {% if game_is_finished_python %}
