@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 3-liberty-count-fix
+version: 4-duncanexonsmith-changes
 runtime: python
 api_version: 1
 

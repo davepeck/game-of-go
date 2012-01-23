@@ -11,10 +11,6 @@
             <div>
                 <table>
                     <tr>
-                        <td></td>
-                        <td colspan="2" class="divide">The board is <a href="javascript:get_going.rotate_board_sizes();" class="subtle-link" id="board_size" tabindex="5">19 x 19</a>.</td>
-                    </tr>
-                    <tr>
                         <th>Your name:</th>
                         <td><input type="text" id="your_name" tabindex="1" class="adjust"></input></td>
                         <td class="divide">You are <a href="javascript:get_going.swap_colors()" id="your_color" class="subtle-link" tabindex="6">black</a>.</td>
@@ -33,6 +29,11 @@
                         <th>Opponent&#146;s <a id="opponent_contact_type" href="javascript:get_going.swap_opponent_contact_type()" class="subtle-link" tabindex="10">email</a>:</th>
                         <td><input type="text" id="opponent_contact" tabindex="4" class="adjust"></input></td>
                         <td class="divide"><span id="opponent_color2">White</span> <a id="opponent_handicap" href="javascript:get_going.rotate_opponent_handicap();" class="subtle-link" tabindex="8">has six komi</a>.</td>
+                    </tr>
+                    <tr>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td colspan="2" class="divide">The board is <a href="javascript:get_going.rotate_board_sizes();" class="subtle-link" id="board_size" tabindex="5">19 x 19</a>.</td>
                     </tr>
                 </table>
             </div>
