@@ -156,18 +156,28 @@ class GameBoard(object):
         self.handicap_index = handicap_index
 
         # v1: access via get_version.
-        self._version = 2
+        self._version = 3
 
         # v2: access via get_komi_index.
         self._komi_index = komi_index
         
+        # v3: access via has_owners.
+        self._has_owners = False
+
         self._make_board()
         self._apply_handicap()
+        self._make_owners()
         
     def _make_board(self):
         self.board = []        
         for x in range(self.width):
             self.board.append( [CONST.No_Color] * self.height )
+    
+    def _make_owners(self):
+        self.owners = []
+        for x in range(self.width):
+            self.owners.append( [CONST.No_Color] * self.height )
+        self._has_owners = True
     
     def _apply_handicap(self):
         positions_handicap = self.get_handicap_positions()
@@ -180,6 +190,19 @@ class GameBoard(object):
     
     def set(self, x, y, color):
         self.board[x][y] = color
+    
+    def get_owner(self, x, y):
+        if self.has_owners():
+            return self.owners[x][y]
+        else:
+            # Compatability with versions before v3.
+            return CONST.No_Color
+    
+    def set_owner(self, x, y, color):
+        if not self.has_owners():
+            # Compatability with versions before v3.
+            self._make_owners();
+        self.owners[x][y] = color
     
     def get_width(self):
         return self.width
@@ -199,6 +222,16 @@ class GameBoard(object):
             return self._version
         except Exception:
             return 0
+
+    def has_owners(self):
+        if self.get_version() >= 3:
+            return _has_owners
+        else:
+            # Even with boards before v3, _has_owners may be 'True'.
+            try:
+                return _has_owners
+            except Exception:
+                return False
 
     def get_column_names(self):
         return CONST.Column_Names[:self.width]
@@ -229,12 +262,24 @@ class GameBoard(object):
         for y in range(self.height):
             for x in range(self.width):
                 piece = self.get(x, y)
+                owner = self.get_owner(x, y)
                 if piece == CONST.Black_Color:
-                    bs += "b"
+                    if owner == CONST.White_Color:
+                        bs += "c" # dead stone
+                    else:
+                        bs += "b"
                 elif piece == CONST.White_Color:
-                    bs += "w"
+                    if owner == CONST.Black_Color:
+                        bs += "x" # dead stone
+                    else:
+                        bs += "w"
                 else:
-                    bs += "."
+                    if owner == CONST.Black_Color:
+                        bs += "B" # black territory
+                    elif owner == CONST.White_Color:
+                        bs += "W" # white territory
+                    else:
+                        bs += "."
         return bs
 
     def is_in_bounds(self, x, y):
