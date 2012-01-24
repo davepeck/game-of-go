@@ -300,6 +300,30 @@ class GameBoard(object):
         finder = LibertyFinder(self, x, y)
         return (finder.get_liberty_count(), finder.get_connected_stones())
                 
+    def compute_changed_stones(self, start_x, start_y, owner):
+        color = self.get(start_x, start_y)
+        current_owner = self.get_owner(start_x, start_y)
+        boundary_color = opposite_color(color)
+
+        stones = []
+        queue = []
+        checked = set()
+        def add_stone(is_in_bounds, checked, queue, x, y):
+            if is_in_bounds(x, y) and not (x, y) in checked:
+                checked.add((x, y))
+                queue.push((x, y))
+        add_stone(self.is_in_bounds, checked, queue, start_x, start_y)
+        while len(queue):
+            x, y = queue.pop()
+            if self.get(x, y) != boundary_color and self.get_owner(x, y) == current_owner:
+                stones.append((x, y))
+                add_stone(self.is_in_bounds, checked, queue, x+1, y)
+                add_stone(self.is_in_bounds, checked, queue, x-1, y)
+                add_stone(self.is_in_bounds, checked, queue, x, y+1)
+                add_stone(self.is_in_bounds, checked, queue, x, y-1)
+
+        return stones
+
     def compute_atari_and_captures(self, x, y):        
         color = self.get(x, y)
         other = opposite_color(color)
