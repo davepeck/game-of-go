@@ -581,15 +581,13 @@ var GameBoard = Class.create({
                 this.speculation[x][y] = false;
 
                 // State string legend:
-                //  b = black stone
-                //  B = black stone; owned by black
-                //  C = black stone; owned by white
-                //  w = white stone
-                //  W = white stone; owned by white
-                //  X = white stone; owned by black
                 //  . = no stone
-                //  D = no stone; owned by black
-                //  Y = no stone; owned by white
+                //  B = no stone; black territory
+                //  W = no stone; white territory
+                //  b = black stone
+                //  c = black stone (dead)
+                //  w = white stone
+                //  x = white stone (dead)
 
                 // I NEVER knew this, but charAt() is the only x-browser-safe
                 // way to access individual characters in a string. Array
@@ -615,14 +613,12 @@ var GameBoard = Class.create({
                 switch (state_string.charAt(i))
                 {
                 case 'B':
-                case 'D':
-                case 'X':
+                case 'x':
                     this.owner[x][y] = CONST.Black_Color;
                     break;
 
                 case 'W':
-                case 'C':
-                case 'Y':
+                case 'c':
                     this.owner[x][y] = CONST.White_Color;
                     break;
 

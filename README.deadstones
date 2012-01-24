@@ -11,16 +11,16 @@ There are now seven possible board states for a given coordinate:
  - white stone;
  - white stone, black's territory (dead white stone).
 
-The 'GameBoard' class in 'go.js' needs to track this stuff.  I plan to add an
-'owner' field that's parallel to 'board', storing 'black', 'white', or 'none'
+The _GameBoard_ class in 'go.js' needs to track this stuff.  I plan to add an
+_owner_ field that's parallel to 'board', storing 'black', 'white', or 'none'
 for each position.  This implies another two states:
  - black stone, black's territory;
  - white stone, white's territory.
 
 I'm not sure whether these two states should be used in someway, or just be
-considered invalid.
+considered invalid.  I'm leaning towards invalid.
 
-The 'state_string' representing the board state needs to deal with the new
+The _state_string_ representing the board state needs to deal with the new
 states.  These make sense to me:
 
 |==================================
@@ -38,20 +38,27 @@ states.  These make sense to me:
 Scoring algorithms
 ==================
 
-Algorithm for counting territory.
- 1. Mark all empty coordinates with '?'.
- 2. Mark all live black stones with 'b' and live white stones with 'w'.
- 3. For each coordinate:
-    1. If the coordinate is already '.', 'b', 'w', 'B', or 'W', continue.
-    2. If the coordinate is '?', search in all directions, stopping at any 'b'
-       or 'w'.
-       - If only a 'b' is found, then mark all '?' encountered with 'B'.
-       - If only a 'w' is found, then mark all '?' encountered with 'W'.
-       - If both 'b' and 'w' are found, then mark all '?' encountered with '.'.
- 4. Mark extra dame points.  For each coordinate 'B' ('W'):
-    - If it's immediately adjacent to 'b' ('w'), and both diagonals adjacent to
-      the 'b' ('w') are marked 'w' ('b') or are off the board, then remark the
-      coordinate with '.'.
+Algorithm for counting territory, given:
+ - komi,
+ - the number of black stones captured during the game,
+ - the number of white stones captured during the game,
+ - the coordinates of live black stones,
+ - the coordinates of live white stones,
+ - the number of dead black stones on the board, and
+ - the number of dead white stones on the board.
+
+ 1. Mark live black stones with 'b', live white stones with 'w', and all other
+    coordinates with '?'.
+ 2. For each coordinate '?':
+    - Search in all directions, stopping at any 'b' or 'w'.
+    - If both 'b' and 'w' coordinates are found, then mark all '?' with '.'.
+    - If only 'b' coordinates are found, then mark all '?' with 'B'.
+    - If only 'w' coordinates are found, then mark all '?' with 'W'.
+ 3. Mark extra dame points (corner case in Japanese scoring).  For each
+    coordinate 'B' ('W'):
+    - If the coordinate is immediately adjacent to 'b' ('w'), and both
+      diagonals from the 'B' ('W') that are adjacent to the 'b' ('w') are
+      marked 'w' ('b') or are off the board, then mark the coordinate with '.'.
     - Example 1: the 7-3 point is marked with 'B'.  The 7-4 point is 'b', and
       the 6-4 and 8-4 points are both 'w'.  The 7-3 point should be marked with
       '.'.
@@ -60,21 +67,24 @@ Algorithm for counting territory.
     - Example 3: the 2-5 stone is marked with 'W'.  The 2-6 point is 'w', and
       the 3-6 point is 'b', but the 1-6 point is not 'b'.  The 1-5 point should
       be left as 'W'.
- 5. Black's territory is the sum of:
+ 4. Black's territory is the sum of:
     - the number of coordinates marked 'B',
     - the number of white stones captured during the game, and
     - the number of dead white stones on the board.
- 6. White's territory is the sum of:
+ 5. White's territory is the sum of:
     - komi,
     - the number of coordinates marked 'W',
     - the number of black stones captured during the game, and
     - the number of dead black stones on the board.
 
-Algorithm for finding other dead stones, given one new dead stone.
- 1. Mark all empty coordinates with '.'.
- 2. Mark all live stones of the other colour with 'a' (for alive).
- 3. Mark all stones of the same colour as the dead stone with '?'.
- 4. From the new dead stone, search in all directions, stopping at any
+Algorithm for finding other dead stones, given:
+ - the coordinate of the new dead stone,
+ - the coordinates of all stones of the same colour, and
+ - the coordinates of the live stones of the other colour.
+
+ 1. Mark the stones of the same colour with '?', the live stones of the other
+    colour with 'a' (for alive), and all other coordinates with '.'.
+ 2. From the new dead stone, search in all directions, stopping at any
     'a'.  Mark all '?' encountered as 'd' (for dead).
 
 Planned flow for marking dead stones
