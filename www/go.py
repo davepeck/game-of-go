@@ -906,8 +906,6 @@ class Game(db.Model):
 
     is_finished = db.BooleanProperty(default=False)    
     is_scoring = db.BooleanProperty(default=False)    
-    is_black_done_scoring = db.BooleanProperty(default=False)    
-    is_white_done_scoring = db.BooleanProperty(default=False)    
     reminder_send_time = db.DateTimeProperty(auto_now = False)
     
     def get_black_player(self):
@@ -990,6 +988,7 @@ class Player(db.Model):
     wants_twitter = db.BooleanProperty(default=False)
     contact_type = db.StringProperty(default=CONST.Email_Contact)
     show_grid = db.BooleanProperty(default=False)
+    done_scoring = db.BooleanProperty(default=False)
 
     def get_safe_show_grid(self):
         try:
@@ -1698,7 +1697,126 @@ class PassHandler(GoHandler):
                     
         self.render_json(items)
 
+#------------------------------------------------------------------------------
+# "Mark Stone Dead/Alive" Handler        
+#------------------------------------------------------------------------------
+
+class MarkStoneHandler(GoHandler):
+    def __init__(self):
+        super(MarkStoneHandler, self).__init__()
+
+    def fail(self, message):
+        self.render_json({'success': False, 'flash': message})           
+    
+    def post(self, *args):
+        cookie = self.request.POST.get("your_cookie")
+        if not cookie:
+            self.fail("Unexpected error: no cookie found.")
+            return
+
+        player = ModelCache.player_by_cookie(cookie)
+        if not player:
+            self.fail("Unexpected error: invalid player.")
+            return
+
+        game = player.game
+        if not game:
+            self.fail("Unexpected error: found the player but not the game.")
+            return
+
+        if game.is_finished:
+            self.fail("No more moves can be made; the game is finished.")
+            return
+
+        if not game.is_scoring:
+            self.fail("Scoring is not allowed yet; the game is still in progress.")
+            return
+
+        if player.done_scoring:
+            self.fail("Sorry, but you have already pressed finished scoring.")
+            return
+
+        state = pickle.loads(game.current_state)
+
+        board = state.get_board()
+        try:
+            stone_x = int(self.request.POST.get("stone_x"))
+            stone_y = int(self.request.POST.get("stone_y"))
+            owner = int(self.request.POST.get("owner"))
+        except:
+            self.fail("Invalid move x/y coordinate.")
+            return
+
+        if (stone_x < 0) or (stone_x >= board.get_width()) or (stone_y < 0) or (stone_y >= board.get_height()):
+            self.fail("Stone coordinates are out-of-bounds.")
+            return
         
+        piece_at = board.get(stone_x, stone_y)
+        owner_at = board.get_owner(stone_x, stone_y)
+        if piece_at == CONST.No_Color:
+            self.fail("You can't mark an empty coordinate as dead or alive!")
+            return
+        elif owner == piece_at:
+            color = CONST.Color_Names[piece_at]
+            self.fail("Unexpected error: " + color + " stone cannot be " + color + " territory.")
+            return
+        elif owner == owner_at:
+            # TODO failing maybe doesn't make sense here.  What does?
+            self.fail("Unexpected error: stone already marked as suggested.")
+            return
+
+        # Create the potentially new state
+        new_state = state.clone()
+        new_board = new_state.get_board()        
+
+        # Deal with other dead/alive stones.
+        stones = new_board.compute_changed_stones(stone_x, stone_y, owner)
+
+        if (stone_x, stone_y) not in stones:
+            # Should at least include the stone being marked!
+            self.fail("Unexpected error: marking stone had no effect.")
+            return
+
+        for x, y in stones:
+            new_board.set_owner(x, y, owner)
+
+        # game.history.append(game.current_state)
+        game.current_state = db.Blob(pickle.dumps(new_state))
+        # game.date_last_moved = datetime.now()
+        # game.reminder_send_time = datetime.now()
+        new_state_string = new_board.get_state_string()
+
+        try:
+            game.put()
+        except:
+            game.put()
+
+        opponent = player.get_opponent()
+        if opponent.done_scoring:
+            opponent.done_scoring = False
+            try:
+                opponent.put()
+            except:
+                opponent.put()
+            # Send an email to the opponent.
+            if opponent.wants_email:
+                EmailHelper.notify_not_done(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
+            elif opponent.does_want_twitter():
+                TwitterHelper.notify_not_done(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name())
+
+        items = {
+            'success': True,
+            'flash': 'TODO',
+            'white_stones_captured': new_state.get_white_stones_captured(),
+            'black_stones_captured': new_state.get_black_stones_captured(),
+            'white_territory': new_state.get_white_territory(),
+            'black_territory': new_state.get_black_territory(),
+            'board_state_string': new_state_string,
+            'last_move_x': move_x,
+            'last_move_y': move_y }
+                    
+        self.render_json(items)
+
 #------------------------------------------------------------------------------
 # "Resign" Handler        
 #------------------------------------------------------------------------------
@@ -2475,10 +2593,11 @@ class SendRemindersHandler(GoHandler):
                         players = []
 
                         if stale_game.is_scoring:
-                            if not stale_game.is_black_done_scoring:
-                                players.append(stale_game.get_black_player())
-                            if not stale_game.is_white_done_scoring:
-                                players.append(stale_game.get_white_player())
+                            black = stale_game.get_black_player()
+                            white = stale_game.get_white_player()
+                            for player in [ black, white ]:
+                                if not player.done_scoring:
+                                    players.append(player)
                         else:
                             whose_move = stale_game.get_player_whose_move()
                             if whose_move is None:
@@ -2521,8 +2640,7 @@ def main():
         ('/service/create-game/', CreateGameHandler),
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
-        ('/service/mark-stone-dead/', MarkStoneDeadHandler),
-        ('/service/mark-stone-alive/', MarkStoneAliveHandler),
+        ('/service/mark-stone/', MarkStoneHandler),
         ('/service/has-opponent-marked-stones/', HasOpponentMarkedStonesHandler),
         ('/service/done/', DoneHandler),
         ('/service/is-opponent-done/', IsOpponentDoneHandler),
