@@ -1466,9 +1466,16 @@ class PlayGameHandler(GoHandler):
             'has_last_move': last_move_x != -1,
             'is_scoring' : "true" if game.is_scoring else "false",
             'is_scoring_python' : game.is_scoring,
+            'you_are_done_scoring' : "true" if player.done_scoring else "false",
+            'you_are_done_scoring_python' : player.done_scoring,
+            'opponent_done_scoring' : "true" if opponent_player.done_scoring else "false",
+            'opponent_done_scoring_python' : opponent_player.done_scoring,
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
+            'any_territory': (game.is_scoring or game.is_finished),
+            'black_territory': state.get_black_territory()
+            'white_territory': state.get_white_territory()
             'board_class': board.get_class(),
             'komi': board.get_komi(),
             'show_grid': "true" if player.get_safe_show_grid() else "false",
@@ -1666,7 +1673,7 @@ class PassHandler(GoHandler):
         previous_also_passed = state.get_last_move_was_pass()        
 
         if previous_also_passed:
-            move_message = "Mark the dead stones. Click done when finished. If you and your opponent agree, the game will end and be scored." 
+            move_message = "Mark the dead stones. Click done when finished. If you and your opponent agree, the game will end." 
             game.is_scoring = True
         else:
             move_message = "Your opponent passed. You can make a move, or you can pass again to end the game."
@@ -1725,7 +1732,7 @@ class MarkStoneHandler(GoHandler):
             return
 
         if game.is_finished:
-            self.fail("No more moves can be made; the game is finished.")
+            self.fail("No more stones can be marked dead; the game is finished.")
             return
 
         if not game.is_scoring:
@@ -1733,7 +1740,7 @@ class MarkStoneHandler(GoHandler):
             return
 
         if player.done_scoring:
-            self.fail("Sorry, but you have already pressed finished scoring.")
+            self.fail("Sorry, but you have already finished scoring.")
             return
 
         state = pickle.loads(game.current_state)
@@ -1780,10 +1787,9 @@ class MarkStoneHandler(GoHandler):
         for x, y in stones:
             new_board.set_owner(x, y, owner)
 
-        # game.history.append(game.current_state)
+        # Replace the current game state.
         game.current_state = db.Blob(pickle.dumps(new_state))
-        # game.date_last_moved = datetime.now()
-        # game.reminder_send_time = datetime.now()
+        game.reminder_send_time = datetime.now()
         new_state_string = new_board.get_state_string()
 
         try:
@@ -1814,6 +1820,82 @@ class MarkStoneHandler(GoHandler):
             'board_state_string': new_state_string,
             'last_move_x': move_x,
             'last_move_y': move_y }
+                    
+        self.render_json(items)
+
+#------------------------------------------------------------------------------
+# "Done" Handler        
+#------------------------------------------------------------------------------
+
+class DoneHandler(GoHandler):
+    def __init__(self):
+        super(DoneHandler, self).__init__()
+
+    def fail(self, message):
+        self.render_json({'success': False, 'flash': message})           
+    
+    def post(self, *args):
+        cookie = self.request.POST.get("your_cookie")
+        if not cookie:
+            self.fail("Unexpected error: no cookie found.")
+            return
+
+        player = ModelCache.player_by_cookie(cookie)
+        if not player:
+            self.fail("Unexpected error: invalid player.")
+            return
+        if player.done_scoring:
+            self.fail("You have already finished scoring.")
+            return
+
+        game = player.game
+        if not game:
+            self.fail("Unexpected error: found the player but not the game.")
+            return
+        if game.is_finished:
+            self.fail("The game is already finished.")
+            return
+        if not game.is_scoring:
+            self.fail("The game has not started scoring yet.")
+            return
+
+        player.done_scoring = True
+        opponent = player.get_opponent()
+
+        if opponent.done_scoring:
+            game.is_scoring = False
+            game.is_finished = True
+            move_message = "The game is over!"
+
+            state = pickle.loads(game.current_state)
+            new_state = state.clone()
+            new_state.set_last_move_message(move_message)
+            game.current_state = db.Blob(pickle.dumps(new_state))
+            game.reminder_send_time = datetime.now()
+            try:
+                game.put()
+            except:
+                game.put()
+
+        try:
+            player.put()
+        except:
+            player.put()
+
+        # send an email.
+
+        # Send an email, but only if they want it.
+        opponent = player.get_opponent()
+        if opponent.wants_email:
+            EmailHelper.notify_done(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message, new_state.get_current_move_number())
+        elif opponent.does_want_twitter():
+            TwitterHelper.notify_done(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
+                    
+        items = {
+            'success': True,
+            'flash': 'OK',
+            'current_move_number': game.get_current_move_number(),
+            'game_is_finished': game.is_finished }
                     
         self.render_json(items)
 
