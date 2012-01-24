@@ -906,6 +906,8 @@ class Game(db.Model):
 
     is_finished = db.BooleanProperty(default=False)    
     is_scoring = db.BooleanProperty(default=False)    
+    is_black_done_scoring = db.BooleanPropert(default=False)
+    is_white_done_scoring = db.BooleanPropert(default=False)
     reminder_send_time = db.DateTimeProperty(auto_now = False)
     
     def get_black_player(self):
@@ -913,6 +915,24 @@ class Game(db.Model):
 
     def get_white_player(self):
         return ModelCache.player_by_cookie(self.white_cookie)
+
+    def is_color_done_scoring(self, color):
+        if color == CONST.Black_Color:
+            return self.is_black_done_scoring
+        else:
+            return self.is_white_done_scoring
+
+    def is_player_done_scoring(self, player):
+        return self.is_color_done_scoring(player.color)
+
+    def set_color_done_scoring(self, color, done):
+        if color == CONST.Black_Color:
+            self.is_black_done_scoring = done
+        else:
+            self.is_white_done_scoring = done
+
+    def set_player_done_scoring(self, player, done):
+        self.set_color_done_scoring(player.color, done);
 
     def get_player_whose_move(self):
         if self.is_finished or self.is_scoring:
@@ -988,7 +1008,6 @@ class Player(db.Model):
     wants_twitter = db.BooleanProperty(default=False)
     contact_type = db.StringProperty(default=CONST.Email_Contact)
     show_grid = db.BooleanProperty(default=False)
-    done_scoring = db.BooleanProperty(default=False)
 
     def get_safe_show_grid(self):
         try:
@@ -1466,10 +1485,10 @@ class PlayGameHandler(GoHandler):
             'has_last_move': last_move_x != -1,
             'is_scoring' : "true" if game.is_scoring else "false",
             'is_scoring_python' : game.is_scoring,
-            'you_are_done_scoring' : "true" if player.done_scoring else "false",
-            'you_are_done_scoring_python' : player.done_scoring,
-            'opponent_done_scoring' : "true" if opponent_player.done_scoring else "false",
-            'opponent_done_scoring_python' : opponent_player.done_scoring,
+            'you_are_done_scoring' : "true" if game.is_player_done_scoring(player) else "false",
+            'you_are_done_scoring_python' : game.is_player_done_scoring(player),
+            'opponent_done_scoring' : "true" if game.is_player_done_scoring(opponent) else "false",
+            'opponent_done_scoring_python' : game.is_player_done_scoring(opponent),
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
@@ -1739,7 +1758,7 @@ class MarkStoneHandler(GoHandler):
             self.fail("Scoring is not allowed yet; the game is still in progress.")
             return
 
-        if player.done_scoring:
+        if game.is_player_done_scoring(player):
             self.fail("Sorry, but you have already finished scoring.")
             return
 
@@ -1798,8 +1817,8 @@ class MarkStoneHandler(GoHandler):
             game.put()
 
         opponent = player.get_opponent()
-        if opponent.done_scoring:
-            opponent.done_scoring = False
+        if game.is_player_done_scoring(opponent):
+            game.set_player_done_scoring(opponent, False)
             try:
                 opponent.put()
             except:
@@ -1844,7 +1863,7 @@ class DoneHandler(GoHandler):
         if not player:
             self.fail("Unexpected error: invalid player.")
             return
-        if player.done_scoring:
+        if game.is_player_done_scoring(player):
             self.fail("You have already finished scoring.")
             return
 
@@ -1859,10 +1878,10 @@ class DoneHandler(GoHandler):
             self.fail("The game has not started scoring yet.")
             return
 
-        player.done_scoring = True
+        game.set_player_done_scoring(player, True)
         opponent = player.get_opponent()
 
-        if opponent.done_scoring:
+        if game.is_player_done_scoring(opponent):
             game.is_scoring = False
             game.is_finished = True
             move_message = "The game is over!"
@@ -1872,15 +1891,11 @@ class DoneHandler(GoHandler):
             new_state.set_last_move_message(move_message)
             game.current_state = db.Blob(pickle.dumps(new_state))
             game.reminder_send_time = datetime.now()
-            try:
-                game.put()
-            except:
-                game.put()
 
         try:
-            player.put()
+            game.put()
         except:
-            player.put()
+            game.put()
 
         # send an email.
 
@@ -2678,7 +2693,7 @@ class SendRemindersHandler(GoHandler):
                             black = stale_game.get_black_player()
                             white = stale_game.get_white_player()
                             for player in [ black, white ]:
-                                if not player.done_scoring:
+                                if not game.is_player_done_scoring(player):
                                     players.append(player)
                         else:
                             whose_move = stale_game.get_player_whose_move()
