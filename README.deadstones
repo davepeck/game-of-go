@@ -1,0 +1,128 @@
+
+Board state string
+==================
+
+There are now seven possible board states for a given coordinate:
+ - no stone;
+ - no stone, black's territory;
+ - no stone, white's territory;
+ - black stone;
+ - black stone, white's territory (dead black stone);
+ - white stone;
+ - white stone, black's territory (dead white stone).
+
+The 'GameBoard' class in 'go.js' needs to track this stuff.  I plan to add an
+'owner' field that's parallel to 'board', storing 'black', 'white', or 'none'
+for each position.  This implies another two states:
+ - black stone, black's territory;
+ - white stone, white's territory.
+
+I'm not sure whether these two states should be used in someway, or just be
+considered invalid.
+
+The 'state_string' representing the board state needs to deal with the new
+states.  These make sense to me:
+
+|==================================
+| '.' | no stone
+| 'B' | no stone, black's territory
+| 'W' | no stone, white's territory
+| 'b' | black stone
+| 'c' | black stone (dead)
+| 'w' | white stone
+| 'x' | white stone (dead)
+|==================================
+
+'c' and 'x' were chosen just because they follow 'b' and 'c' in the alphabet.
+
+Scoring algorithms
+==================
+
+Algorithm for counting territory.
+ 1. Mark all empty coordinates with '?'.
+ 2. Mark all live black stones with 'b' and live white stones with 'w'.
+ 3. For each coordinate:
+    1. If the coordinate is already '.', 'b', 'w', 'B', or 'W', continue.
+    2. If the coordinate is '?', search in all directions, stopping at any 'b'
+       or 'w'.
+       - If only a 'b' is found, then mark all '?' encountered with 'B'.
+       - If only a 'w' is found, then mark all '?' encountered with 'W'.
+       - If both 'b' and 'w' are found, then mark all '?' encountered with '.'.
+ 4. Mark extra dame points.  For each coordinate 'B' ('W'):
+    - If it's immediately adjacent to 'b' ('w'), and both diagonals adjacent to
+      the 'b' ('w') are marked 'w' ('b') or are off the board, then remark the
+      coordinate with '.'.
+    - Example 1: the 7-3 point is marked with 'B'.  The 7-4 point is 'b', and
+      the 6-4 and 8-4 points are both 'w'.  The 7-3 point should be marked with
+      '.'.
+    - Example 2: the 1-5 stone is marked with 'W'.  The 1-6 point is 'w', and
+      the 2-6 point is 'b'.  The 1-5 point should be marked with '.'.
+    - Example 3: the 2-5 stone is marked with 'W'.  The 2-6 point is 'w', and
+      the 3-6 point is 'b', but the 1-6 point is not 'b'.  The 1-5 point should
+      be left as 'W'.
+ 5. Black's territory is the sum of:
+    - the number of coordinates marked 'B',
+    - the number of white stones captured during the game, and
+    - the number of dead white stones on the board.
+ 6. White's territory is the sum of:
+    - komi,
+    - the number of coordinates marked 'W',
+    - the number of black stones captured during the game, and
+    - the number of dead black stones on the board.
+
+Algorithm for finding other dead stones, given one new dead stone.
+ 1. Mark all empty coordinates with '.'.
+ 2. Mark all live stones of the other colour with 'a' (for alive).
+ 3. Mark all stones of the same colour as the dead stone with '?'.
+ 4. From the new dead stone, search in all directions, stopping at any
+    'a'.  Mark all '?' encountered as 'd' (for dead).
+
+Planned flow for marking dead stones
+====================================
+
+ 1. After two consecutive passes, the playing board is used for scoring.
+    - The player that passed first gets an email announcement.
+    - Both players are able to mark dead stones.
+    - The links _done_, _mark_stones_as_dead_, and _mark_stones_as_alive_
+      appear; only _done_ is initially enabled.
+    - Next to the _done_ link, there is some _opponent_done_ text; perhaps,
+      '(opponent has clicked done)'.  This text is initially hidden.
+ 2. Clicking _done_ sends the board state to the server.
+    - The opponent gets an email.
+    - The server stores the final board state for that user.
+    - If the opponent has already clicked _done_ and the final board states
+      match, then the game is over.
+    - If the opponent has already clicked _done_ and the final board states *do
+      not* match, then there has been a race condition (as should be evident
+      after reading further)... hopefully, this situation is avoidable.
+    - If the opponent has *not* already clicked _done_, then their
+      _opponent_done_ text is shown on their next update.
+ 3. Clicking a stone on the board will turn it into a ghost.
+    - All stones of the same colour that are bounded by live stones of the other
+      colour also become ghosts.
+    - If the stones were alive, the _mark_stones_as_dead_ link is enabled.
+    - If the stones were dead, the _mark_stones_as_alive_ link is enabled.
+    - The _done_ link is disabled.
+    - Clicking the stone again will set it back to its previous state.
+ 4. Clicking _mark_stones_as_dead_ or _mark_stones_as_live_ sends the change to
+    the server.
+    - The set of ghost stones are sent to the server.  Not sure of the best
+      way.  A few options follow.
+      - Send the coordinates of the stone that was clicked.  The server can
+        then redo the math figuring out the full set of dead stones.
+      - Send the previous and new board states.  The server does a diff to
+        figure out the changes.
+      - Send a custom board state where the dead stones are indicated by 'D'
+        (alive stones indicated by 'A'), and the other coordinates are
+        indicated by '.'.
+    - If the opponent had previously clicked _done_, then the opponent's final
+      board state is cleared, the opponent receives an email, and this player's
+      _opponent_done_ text is hidden again.
+    - The server replies with the new board state, which may include changes
+      from the opponent's actions.
+    - The _done_ link is enabled.
+ 5. Periodically, the UI polls the server for updates.
+    - After an update, the _done_ link is disabled for some amount of time
+      (perhaps, 3 seconds).
+
+// vi: set ft=asciidoc:
