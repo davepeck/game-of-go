@@ -348,7 +348,6 @@ class GameState(object):
         self.current_move_number = 0
         self.last_move = (-1, -1)
         self.last_move_was_pass = False
-        self.marking_dead_stones = False
     
     def get_board(self):
         return self.board
@@ -401,12 +400,6 @@ class GameState(object):
     def set_last_move_was_pass(self, was_pass):
         self.last_move_was_pass = was_pass
 
-    def get_marking_dead_stones(self):
-        return self.marking_dead_stones
-
-    def set_marking_dead_stones(self, marking_dead):
-        self.marking_dead_stones = marking_dead
-        
     def clone(self):
         clone = GameState()
         clone.white_stones_captured = self.white_stones_captured
@@ -417,7 +410,6 @@ class GameState(object):
         clone.board = self.board.clone()
         clone.last_move = self.last_move
         clone.last_move_was_pass = self.last_move_was_pass
-        clone.marking_dead_stones = self.marking_dead_stones
         return clone
 
 class ChatEntry(object):
@@ -686,13 +678,17 @@ Hi %s,
         message.send()
 
     @staticmethod
-    def remind_player(player_name, player_email, player_cookie, opponent_name, move_number):
+    def remind_player(player_name, player_email, player_cookie, opponent_name, move_number, is_scoring):
         player_address = EmailHelper._rfc_address(player_name, player_email)
         message = mail.EmailMessage()
         message.sender = EmailHelper.No_Reply_Address
-        message.subject = "[GO - Move #%s] REMINDER: It's still your turn against %s" % (str(move_number), opponent_name)
         message.to = player_address
-        message.body = "Just a reminder that it's still your turn to move against %s. Your last move was over a week ago. To make a move, just follow this link:\n\n%s\n" % (opponent_name, EmailHelper._game_url(player_cookie))
+        if is_scoring:
+            message.subject = "[GO - Scoring] REMINDER: You are still scoring your game against %s" % (str(move_number), opponent_name)
+            message.body = "Just a reminder that you are still scoring in your game against %s. You haven't done anything in over a week. To mark dead stones or finish the game, just follow this link:\n\n%s\n" % (opponent_name, EmailHelper._game_url(player_cookie))
+        else:
+            message.subject = "[GO - Move #%s] REMINDER: It's still your turn against %s" % (str(move_number), opponent_name)
+            message.body = "Just a reminder that it's still your turn to move against %s. Your last move was over a week ago. To make a move, just follow this link:\n\n%s\n" % (opponent_name, EmailHelper._game_url(player_cookie))
         message.send()
 
 
@@ -868,8 +864,11 @@ class TwitterHelper(object):
         return TwitterHelper.send_notification_to_user(your_twitter, message)    
 
     @staticmethod
-    def remind_player(player_name, player_twitter, player_cookie):
-        message = "Just a reminder: it's still your turn to move; you haven't moved in over a week. %s" % TwitterHelper._game_url(player_cookie)
+    def remind_player(player_name, player_twitter, player_cookie, is_scoring):
+        if is_scoring:
+            message = "Just a reminder: you're still scoring; you haven't done anything in over a week. %s" % TwitterHelper._game_url(player_cookie)
+        else:
+            message = "Just a reminder: it's still your turn to move; you haven't moved in over a week. %s" % TwitterHelper._game_url(player_cookie)
         return TwitterHelper.send_notification_to_user(player_twitter, message)
         
 #------------------------------------------------------------------------------
@@ -906,6 +905,9 @@ class Game(db.Model):
     chat_history = db.ListProperty(db.Blob)
 
     is_finished = db.BooleanProperty(default=False)    
+    is_scoring = db.BooleanProperty(default=False)    
+    is_black_done_scoring = db.BooleanProperty(default=False)    
+    is_white_done_scoring = db.BooleanProperty(default=False)    
     reminder_send_time = db.DateTimeProperty(auto_now = False)
     
     def get_black_player(self):
@@ -915,7 +917,7 @@ class Game(db.Model):
         return ModelCache.player_by_cookie(self.white_cookie)
 
     def get_player_whose_move(self):
-        if self.is_finished:
+        if self.is_finished or self.is_scoring:
             return None        
         whose_move = pickle.loads(self.current_state).get_whose_move()
         if whose_move == CONST.Black_Color:
@@ -1463,8 +1465,8 @@ class PlayGameHandler(GoHandler):
             'last_move_was_pass': "true" if state.get_last_move_was_pass() else "false",
             'last_move_was_pass_python': state.get_last_move_was_pass(),
             'has_last_move': last_move_x != -1,
-            'marking_dead_stones' : "true" if game.marking_dead_stones else "false",
-            'marking_dead_stones_python' : game.marking_dead_stones,
+            'is_scoring' : "true" if game.is_scoring else "false",
+            'is_scoring_python' : game.is_scoring,
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
@@ -1666,8 +1668,7 @@ class PassHandler(GoHandler):
 
         if previous_also_passed:
             move_message = "Mark the dead stones. Click done when finished. If you and your opponent agree, the game will end and be scored." 
-            # TODO(awong): Needs set game.is_finished = True after hitting done.
-            new_state.set_marking_dead_stones(True)
+            game.is_scoring = True
         else:
             move_message = "Your opponent passed. You can make a move, or you can pass again to end the game."
         new_state.set_last_move_message(move_message)
@@ -2471,18 +2472,29 @@ class SendRemindersHandler(GoHandler):
                         stale_game.dont_remind_for_long_time()
                         message = "Found a two-month-old 'stale' game. Giving up!"
                     else:
-                        player = stale_game.get_player_whose_move()
-                        if player is None:
-                            stale_game.dont_remind_for_long_time()
-                            message = "Found a 'stale' game with no current player. Was it finished? Hrm."
+                        players = []
+
+                        if stale_game.is_scoring:
+                            if not stale_game.is_black_done_scoring:
+                                players.append(stale_game.get_black_player())
+                            if not stale_game.is_white_done_scoring:
+                                players.append(stale_game.get_white_player())
                         else:
+                            whose_move = stale_game.get_player_whose_move()
+                            if whose_move is None:
+                                stale_game.dont_remind_for_long_time()
+                                message = "Found a 'stale' game with no current player. Was it finished? Hrm."
+                            else:
+                                players.append(whose_move)
+
+                        for player in players:
                             if player.wants_email:
                                 opponent = player.get_opponent()
                                 state = pickle.loads(stale_game.current_state)
-                                EmailHelper.remind_player(player.get_friendly_name(), player.email, player.cookie, opponent.get_friendly_name(), state.get_current_move_number())
+                                EmailHelper.remind_player(player.get_friendly_name(), player.email, player.cookie, opponent.get_friendly_name(), state.get_current_move_number(), stale_game.is_scoring)
                                 message = "Sent an email reminder to %s about game %s!" % (player.email, player.cookie)
                             elif player.does_want_twitter():
-                                TwitterHelper.remind_player(player.get_friendly_name(), player.twitter, player.cookie)
+                                TwitterHelper.remind_player(player.get_friendly_name(), player.twitter, player.cookie, stale_game.is_scoring)
                                 message = "Sent a twitter reminder to %s about game %s!" % (player.twitter, player.cookie)
                             else:
                                 message = "Found 'stale' game %s that I couldn't notify about: player did not want notification." % player.cookie
@@ -2509,6 +2521,11 @@ def main():
         ('/service/create-game/', CreateGameHandler),
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
+        ('/service/mark-stone-dead/', MarkStoneDeadHandler),
+        ('/service/mark-stone-alive/', MarkStoneAliveHandler),
+        ('/service/has-opponent-marked-stones/', HasOpponentMarkedStonesHandler),
+        ('/service/done/', DoneHandler),
+        ('/service/is-opponent-done/', IsOpponentDoneHandler),
         ('/service/change-options/', ChangeOptionsHandler),
         ('/service/change-grid-options/', ChangeGridOptionsHandler),
         ('/service/pass/', PassHandler),
