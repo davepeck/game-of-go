@@ -147,6 +147,23 @@ class AppEngineHelper:
 # Game State
 #------------------------------------------------------------------------------
 
+class BoardArray(object):
+    def __init__(self, width = 19, height = 19, default = 0, typecode = 'i'):
+        self.width = width
+        self.height = height
+        self.board = array(typecode, itertools.repeat(default, width*height))
+
+    def index(self, x, y):
+        assert(0 <= x && x < self.width)
+        assert(0 <= y && y < self.height)
+        return y*self.height + x
+
+    def get(self, x, y):
+        return self.board[self.index(x, y)]
+
+    def set(self, x, y, value):
+        self.board[self.index(x, y)] = value
+
 class GameBoard(object):
     def __init__(self, board_size_index = 0, handicap_index = 0, komi_index = 0):
         super(GameBoard, self).__init__()
@@ -299,30 +316,67 @@ class GameBoard(object):
 
         finder = LibertyFinder(self, x, y)
         return (finder.get_liberty_count(), finder.get_connected_stones())
-                
-    def compute_changed_stones(self, start_x, start_y, owner):
-        color = self.get(start_x, start_y)
-        current_owner = self.get_owner(start_x, start_y)
-        boundary_color = opposite_color(color)
 
-        stones = []
-        queue = []
-        checked = set()
+    def _is_japanese_corner_case_candidate(self, coords, other):
+        for x, y in coords:
+            if not self.is_in_bounds(x, y):
+                continue
+            if not (board.get(x, y) == other and board.get_owner(x, y) == CONST.No_Color):
+                return False
+        return True
+
+    def is_japanese_corner_case(self, x, y, color):
+        if self.get(x, y) != CONST.No_Color:
+            return False
+        if self.get_owner(x, y) != CONST.No_Color:
+            return False
+        other = opposite_color(color)
+
+        for (a, b) in [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]:
+            if not is_in_bounds(a, b) or self.get(a, b) != color:
+                continue
+            if a == x:
+                if self._is_japanese_corner_case_candidate([(a+1, b), (a-1, b)], other):
+                    return True
+            else:
+                if self._is_japanese_corner_case_candidate([(a, b+1), (a, b-1)], other):
+                    return True
+        return False
+
+    def _coordinate_should_change(self, x, y, color, other, old_owner):
+        if self.get_owner(x, y) != old_owner:
+            return False
+        if self.get(x, y) == other:
+            return False
+        if self.is_japanese_corner_case(x, y, color):
+            return False
+        return True
+
+    def compute_changed_coordinates(self, start_x, start_y):
+        color = self.get(start_x, start_y)
+        other = opposite_color(color)
+        old_owner = self.get_owner(start_x, start_y)
+
+        # Do a depth-first search.
         def add_stone_to_queue(is_in_bounds, checked, queue, x, y):
-            if is_in_bounds(x, y) and not (x, y) in checked:
-                checked.add((x, y))
+            if is_in_bounds(x, y) and checked.get(x, y) == 0:
+                checked.set(x, y, 1)
                 queue.push((x, y))
+
+        coords = []
+        queue = []
+        checked = BoardArray(width=self.width, height=self.height)
         add_stone_to_queue(self.is_in_bounds, checked, queue, start_x, start_y)
         while len(queue):
             x, y = queue.pop()
-            if self.get(x, y) != boundary_color and self.get_owner(x, y) == current_owner:
-                stones.append((x, y))
+            if self._coordinate_should_change(x, y, color, other, old_owner):
+                coords.append((x, y))
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x+1, y)
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x-1, y)
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x, y+1)
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x, y-1)
 
-        return stones
+        return coords
 
     def compute_atari_and_captures(self, x, y):        
         color = self.get(x, y)
@@ -1820,14 +1874,14 @@ class MarkStoneHandler(GoHandler):
         new_board = new_state.get_board()        
 
         # Deal with other dead/alive stones.
-        stones = new_board.compute_changed_stones(stone_x, stone_y, owner)
+        coords = new_board.compute_changed_coordinates(stone_x, stone_y)
 
-        if (stone_x, stone_y) not in stones:
+        if (stone_x, stone_y) not in coords:
             # Should at least include the stone being marked!
             self.fail("Unexpected error: marking stone had no effect.")
             return
 
-        for x, y in stones:
+        for x, y in coords:
             new_board.set_owner(x, y, owner)
 
         # Replace the current game state.
