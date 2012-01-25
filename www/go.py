@@ -308,19 +308,19 @@ class GameBoard(object):
         stones = []
         queue = []
         checked = set()
-        def add_stone(is_in_bounds, checked, queue, x, y):
+        def add_stone_to_queue(is_in_bounds, checked, queue, x, y):
             if is_in_bounds(x, y) and not (x, y) in checked:
                 checked.add((x, y))
                 queue.push((x, y))
-        add_stone(self.is_in_bounds, checked, queue, start_x, start_y)
+        add_stone_to_queue(self.is_in_bounds, checked, queue, start_x, start_y)
         while len(queue):
             x, y = queue.pop()
             if self.get(x, y) != boundary_color and self.get_owner(x, y) == current_owner:
                 stones.append((x, y))
-                add_stone(self.is_in_bounds, checked, queue, x+1, y)
-                add_stone(self.is_in_bounds, checked, queue, x-1, y)
-                add_stone(self.is_in_bounds, checked, queue, x, y+1)
-                add_stone(self.is_in_bounds, checked, queue, x, y-1)
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x+1, y)
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x-1, y)
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y+1)
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y-1)
 
         return stones
 
