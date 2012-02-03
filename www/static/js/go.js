@@ -1560,7 +1560,7 @@ var ChatController = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameController = Class.create({            
-    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, marking_dead_stones, game_is_finished, last_move_message, show_grid)
+    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, is_scoring, game_is_finished, last_move_message, show_grid)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
@@ -1588,6 +1588,7 @@ var GameController = Class.create({
         this.speculation_color = your_color;
         this.move_x = -1;
         this.move_y = -1;
+        this.is_scoring = is_scoring;
 
         this.is_loading = false;
         this.is_waiting_for_opponent = false;
@@ -1749,12 +1750,12 @@ var GameController = Class.create({
 
     is_your_move : function()
     {
-        return (!this.marking_dead_stones) && (!this.game_is_finished) && (this.state.get_whose_move() == this.your_color);
+        return (!this.is_scoring) && (!this.game_is_finished) && (this.state.get_whose_move() == this.your_color);
     },
 
-    marking_dead_stones : function()
+    is_scoring : function()
     {
-        return (!this.marking_dead_stones);
+        return (!this.is_scoring);
     },
 
     become_your_move : function(black_stones_captured, white_stones_captured)
@@ -1949,7 +1950,7 @@ var GameController = Class.create({
         );
     },
 
-    _opponent_has_moved : function(board_state_string, current_move_number, black_stones_captured, white_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, marking_dead_stones, game_is_finished)
+    _opponent_has_moved : function(board_state_string, current_move_number, black_stones_captured, white_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, is_scoring, game_is_finished)
     {
         this.board.set_from_state_string(board_state_string);
         this.board_view.update_dom();
@@ -2273,7 +2274,7 @@ var GameController = Class.create({
                 this._click_board_move(x, y);
             }
         }
-        else if (this.marking_dead_stones())
+        else if (this.is_scoring())
         {
             // TODO(awong): This is where the click comes in.
         }
@@ -2963,9 +2964,9 @@ function init_get_going()
     get_going = new GetGoing();    
 }
 
-function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, marking_dead_stones, game_is_finished, last_move_message, show_grid)
+function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, is_scoring, game_is_finished, last_move_message, show_grid)
 {
-    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, marking_dead_stones, game_is_finished, last_move_message, show_grid);
+    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, is_scoring, game_is_finished, last_move_message, show_grid);
     chat_controller = new ChatController(your_cookie);
     chat_controller.start_listening_to_chat();
 }
