@@ -317,6 +317,37 @@ class GameBoard(object):
         finder = LibertyFinder(self, x, y)
         return (finder.get_liberty_count(), finder.get_connected_stones())
 
+    def compute_atari_and_captures(self, x, y):        
+        color = self.get(x, y)
+        other = opposite_color(color)
+
+        liberties = []
+        liberties.append(self._compute_liberties_at(x-1, y, other))
+        liberties.append(self._compute_liberties_at(x, y-1, other))
+        liberties.append(self._compute_liberties_at(x+1, y, other))
+        liberties.append(self._compute_liberties_at(x, y+1, other))
+
+        ataris = 0
+        captures = []
+
+        # determine ataris and first pass on captured
+        # (there may be duplicate captured stones at first)
+        for count, connected in liberties:
+            if count == 1:
+                ataris += 1
+            if count == 0:
+                captures.append(connected)
+
+        # flatten all captured stones into one (duplicate-free) batch
+        final_captures = []
+        for capture in captures:
+            for x, y in capture:
+                # Remove duplicates (n^2 operation but shouldn't be bad in even extreme go cases)
+                if (x, y) not in final_captures:
+                    final_captures.append((x, y))
+
+        return (ataris, final_captures)
+
     def _is_japanese_corner_case_candidate(self, coords, other):
         for x, y in coords:
             if not self.is_in_bounds(x, y):
@@ -377,37 +408,6 @@ class GameBoard(object):
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x, y-1)
 
         return coords
-
-    def compute_atari_and_captures(self, x, y):        
-        color = self.get(x, y)
-        other = opposite_color(color)
-
-        liberties = []
-        liberties.append(self._compute_liberties_at(x-1, y, other))
-        liberties.append(self._compute_liberties_at(x, y-1, other))
-        liberties.append(self._compute_liberties_at(x+1, y, other))
-        liberties.append(self._compute_liberties_at(x, y+1, other))
-
-        ataris = 0
-        captures = []
-
-        # determine ataris and first pass on captured
-        # (there may be duplicate captured stones at first)
-        for count, connected in liberties:
-            if count == 1:
-                ataris += 1
-            if count == 0:
-                captures.append(connected)
-
-        # flatten all captured stones into one (duplicate-free) batch
-        final_captures = []
-        for capture in captures:
-            for x, y in capture:
-                # Remove duplicates (n^2 operation but shouldn't be bad in even extreme go cases)
-                if (x, y) not in final_captures:
-                    final_captures.append((x, y))
-
-        return (ataris, final_captures)
 
     def get_class(self):
         return CONST.Board_Classes[self.size_index]
