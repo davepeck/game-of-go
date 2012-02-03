@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 4-duncanexonsmith-changes
+version: 5-des-history-cache
 runtime: python
 api_version: 1
 
