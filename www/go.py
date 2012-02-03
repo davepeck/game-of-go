@@ -1987,9 +1987,6 @@ class DoneHandler(GoHandler):
         if not player:
             self.fail("Unexpected error: invalid player.")
             return
-        if game.is_player_done_scoring(player):
-            self.fail("You have already finished scoring.")
-            return
 
         game = player.game
         if not game:
@@ -2000,6 +1997,9 @@ class DoneHandler(GoHandler):
             return
         if not game.is_scoring:
             self.fail("The game has not started scoring yet.")
+            return
+        if game.is_player_done_scoring(player):
+            self.fail("You have already finished scoring.")
             return
 
         game.set_player_done_scoring(player, True)

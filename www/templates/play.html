@@ -95,7 +95,7 @@
             {% endif %}
 
             <div class="indented">
-                <div id="game_links" {% if not game_in_progress_python %}class="hide"{% endif %}>
+                <div id="playing_links" {% if not game_in_progress_python %}class="hide"{% endif %}>
                     <a href="javascript:game_controller.make_this_move();" id="make_this_move" class="disabled_move_link">make this move &raquo;</a>
                     <br />
                     <span id="pass_links_container">
@@ -109,11 +109,7 @@
                     <a href="javascript:game_controller.show_last_move()" id="show_previous_move" class="{% if has_last_move %}move_link{% else %}disabled_move_link{% endif %}">show the previous move &raquo;</a>
                 </div>
                 <div id="scoring_links" {% if not game_is_scoring %}class="hide"{% endif %}>
-                    <a href="javascript:game_controller.mark_stones_as_dead();" id="mark_stones_as_dead" class="disabled_move_link">mark stones as dead &raquo;</a>
-                    <br />
-                    <a href="javascript:game_controller.mark_stones_as_alive();" id="mark_stones_as_alive" class="disabled_move_link">mark stones as alive &raquo;</a>
-                    <br />
-                    <a href="javascript:game_controller.done_scoring();" id="mark_stones" class="move_link">done &raquo;</a>
+                    <a href="javascript:game_controller.done_scoring();" id="done_scoring" class="move_link">done &raquo;</a>
                 </div>
             </div>
          </div>
