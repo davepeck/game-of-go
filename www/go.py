@@ -358,12 +358,13 @@ class GameBoard(object):
                 return False
         return True
 
-    def is_japanese_corner_case(self, x, y, color):
+    def is_japanese_corner_case(self, x, y, color, other, new_owner):
         if self.get(x, y) != CONST.No_Color:
             return False
         if self.get_owner(x, y) != CONST.No_Color:
             return False
-        other = opposite_color(color)
+        if new_owner != color:
+            return False
 
         for (a, b) in [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]:
             if not self.is_in_bounds(a, b) or self.get(a, b) != color:
@@ -376,12 +377,12 @@ class GameBoard(object):
                     return True
         return False
 
-    def _coordinate_should_change(self, x, y, color, other, old_owner):
+    def _coordinate_should_change(self, x, y, color, other, old_owner, new_owner):
         if self.get_owner(x, y) != old_owner:
             return False
         if self.get(x, y) == other:
             return False
-        if self.is_japanese_corner_case(x, y, color):
+        if self.is_japanese_corner_case(x, y, color, other, new_owner):
             return False
         return True
 
@@ -389,6 +390,7 @@ class GameBoard(object):
         color = self.get(start_x, start_y)
         other = opposite_color(color)
         old_owner = self.get_owner(start_x, start_y)
+        new_owner = CONST.No_Color if old_owner == other else other
 
         # Do a depth-first search.
         def add_stone_to_queue(is_in_bounds, checked, queue, x, y):
@@ -402,7 +404,7 @@ class GameBoard(object):
         add_stone_to_queue(self.is_in_bounds, checked, queue, start_x, start_y)
         while len(queue):
             x, y = queue.pop()
-            if self._coordinate_should_change(x, y, color, other, old_owner):
+            if self._coordinate_should_change(x, y, color, other, old_owner, new_owner):
                 coords.append((x, y))
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x+1, y)
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x-1, y)
