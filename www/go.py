@@ -242,11 +242,11 @@ class GameBoard(object):
 
     def has_owners(self):
         if self.get_version() >= 3:
-            return _has_owners
+            return self._has_owners
         else:
             # Even with boards before v3, _has_owners may be 'True'.
             try:
-                return _has_owners
+                return self._has_owners
             except Exception:
                 return False
 
@@ -409,6 +409,23 @@ class GameBoard(object):
 
         return coords
 
+    def count_territory(self, color, captures = 0):
+        count = captures
+        opposite = opposite_color(color)
+        for x in range(self.width):
+            for y in range(self.height):
+                if self.get_owner(x, y) == color:
+                    count = count + 1
+                    if self.get(x, y) == opposite:
+                        count = count + 1
+        return count
+
+    def count_white_territory(self, black_stones_captured):
+        return self.count_territory(CONST.White_Color, black_stones_captured)
+
+    def count_black_territory(self, white_stones_captured):
+        return self.count_territory(CONST.Black_Color, white_stones_captured)
+
     def get_class(self):
         return CONST.Board_Classes[self.size_index]
     
@@ -426,6 +443,8 @@ class GameState(object):
         self.current_move_number = 0
         self.last_move = (-1, -1)
         self.last_move_was_pass = False
+        self.white_territory = 0
+        self.black_territory = 0
     
     def get_board(self):
         return self.board
@@ -450,6 +469,23 @@ class GameState(object):
         
     def set_black_stones_captured(self, bsc):
         self.black_stones_captured = bsc
+
+    def get_white_territory(self):
+        return self.white_territory
+    
+    def set_white_territory(self, territory):
+        self.white_territory = territory
+    
+    def get_black_territory(self):
+        return self.black_territory
+        
+    def set_black_territory(self, territory):
+        self.black_territory = territory
+
+    def compute_territory(self):
+        board = self.get_board()
+        self.set_black_territory(board.count_black_territory(self.get_white_stones_captured()))
+        self.set_white_territory(board.count_white_territory(self.get_black_stones_captured()))
 
     def get_last_move_message(self):
         return self.last_move_message
@@ -1565,8 +1601,8 @@ class PlayGameHandler(GoHandler):
             'is_scoring_python' : game.is_scoring,
             'you_are_done_scoring' : "true" if game.is_player_done_scoring(player) else "false",
             'you_are_done_scoring_python' : game.is_player_done_scoring(player),
-            'opponent_done_scoring' : "true" if game.is_player_done_scoring(opponent) else "false",
-            'opponent_done_scoring_python' : game.is_player_done_scoring(opponent),
+            'opponent_done_scoring' : "true" if game.is_player_done_scoring(opponent_player) else "false",
+            'opponent_done_scoring_python' : game.is_player_done_scoring(opponent_player),
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
@@ -1883,6 +1919,8 @@ class MarkStoneHandler(GoHandler):
 
         for x, y in coords:
             new_board.set_owner(x, y, owner)
+
+        new_state.compute_territory()
 
         # Replace the current game state.
         game.current_state = db.Blob(pickle.dumps(new_state))
