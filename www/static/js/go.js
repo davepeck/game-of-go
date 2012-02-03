@@ -655,16 +655,18 @@ var GameBoard = Class.create({
         for (var x = 0; x < this.width; x++)
         {
             var x_row = [];
+            var o_row = [];
             var spec_row = [];
             
             for (var y = 0; y < this.height; y++)
             {
                 x_row.push(CONST.No_Color);
+                o_row.push(CONST.No_Color);
                 spec_row.push(false);
             }
 
             this.board.push(x_row);
-            this.owner.push(x_row);
+            this.owner.push(o_row);
             this.speculation.push(spec_row);
         }        
     }
@@ -1753,9 +1755,12 @@ var GameController = Class.create({
         return (!this.is_scoring) && (!this.game_is_finished) && (this.state.get_whose_move() == this.your_color);
     },
 
-    is_scoring : function()
+    start_scoring : function()
     {
-        return (!this.is_scoring);
+        this.deactivate_view_history_link();
+        this.deactivate_pass_and_resign_links();
+        this.activate_show_previous_link();
+        this.show_captures_if_needed();
     },
 
     become_your_move : function(black_stones_captured, white_stones_captured)
@@ -2019,6 +2024,11 @@ var GameController = Class.create({
         this.activate_make_this_move_link();
     },
     
+    _set_scoring_message : function()
+    {
+        $("turn_message").update("Click on groups of stones to mark them as dead or alive.");
+    },
+    
     make_this_move : function()
     {
         if (!this.is_your_move())
@@ -2225,6 +2235,73 @@ var GameController = Class.create({
         this.deactivate_make_this_move_link();
     },
     
+    mark_stone : function(owner)
+    {
+        if (!this.is_scoring)
+        {
+            return;
+        }
+        
+        if (this.move_x == -1 || this.move_y == -1)
+        {
+            return;
+        }
+
+        var self = this;
+        this._start_loading();
+        new Ajax.Request(
+            "/service/mark-stone/",
+            {
+                method: 'POST',                
+
+                parameters: 
+                {
+                    "your_cookie": this.your_cookie,
+                    "stone_x": this.move_x,
+                    "stone_y": this.move_y,
+                    "owner": owner
+                },
+
+                onSuccess: function(transport) 
+                {
+                    self._stop_loading();
+                    var response = eval_json(transport.responseText);
+                    if (response['success'])
+                    {
+                        self._succeed_mark_stone(response['board_state_string'], response['white_territory'], response['black_territory'], response['flash']);
+                    }
+                    else
+                    {                    
+                        self._fail_make_this_move(response['flash']);
+                    }
+                },
+
+                onFailure: function() 
+                {
+                    self._stop_loading();
+                    self._fail_mark_stone("Unexpected network error. Please try again.");
+                }
+            }
+        );        
+    },
+
+    _succeed_mark_stone : function(board_state_string, white_territory, black_territory, current_move_number, flash)
+    {
+        this.last_move_x = this.move_x;
+        this.last_move_y = this.move_y;
+        this.board.set_from_state_string(board_state_string);
+        this.board_view.update_dom();
+        $("white_stones_captured").update(white_stones_captured.toString());
+        $("black_stones_captured").update(black_stones_captured.toString());
+        this.update_pass_links_after_last_was_not_pass();
+        this.become_opponents_move(black_stones_captured, white_stones_captured);
+    },
+
+    _fail_mark_stone : function(flash)
+    {
+        $("turn_message").update(flash);        
+    },
+
 
     //--------------------------------------------------------------------------
     // ajax notification
@@ -2274,9 +2351,13 @@ var GameController = Class.create({
                 this._click_board_move(x, y);
             }
         }
-        else if (this.is_scoring())
+        else if (this.is_scoring)
         {
-            // TODO(awong): This is where the click comes in.
+            var currently = this.board.get_point(x, y);
+            if (currently != CONST.No_Color)
+            {
+                this._click_board_score(x, y);
+            }
         }
         // else do nothing -- nothing can be done!
     },
@@ -2306,10 +2387,34 @@ var GameController = Class.create({
 
         this.move_x = x;
         this.move_y = y;
-        this.board.set_point(x, y, this.your_color, true);
+        this.board.set_point(x, y, this.your_color, CONST.No_Color, true);
         this.board_view.update_dom_at(x, y);
         this._set_move_message_for_one_piece();
-    }
+    },
+
+    _click_board_score : function(x, y)
+    {
+        if (this.move_x != -1 || this.move_y != -1) {
+            return
+        }
+
+        this.move_x = x;
+        this.move_y = y;
+        var point = this.board.get_point(x, y);
+        var current_owner = this.board.get_owner(x, y);
+        var owner = CONST.No_Color;
+        if (current_owner == CONST.No_Color)
+        {
+            owner = opposite_color(point);
+        }
+
+        this.board.set_point(x, y, point, owner, true);
+        this.board_view.update_dom_at(x, y);
+        this._set_scoring_message();
+        this.mark_stone(owner);
+    },
+
+    i_hate_trailing_commas : function() {}
 });
 
 

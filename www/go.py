@@ -147,11 +147,13 @@ class AppEngineHelper:
 # Game State
 #------------------------------------------------------------------------------
 
+import array
+import itertools
 class BoardArray(object):
     def __init__(self, width = 19, height = 19, default = 0, typecode = 'i'):
         self.width = width
         self.height = height
-        self.board = array(typecode, itertools.repeat(default, width*height))
+        self.board = array.array(typecode, itertools.repeat(default, width*height))
 
     def index(self, x, y):
         assert (0 <= x) and (x < self.width)
@@ -352,7 +354,7 @@ class GameBoard(object):
         for x, y in coords:
             if not self.is_in_bounds(x, y):
                 continue
-            if not (board.get(x, y) == other and board.get_owner(x, y) == CONST.No_Color):
+            if not (self.get(x, y) == other and self.get_owner(x, y) == CONST.No_Color):
                 return False
         return True
 
@@ -364,7 +366,7 @@ class GameBoard(object):
         other = opposite_color(color)
 
         for (a, b) in [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]:
-            if not is_in_bounds(a, b) or self.get(a, b) != color:
+            if not self.is_in_bounds(a, b) or self.get(a, b) != color:
                 continue
             if a == x:
                 if self._is_japanese_corner_case_candidate([(a+1, b), (a-1, b)], other):
@@ -392,7 +394,7 @@ class GameBoard(object):
         def add_stone_to_queue(is_in_bounds, checked, queue, x, y):
             if is_in_bounds(x, y) and checked.get(x, y) == 0:
                 checked.set(x, y, 1)
-                queue.push((x, y))
+                queue.append((x, y))
 
         coords = []
         queue = []
@@ -1056,6 +1058,9 @@ class Game(db.Model):
             return self.get_black_player()
         else:
             return self.get_white_player()
+
+    def in_progress(self):
+        return not self.is_scoring and not self.is_finished
         
     def get_black_friendly_name(self):
         return self.get_black_player().get_friendly_name()
@@ -1597,14 +1602,16 @@ class PlayGameHandler(GoHandler):
             'last_move_was_pass': "true" if state.get_last_move_was_pass() else "false",
             'last_move_was_pass_python': state.get_last_move_was_pass(),
             'has_last_move': last_move_x != -1,
-            'is_scoring' : "true" if game.is_scoring else "false",
-            'is_scoring_python' : game.is_scoring,
+            'game_is_scoring' : "true" if game.is_scoring else "false",
+            'game_is_scoring_python' : game.is_scoring,
             'you_are_done_scoring' : "true" if game.is_player_done_scoring(player) else "false",
             'you_are_done_scoring_python' : game.is_player_done_scoring(player),
             'opponent_done_scoring' : "true" if game.is_player_done_scoring(opponent_player) else "false",
             'opponent_done_scoring_python' : game.is_player_done_scoring(opponent_player),
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
+            'game_in_progress': "true" if game.in_progress() else "false",
+            'game_in_progress_python': game.in_progress(),
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
             'any_territory': (game.is_scoring or game.is_finished),
             'black_territory': state.get_black_territory(),
@@ -1833,6 +1840,7 @@ class PassHandler(GoHandler):
             'success': True,
             'flash': 'OK',
             'current_move_number': game.get_current_move_number(),
+            'game_is_scoring': game.is_scoring,
             'game_is_finished': game.is_finished }
                     
         self.render_json(items)
@@ -1952,9 +1960,7 @@ class MarkStoneHandler(GoHandler):
             'black_stones_captured': new_state.get_black_stones_captured(),
             'white_territory': new_state.get_white_territory(),
             'black_territory': new_state.get_black_territory(),
-            'board_state_string': new_state_string,
-            'last_move_x': move_x,
-            'last_move_y': move_y }
+            'board_state_string': new_state_string }
                     
         self.render_json(items)
 
@@ -2026,6 +2032,7 @@ class DoneHandler(GoHandler):
             'success': True,
             'flash': 'OK',
             'current_move_number': game.get_current_move_number(),
+            'game_is_scoring': game.is_scoring,
             'game_is_finished': game.is_finished }
                     
         self.render_json(items)
@@ -2094,6 +2101,7 @@ class ResignHandler(GoHandler):
             'success': True,
             'flash': 'OK',
             'current_move_number': game.get_current_move_number(),
+            'game_is_scoring': game.is_scoring,
             'game_is_finished': game.is_finished }
                     
         self.render_json(items)
@@ -2144,6 +2152,7 @@ class HasOpponentMovedHandler(GoHandler):
                 'last_move_x': last_move_x,
                 'last_move_y': last_move_y,
                 'last_move_was_pass': state.get_last_move_was_pass(),
+                'game_is_scoring': game.is_scoring,
                 'game_is_finished': game.is_finished})
 
 
