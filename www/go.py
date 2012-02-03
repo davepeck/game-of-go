@@ -154,8 +154,8 @@ class BoardArray(object):
         self.board = array(typecode, itertools.repeat(default, width*height))
 
     def index(self, x, y):
-        assert(0 <= x && x < self.width)
-        assert(0 <= y && y < self.height)
+        assert 0 <= x && x < self.width
+        assert 0 <= y && y < self.height
         return y*self.height + x
 
     def get(self, x, y):
