@@ -154,8 +154,8 @@ class BoardArray(object):
         self.board = array(typecode, itertools.repeat(default, width*height))
 
     def index(self, x, y):
-        assert 0 <= x && x < self.width
-        assert 0 <= y && y < self.height
+        assert (0 <= x) and (x < self.width)
+        assert (0 <= y) and (y < self.height)
         return y*self.height + x
 
     def get(self, x, y):
@@ -984,8 +984,8 @@ class Game(db.Model):
 
     is_finished = db.BooleanProperty(default=False)    
     is_scoring = db.BooleanProperty(default=False)    
-    is_black_done_scoring = db.BooleanPropert(default=False)
-    is_white_done_scoring = db.BooleanPropert(default=False)
+    is_black_done_scoring = db.BooleanProperty(default=False)
+    is_white_done_scoring = db.BooleanProperty(default=False)
     reminder_send_time = db.DateTimeProperty(auto_now = False)
     
     def get_black_player(self):
@@ -1571,8 +1571,8 @@ class PlayGameHandler(GoHandler):
             'game_is_finished_python': game.is_finished,
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
             'any_territory': (game.is_scoring or game.is_finished),
-            'black_territory': state.get_black_territory()
-            'white_territory': state.get_white_territory()
+            'black_territory': state.get_black_territory(),
+            'white_territory': state.get_white_territory(),
             'board_class': board.get_class(),
             'komi': board.get_komi(),
             'show_grid': "true" if player.get_safe_show_grid() else "false",
@@ -2816,9 +2816,9 @@ def main():
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
         ('/service/mark-stone/', MarkStoneHandler),
-        ('/service/has-opponent-marked-stones/', HasOpponentMarkedStonesHandler),
+        #('/service/has-opponent-marked-stones/', HasOpponentMarkedStonesHandler),
         ('/service/done/', DoneHandler),
-        ('/service/is-opponent-done/', IsOpponentDoneHandler),
+        #('/service/is-opponent-done/', IsOpponentDoneHandler),
         ('/service/change-options/', ChangeOptionsHandler),
         ('/service/change-grid-options/', ChangeGridOptionsHandler),
         ('/service/pass/', PassHandler),
