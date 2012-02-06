@@ -115,37 +115,42 @@ Details of client-side state transitions during scoring
 
 There are lots of client-side bugs in the UI, so I'm going to get more
 specific.
+ - _opponent_has_passed_    ->  _scoring_
+   - Occurs when you click _pass_ after opponent.
+   - Hide the links about passing, etc., and show the _done_ link.
+   - Show initial territory calculations.
  - _you_have_passed_        ->  _scoring_
    - Occurs when opponent clicks _pass_ after you.
    - Discovered via _opponent_has_moved_ handler.
-   - Hide the links about passing, etc., and show the _done_ link.
-   - Show initial territory calculations.
- - _opponent_has_passed_    ->  _scoring_
-   - Occurs when you click _pass_ after opponent.
    - Hide the links about passing, etc., and show the _done_ link.
    - Show initial territory calculations.
  - _scoring_                ->  _scoring_ (you _mark_stone_)
    - Occurs when you mark a group of stones.
    - May incorporate changes from opponent as well.
    - Update territory calculations.
+ - _scoring_                ->  _scoring_ (_done_ fails)
+   - Occurs when you click _done_, but the server a _scoring_number_ higher
+     than the one sent in.
+   - Update the territory calculations.
+ - _scoring_                ->  _you_are_done_
+   - Occurs when you click _done_, and the server has the same
+     _scoring_number_.
+   - Disable the _done_ link.
+ - _opponent_is_done_       ->  _scoring_
+   - Occurs when you mark a group of stones.
+   - Update the territory calculations.
+ - _opponent_is_done_       ->  _game_finished_
+   - Occurs when you click _done_.
+   - Hide the _done_ link.
  - _scoring_                ->  _scoring_ (opponent _mark_stone_)
    - Occurs when opponent marks a group of stones.
-   - Discovered via _opponent_has_moved_ handler.
+   - Discovered via _opponent_has_scored_ handler.
    - Update territory calculations.
- - _scoring_                ->  _scoring_ (_done_ fails)
-   - Occurs when you click _done_, but the server has more changes than you.
-   - Update the territory calculations.
  - _scoring_                ->  _opponent_is_done_
    - Occurs when opponent clicks _done_.
    - Discovered via _opponent_has_scored_ request.
    - Update territory calculations, since opponent may have also marked
      a stone.
- - _scoring_                ->  _you_are_done_
-   - Occurs when you click _done_.
-   - Disable the _done_ link.
- - _opponent_is_done_       ->  _scoring_
-   - Occurs when you mark a group of stones.
-   - Update the territory calculations.
  - _you_are_done_           ->  _scoring_
    - Occurs when opponent marks a group of stones.
    - Discovered via _opponent_has_scored_ request.
@@ -156,9 +161,6 @@ specific.
    - Discovered via _opponent_has_scored_ request.
    - Enable the _done_ link.
    - Update territory calculations.
- - _opponent_is_done_       ->  _game_finished_
-   - Occurs when you click _done_.
-   - Hide the _done_ link.
  - _you_are_done_           ->  _game_finished_
    - Occurs when opponent clicks _done_.
    - Discovered via _opponent_has_scored_ handler.
