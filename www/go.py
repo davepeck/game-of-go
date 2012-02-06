@@ -351,6 +351,7 @@ class GameBoard(object):
         return (ataris, final_captures)
 
     def _is_japanese_corner_case_candidate(self, coords, other):
+        # "other" is the opposite of the color that could own territory.
         for x, y in coords:
             if not self.is_in_bounds(x, y):
                 continue
@@ -358,14 +359,15 @@ class GameBoard(object):
                 return False
         return True
 
-    def is_japanese_corner_case(self, x, y, color, other, new_owner):
+    def is_japanese_corner_case(self, x, y, color):
         if self.get(x, y) != CONST.No_Color:
             return False
         if self.get_owner(x, y) != CONST.No_Color:
             return False
-        if new_owner != color:
-            return False
 
+        # "color" is the color that could own territory.  "other" is the
+        # opposite.
+        other = opposite_color(color)
         for (a, b) in [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]:
             if not self.is_in_bounds(a, b) or self.get(a, b) != color:
                 continue
@@ -378,15 +380,18 @@ class GameBoard(object):
         return False
 
     def _coordinate_should_change(self, x, y, color, other, old_owner, new_owner):
+        # "color" is the color that will die (or come back to life).  "other"
+        # is the color that may or may not own territory.
         if self.get_owner(x, y) != old_owner:
             return False
         if self.get(x, y) == other:
             return False
-        if self.is_japanese_corner_case(x, y, color, other, new_owner):
+        if new_owner == other and self.is_japanese_corner_case(x, y, other):
             return False
         return True
 
     def compute_changed_coordinates(self, start_x, start_y):
+        # "color" is the color that will die (or come back to life).
         color = self.get(start_x, start_y)
         other = opposite_color(color)
         old_owner = self.get_owner(start_x, start_y)
@@ -412,6 +417,74 @@ class GameBoard(object):
                 add_stone_to_queue(self.is_in_bounds, checked, queue, x, y-1)
 
         return coords
+
+    def search_for_boundaries(self, start_x, start_y):
+        found_black = False
+        found_white = False
+
+        # Do a depth-first search.
+        def add_stone_to_queue(is_in_bounds, checked, queue, x, y):
+            if is_in_bounds(x, y) and checked.get(x, y) == 0:
+                checked.set(x, y, 1)
+                queue.append((x, y))
+
+        coords = []
+        queue = []
+        checked = BoardArray(width=self.width, height=self.height)
+        add_stone_to_queue(self.is_in_bounds, checked, queue, start_x, start_y)
+        while len(queue):
+            x, y = queue.pop()
+            color = self.get(x, y)
+            owner = self.get_owner(x, y)
+            if color == CONST.No_Color or owner != CONST.No_Color:
+                coords.append((x, y))
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x+1, y)
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x-1, y)
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y+1)
+                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y-1)
+            elif color == CONST.White_Color:
+                found_white = True
+            else:
+                found_black = True
+        color = CONST.No_Color
+        if found_black and not found_white:
+            color = CONST.Black_Color
+        elif found_white and not found_black:
+            color = CONST.White_Color
+
+        return coords, color
+
+    def mark_territory(self):
+        status = BoardArray(width=self.width, height=self.height)
+        # Initialize "status" to have boundaries.
+        for x in range(self.width):
+            for y in range(self.height):
+                if self.get(x, y) != CONST.No_Color && self.get_owner(x, y) == CONST.No_Color:
+                    status.set(x, y, self.get(x, y))
+                else:
+                    status.set(x, y, CONST.No_Color)
+        # Look for boundaries for the empty terrain.
+        for x in range(self.width):
+            for y in range(self.height):
+                if status.get(x, y) == CONST.No_Color:
+                    coords, color = search_for_boundaries(x, y)
+                    for a, b in coords:
+                        status.set(a, b, color + 4)
+        # Check for Japanese corner cases.
+        for x in range(self.width):
+            for y in range(self.height):
+                color = status.get(x, y) - 4
+                if color != CONST.No_Color:
+                    other = opposite_color(color)
+                    if (is_japanese_corner_case(x, y, color)):
+                        status.set(x, y, CONST.No_Color + 4)
+        # Mark the owners.
+        for x in range(self.width):
+            for y in range(self.height):
+                for color in [CONST.No_Color, CONST.Black_Color, CONST.White_Color]:
+                    if status.get(x, y) == color + 4:
+                        self.set_owner(x, y, color)
+                        break
 
     def count_territory(self, color, captures = 0):
         count = captures
@@ -1817,6 +1890,7 @@ class PassHandler(GoHandler):
         if previous_also_passed:
             move_message = "Mark the dead stones. Click done when finished. If you and your opponent agree, the game will end." 
             game.is_scoring = True
+            new_state.get_board().mark_territory()
         else:
             move_message = "Your opponent passed. You can make a move, or you can pass again to end the game."
         new_state.set_last_move_message(move_message)
