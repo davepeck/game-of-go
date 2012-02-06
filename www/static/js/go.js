@@ -1908,7 +1908,21 @@ var GameController = Class.create({
         if (this.is_waiting_for_opponent) { return; }
         this.next_update_timeout = 15; /* in seconds */
         this._has_opponent_moved.bind(this).delay(this.next_update_timeout);
+        // this.wait_for_opponent();
         this.is_waiting_for_opponent = true;
+    },
+
+    wait_for_opponent : function()
+    {
+        if (this.game_is_scoring)
+        {
+            this._has_opponent_scored.bind(this).delay(this.next_update_timeout);
+        }
+        else
+        {
+            this._has_opponent_moved.bind(this).delay(this.next_update_timeout);
+        }
+
     },
 
     _has_opponent_moved : function()
@@ -2001,12 +2015,59 @@ var GameController = Class.create({
             this.next_update_timeout = 5 * 60; /* 5 minutes max delay */
         }
         this._has_opponent_moved.bind(this).delay(this.next_update_timeout);
+        // this.wait_for_opponent();
     },
     
     stop_waiting_for_opponent : function()
     {
         if (!this.is_waiting_for_opponent) { return ; }
         this.is_waiting_for_opponent = false;
+    },
+
+    _has_opponent_scored : function()
+    {
+        var self = this;
+        this._start_loading();
+        new Ajax.Request(
+            "/service/has-opponent-scored/",
+            {
+                method: 'POST',
+
+                parameters:
+                {
+                    "your_cookie": this.your_cookie
+                },
+
+                onSuccess : function(transport)
+                {
+                    self._stop_loading();
+                    var response = eval_json(transport.responseText);
+                    if (response['success'])
+                    {
+                        if (!response['has_opponent_scored'])
+                        {
+                            self._keep_waiting_for_opponent();
+                        }
+                        else
+                        {
+                            self._opponent_has_scored(response['board_state_string'], response['current_move_number'], response['black_territory'], response['white_territory'], response['last_move_message'], response['game_is_scoring'], response['game_is_finished']);
+                        }
+                    }
+                    else
+                    {
+                        // something went wrong, so just keep waiting
+                        self._keep_waiting_for_opponent();
+                    }
+                },
+
+                onFailure : function()
+                {
+                    self._stop_loading();
+                    // something went (very) wrong, so just keep waiting
+                    self._keep_waiting_for_opponent();
+                }
+            }
+        );
     },
 
 
