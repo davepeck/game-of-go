@@ -54,24 +54,11 @@ Algorithm for counting territory, given:
     - If both 'b' and 'w' coordinates are found, then mark all '?' with '.'.
     - If only 'b' coordinates are found, then mark all '?' with 'B'.
     - If only 'w' coordinates are found, then mark all '?' with 'W'.
- 3. Mark extra dame points (corner case in Japanese scoring).  For each
-    coordinate 'B' ('W'):
-    - If the coordinate is immediately adjacent to 'b' ('w'), and both
-      diagonals from the 'B' ('W') that are adjacent to the 'b' ('w') are
-      marked 'w' ('b') or are off the board, then mark the coordinate with '.'.
-    - Example 1: the 7-3 point is marked with 'B'.  The 7-4 point is 'b', and
-      the 6-4 and 8-4 points are both 'w'.  The 7-3 point should be marked with
-      '.'.
-    - Example 2: the 1-5 stone is marked with 'W'.  The 1-6 point is 'w', and
-      the 2-6 point is 'b'.  The 1-5 point should be marked with '.'.
-    - Example 3: the 2-5 stone is marked with 'W'.  The 2-6 point is 'w', and
-      the 3-6 point is 'b', but the 1-6 point is not 'b'.  The 1-5 point should
-      be left as 'W'.
- 4. Black's territory is the sum of:
+ 3. Black's territory is the sum of:
     - the number of coordinates marked 'B',
     - the number of white stones captured during the game, and
     - the number of dead white stones on the board.
- 5. White's territory is the sum of:
+ 4. White's territory is the sum of:
     - komi,
     - the number of coordinates marked 'W',
     - the number of black stones captured during the game, and

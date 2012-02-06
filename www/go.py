@@ -356,9 +356,9 @@ class GameBoard(object):
         return color == self.get(x, y)
 
     def is_alive(self, x, y, color=CONST.Both_Colors):
-        if self.get_owner(x, y) != CONST.No_Color:
-            return False
-        return self.is_stone_of_color(x, y, color)
+        if self.get_owner(x, y) == CONST.No_Color:
+            return self.is_stone_of_color(x, y, color)
+        return False
 
     def is_dead(self, x, y, color=CONST.Both_Colors):
         if self.get_owner(x, y) == CONST.No_Color:
@@ -371,108 +371,108 @@ class GameBoard(object):
         other_color = opposite_color(color)
 
         # Do a depth-first search.
-        def add_stone_to_queue(is_in_bounds, checked, queue, x, y):
-            if is_in_bounds(x, y) and checked.get(x, y) == 0:
-                checked.set(x, y, 1)
+        def add_stone_to_queue(is_in_bounds, visited, queue, x, y):
+            if is_in_bounds(x, y) and visited.get(x, y) == 0:
+                visited.set(x, y, 1)
                 queue.append((x, y))
 
         coords = []
         queue = []
-        checked = BoardArray(width=self.width, height=self.height)
-        add_stone_to_queue(self.is_in_bounds, checked, queue, start_x, start_y)
+        visited = BoardArray(width=self.width, height=self.height)
+        add_stone_to_queue(self.is_in_bounds, visited, queue, start_x, start_y)
         while len(queue):
             x, y = queue.pop()
             if not self.is_alive(x, y, other_color):
                 if self.get(x, y) == color:
                     coords.append((x, y))
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x+1, y)
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x-1, y)
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y+1)
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y-1)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x+1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x-1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y+1)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y-1)
 
         return coords
 
-    def search_for_boundaries(self, start_x, start_y):
+    def search_for_owner(self, start_x, start_y):
         found_black = False
         found_white = False
 
         # Do a depth-first search.
-        def add_stone_to_queue(is_in_bounds, checked, queue, x, y):
-            if is_in_bounds(x, y) and checked.get(x, y) == 0:
-                checked.set(x, y, 1)
+        def add_stone_to_queue(is_in_bounds, visited, queue, x, y):
+            if is_in_bounds(x, y) and visited.get(x, y) == 0:
+                visited.set(x, y, 1)
                 queue.append((x, y))
 
         coords = []
         queue = []
-        checked = BoardArray(width=self.width, height=self.height)
-        add_stone_to_queue(self.is_in_bounds, checked, queue, start_x, start_y)
+        visited = BoardArray(width=self.width, height=self.height)
+        add_stone_to_queue(self.is_in_bounds, visited, queue, start_x, start_y)
         while len(queue):
             x, y = queue.pop()
-            color = self.get(x, y)
-            owner = self.get_owner(x, y)
-            if color == CONST.No_Color or owner != CONST.No_Color:
-                coords.append((x, y))
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x+1, y)
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x-1, y)
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y+1)
-                add_stone_to_queue(self.is_in_bounds, checked, queue, x, y-1)
-            elif color == CONST.White_Color:
+            if self.is_alive(x, y, CONST.Black_Color):
+                found_black = True
+            elif self.is_alive(x, y, CONST.White_Color):
                 found_white = True
             else:
-                found_black = True
-        color = CONST.No_Color
+                coords.append((x, y))
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x+1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x-1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y+1)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y-1)
+
+        owner = CONST.No_Color
         if found_black and not found_white:
-            color = CONST.Black_Color
+            owner = CONST.Black_Color
         elif found_white and not found_black:
-            color = CONST.White_Color
+            owner = CONST.White_Color
 
-        return coords, color
-
-    def _is_japanese_candidate(self, coords, other):
-        # "other" is the opposite of the color that could own territory.
-        for x, y in coords:
-            if not self.is_in_bounds(x, y):
-                continue
-            if not self.is_alive(x, y, other):
-                return False
-        return True
-
-    def is_japanese_corner_case(self, x, y, owner):
-        other = opposite_color(owner)
-        for (a, b) in [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]:
-            if not self.is_in_bounds(a, b) or not self.is_alive(a, b, owner):
-                continue
-            if a == x:
-                if self._is_japanese_candidate([(a+1, b), (a-1, b)], other):
-                    return True
-            else:
-                if self._is_japanese_candidate([(a, b+1), (a, b-1)], other):
-                    return True
-        return False
+        return coords, owner
 
     def mark_territory(self):
+        assert CONST.No_Color < 4
+        assert CONST.White_Color < 4
+        assert CONST.Black_Color < 4
+
         status = BoardArray(width=self.width, height=self.height)
-        # Initialize "status" to have boundaries.
+
+        # Initialize "status" to have boundaries of live stones.
+        found_live_stones = False
+        found_dead_stones = False
         for x in range(self.width):
             for y in range(self.height):
-                if self.get(x, y) != CONST.No_Color and self.get_owner(x, y) == CONST.No_Color:
+                if self.is_alive(x, y):
                     status.set(x, y, self.get(x, y))
+                    found_live_stones = True
                 else:
                     status.set(x, y, CONST.No_Color)
-        # Look for boundaries for the empty terrain.
+                    if not found_dead_stones and self.is_dead(x, y):
+                        found_dead_stones = True
+
+        if found_dead_stones and not found_live_stones:
+            # It doesn't make sense that every stone is dead.  Resurrect all of
+            # them.
+            for x in range(self.width):
+                for y in range(self.height):
+                    self.set_owner(x, y, CONST.No_Color)
+                    status.set(x, y, self.get(x, y))
+
+        # Find the territories, and save the corresponding owners.
         for x in range(self.width):
             for y in range(self.height):
                 if status.get(x, y) == CONST.No_Color:
-                    coords, color = self.search_for_boundaries(x, y)
+                    coords, owner = self.search_for_owner(x, y)
                     for a, b in coords:
-                        status.set(a, b, color + 4)
+                        status.set(a, b, owner + 4)
 
-        # Mark the owners.
+        # Set the calculated owners.
         for x in range(self.width):
             for y in range(self.height):
-                new_color = status.get(x, y)
-                if new_color >= 4:
-                    self.set_owner(x, y, new_color - 4)
+                owner = status.get(x, y)
+                if owner >= 4:
+                    owner = owner - 4
+                    if self.is_stone_of_color(x, y, owner):
+                        self.set_owner(x, y, CONST.No_Color)
+                    else:
+                        self.set_owner(x, y, owner)
 
     def count_territory(self, color, captures = 0):
         count = captures
