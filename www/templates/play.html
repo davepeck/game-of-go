@@ -87,11 +87,21 @@
             {% endif %}
             </p>
             {% else %}
-                {% if your_move or game_is_scoring_python %}
+                {% if your_move %}
                 <p id="turn_message">{{last_move_message}}</p>
                 {% else %}
+                {% if game_is_scoring_python %}
+                    {% if you_are_done_scoring_python %}
+                    <p id="turn_message">You&#146;re waiting for {{opponent_name}} to finish scoring.</p>
+                    {% else %}
+                    {% if opponent_done_scoring_python %}
+                    <p id="turn_message">{{opponent_name}} has finished scoring.</p>
+                    {% else %}
+                    <p id="turn_message">Click on groups of stones to mark them as dead or alive.</p>
+                    {% endif %} {% endif %}
+                {% else %}
                 <p id="turn_message">You&#146;re waiting for {{opponent_name}} to move.</p>
-                {% endif %}
+                {% endif %} {% endif %}
             {% endif %}
 
             <div class="indented">

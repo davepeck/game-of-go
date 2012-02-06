@@ -1755,14 +1755,24 @@ var GameController = Class.create({
         return (!this.game_is_scoring) && (!this.game_is_finished) && (this.state.get_whose_move() == this.your_color);
     },
 
-    start_scoring : function()
+    start_scoring : function(white_territory, black_territory, scoring_number)
     {
+        this.white_territory = white_territory;
+        this.black_territory = black_territory;
         this.deactivate_view_history_link();
         this.deactivate_pass_and_resign_links();
         this.activate_show_previous_link();
         this.show_captures_if_needed();
         $("scoring_links").removeClassName("hide");
         $("playing_links").addClassName("hide");
+
+        this.update_territory();
+    },
+
+    update_territory : function()
+    {
+        $("white_territory").update(white_territory.toString());
+        $("black_territory").update(black_territory.toString());
     },
 
     become_your_move : function(black_stones_captured, white_stones_captured)
@@ -1907,8 +1917,7 @@ var GameController = Class.create({
     {
         if (this.is_waiting_for_opponent) { return; }
         this.next_update_timeout = 15; /* in seconds */
-        this._has_opponent_moved.bind(this).delay(this.next_update_timeout);
-        // this.wait_for_opponent();
+        this.wait_for_opponent();
         this.is_waiting_for_opponent = true;
     },
 
@@ -1971,7 +1980,7 @@ var GameController = Class.create({
         );
     },
 
-    _opponent_has_moved : function(board_state_string, current_move_number, black_stones_captured, white_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, game_is_scoring, game_is_finished)
+    _opponent_has_moved : function(board_state_string, current_move_number, black_stones_captured, white_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, white_territory, black_territory, scoring_number, game_is_scoring, game_is_finished)
     {
         this.board.set_from_state_string(board_state_string);
         this.board_view.update_dom();
@@ -1999,7 +2008,7 @@ var GameController = Class.create({
 
         if (this.game_is_scoring)
         {
-            this.start_scoring();
+            this.start_scoring(white_territory, black_territory, scoring_number);
         }
         else
         {
@@ -2015,7 +2024,7 @@ var GameController = Class.create({
             this.next_update_timeout = 5 * 60; /* 5 minutes max delay */
         }
         this._has_opponent_moved.bind(this).delay(this.next_update_timeout);
-        // this.wait_for_opponent();
+        this.wait_for_opponent();
     },
     
     stop_waiting_for_opponent : function()
@@ -2050,7 +2059,12 @@ var GameController = Class.create({
                         }
                         else
                         {
-                            self._opponent_has_scored(response['board_state_string'], response['current_move_number'], response['black_territory'], response['white_territory'], response['last_move_message'], response['game_is_scoring'], response['game_is_finished']);
+                            self._opponent_has_scored(response['board_state_string'],
+                                                      response['scoring_number'],
+                                                      response['white_territory'],
+                                                      response['black_territory'],
+                                                      response['opponent_done_scoring'],
+                                                      response['game_is_finished']);
                         }
                     }
                     else
@@ -2068,6 +2082,32 @@ var GameController = Class.create({
                 }
             }
         );
+    },
+
+    _opponent_has_scored : function(board_state_string, scoring_number, white_territory, black_territory, opponent_done_scoring, game_is_finished)
+    {
+        this.stop_waiting_for_opponent();
+
+        this.board.set_from_state_string(board_state_string);
+        this.board_view.update_dom();
+
+        this.white_territory = white_territory;
+        this.black_territory = black_territory;
+        this.update_territory();
+
+        if (game_is_finished)
+        {
+            $("The game is over!").update(last_move_message);
+        }
+        else if (opponent_done_scoring)
+        {
+            this._set_opponent_done_message();
+        }
+        else
+        {
+            this.start_waiting_for_opponent();
+        }
+
     },
 
 
@@ -2090,6 +2130,16 @@ var GameController = Class.create({
     _set_scoring_message : function()
     {
         $("turn_message").update("Click on groups of stones to mark them as dead or alive.");
+    },
+    
+    _set_you_are_done_message : function()
+    {
+        $("turn_message").update("You&#146;re waiting for " + this.opponent_name + " finish scoring.");
+    },
+    
+    _set_opponent_done_message : function()
+    {
+        $("turn_message").update(this.opponent_name + " has finished scoring.");
     },
     
     make_this_move : function()
@@ -2202,7 +2252,10 @@ var GameController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        self._succeed_pass(response['current_move_number'], response['game_is_scoring'], response['game_is_finished']);
+                        self._succeed_pass(response['current_move_number'],
+                                           response['white_territory'], response['black_territory'],
+                                           response['scoring_number'],
+                                           response['game_is_scoring'], response['game_is_finished']);
                     }
                     else
                     {
@@ -2219,12 +2272,12 @@ var GameController = Class.create({
         );
     },
 
-    _succeed_pass : function(current_move_number, game_is_scoring, game_is_finished)
+    _succeed_pass : function(current_move_number, white_territory, black_territory, scoring_number, game_is_scoring, game_is_finished)
     {
         this.game_is_scoring = game_is_scoring;
         if (this.game_is_scoring)
         {
-            this.start_scoring();
+            this.start_scoring(white_territory, black_territory, scoring_number);
         }
         else
         {
@@ -2331,7 +2384,10 @@ var GameController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        self._succeed_mark_stone(response['board_state_string'], response['white_territory'], response['black_territory'], response['flash']);
+                        self._succeed_mark_stone(response['board_state_string'],
+                                                 response['white_territory'], response['black_territory'],
+                                                 response['scoring_number'],
+                                                 response['flash']);
                     }
                     else
                     {                    
@@ -2348,22 +2404,26 @@ var GameController = Class.create({
         );        
     },
 
-    _succeed_mark_stone : function(board_state_string, white_territory, black_territory, current_move_number, flash)
+    _succeed_mark_stone : function(board_state_string, white_territory, black_territory, scoring_number, flash)
     {
-        this.move_x = -1
-        this.move_y = -1
+        this.move_x = -1;
+        this.move_y = -1;
         this.board.set_from_state_string(board_state_string);
         this.board_view.update_dom();
-        $("white_territory").update(white_territory.toString());
-        $("black_territory").update(black_territory.toString());
-        this.update_pass_links_after_last_was_not_pass();
-        this.become_opponents_move(black_stones_captured, white_stones_captured);
+
+        this.scoring_number = scoring_number;
+        this.white_territory = white_territory;
+        this.black_territory = white_territory;
+
+        this.update_territory();
+
+        this._set_scoring_message();
     },
 
     _fail_mark_stone : function(flash)
     {
-        this.move_x = -1
-        this.move_y = -1
+        this.move_x = -1;
+        this.move_y = -1;
         $("turn_message").update(flash);        
     },
 
@@ -2388,10 +2448,7 @@ var GameController = Class.create({
 
                 parameters: 
                 {
-                    "your_cookie": this.your_cookie,
-                    "stone_x": this.move_x,
-                    "stone_y": this.move_y,
-                    "owner": owner
+                    "scoring_number": this.scoring_number
                 },
 
                 onSuccess: function(transport) 
@@ -2400,7 +2457,12 @@ var GameController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        self._succeed_done_scoring(response['board_state_string'], response['white_territory'], response['black_territory'], response['flash']);
+                        self._succeed_done_scoring(response['is_done'],
+                                                   response['board_state_string'],
+                                                   response['white_territory'],
+                                                   response['black_territory'],
+                                                   response['game_is_finished'],
+                                                   response['flash']);
                     }
                     else
                     {                    
@@ -2417,8 +2479,18 @@ var GameController = Class.create({
         );        
     },
 
-    _succeed_done_scoring : function(board_state_string, white_territory, black_territory, current_move_number, flash)
+    _succeed_done_scoring : function(is_done, board_state_string, white_territory, black_territory, game_is_finished, flash)
     {
+        if (!is_done) {
+            $("turn_message").update(flash);
+            return
+        }
+
+        if (game_is_finished) {
+            $("turn_message").update(flash);
+        } else {
+            this._set_you_are_done_message();
+        }
         this.last_move_x = this.move_x;
         this.last_move_y = this.move_y;
         this.board.set_from_state_string(board_state_string);
@@ -2432,7 +2504,7 @@ var GameController = Class.create({
 
     _fail_done_scoring : function(flash)
     {
-        $("turn_message").update(flash);        
+        $("turn_message").update(flash);
     },
 
 

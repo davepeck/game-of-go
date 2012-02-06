@@ -188,7 +188,7 @@ class GameBoard(object):
         self._make_owners()
         
     def _make_board(self):
-        self.board = []        
+        self.board = []
         for x in range(self.width):
             self.board.append( [CONST.No_Color] * self.height )
     
@@ -508,12 +508,20 @@ class GameState(object):
         self.current_move_number = 0
         self.last_move = (-1, -1)
         self.last_move_was_pass = False
+
+        # Added in v3 of GameBoard.
+        self.scoring_number = -1
         self.white_territory = 0
         self.black_territory = 0
+        self.black_done_number = -1
+        self.white_done_number = -1
     
     def get_board(self):
         return self.board
         
+    def get_version(self):
+        return self.get_board().get_version()
+
     def set_board(self, board):
         self.board = board        
         
@@ -535,19 +543,74 @@ class GameState(object):
     def set_black_stones_captured(self, bsc):
         self.black_stones_captured = bsc
 
+    def get_scoring_number(self):
+        if self.get_version() < 3:
+            try:
+                return self.scoring_number
+            except Exception:
+                # Need to support old games that enter the scoring stage.
+                return -1
+        else:
+            return self.scoring_number
+
+    def increment_scoring_number(self):
+        if self.get_version() < 3:
+            try:
+                self.scoring_number += 1
+            except Exception:
+                # Need to support old games that enter the scoring stage.
+                self.scoring_number = 0
+                self.white_done_number = -1
+                self.black_done_number = -1
+                self.white_territory = 0
+                self.black_territory = 0
+        else:
+            self.scoring_number += 1
+
+    def has_scoring_data(self):
+        return self.get_scoring_number() >= 0
+
+    def is_white_done_scoring(self):
+        # Order matters here, since we're relying on a short circuit.
+        return self.has_scoring_data() and self.white_done_number == self.get_scoring_number()
+
+    def is_black_done_scoring(self):
+        # Order matters here, since we're relying on a short circuit.
+        return self.has_scoring_data() and self.black_done_number == self.get_scoring_number()
+
+    def is_done_scoring(self, color=CONST.Both_Colors):
+        if color == CONST.White_Color:
+            return self.is_white_done_scoring()
+        elif color == CONST.Black_Color:
+            return self.is_black_done_scoring()
+        else:
+            return self.is_white_done_scoring() and self.is_black_done_scoring()
+
+    def set_done_scoring(self, color):
+        if color == CONST.White_Color:
+            self.white_done_number = self.get_scoring_number()
+        elif color == CONST.Black_Color:
+            self.black_done_number = self.get_scoring_number()
+
     def get_white_territory(self):
-        return self.white_territory
+        if self.has_scoring_data():
+            return self.white_territory
+        else:
+            return -1
     
     def set_white_territory(self, territory):
         self.white_territory = territory
     
     def get_black_territory(self):
-        return self.black_territory
+        if self.has_scoring_data():
+            return self.black_territory
+        else:
+            return -1
         
     def set_black_territory(self, territory):
         self.black_territory = territory
 
-    def compute_territory(self):
+    def count_territory(self):
         board = self.get_board()
         self.set_black_territory(board.count_black_territory(self.get_white_stones_captured()))
         self.set_white_territory(board.count_white_territory(self.get_black_stones_captured()))
@@ -589,6 +652,15 @@ class GameState(object):
         clone.board = self.board.clone()
         clone.last_move = self.last_move
         clone.last_move_was_pass = self.last_move_was_pass
+
+        # Added in v3 of GameBoard.
+        if self.has_scoring_data():
+            clone.scoring_number    = self.scoring_number
+            clone.white_territory   = self.white_territory
+            clone.black_territory   = self.black_territory
+            clone.black_done_number = self.black_done_number
+            clone.white_done_number = self.white_done_number
+
         return clone
 
 class ChatEntry(object):
@@ -857,6 +929,29 @@ Hi %s,
         message.send()
 
     @staticmethod
+    def notify_scoring(your_name, your_email, your_cookie, opponent_name, opponent_email, you_are_done=False, no_longer_done=False, game_over=False):
+        your_address = EmailHelper._rfc_address(your_name, your_email)
+        opponent_address = EmailHelper._rfc_address(opponent_name, opponent_email)
+
+        message = mail.EmailMessage()
+        message.sender = EmailHelper.No_Reply_Address
+        message.to = your_address
+        message.subject = "[GO - Scoring] Scoring against %s" % opponent_name
+
+        if game_over:
+            email_body = "The game is over!"
+        elif no_longer_done:
+            email_body = "%s has continued scoring; you are no longer finished." % opponent_name
+        elif you_are_done:
+            email_body = "%s has finished scoring; you should do the same." % opponent_name
+        else:
+            email_body = "It's time to score your game against %s." % opponent_name
+        email_body += " Just follow this link:\n\n%s\n" % EmailHelper._game_url(your_cookie)        
+        message.body = email_body
+
+        message.send()
+
+    @staticmethod
     def remind_player(player_name, player_email, player_cookie, opponent_name, move_number, is_scoring):
         player_address = EmailHelper._rfc_address(player_name, player_email)
         message = mail.EmailMessage()
@@ -1043,6 +1138,15 @@ class TwitterHelper(object):
         return TwitterHelper.send_notification_to_user(your_twitter, message)    
 
     @staticmethod
+    def notify_scoring(your_name, your_twitter, your_cookie, opponent_name, game_over=False):
+        if game_over:
+            message = "The game is over!"
+        else:
+            message = "It's your turn to score against %s." % TwitterHelper._trim_name(opponent_name)
+        message += " " + TwitterHelper._game_url(your_cookie)
+        return TwitterHelper.send_notification_to_user(your_twitter, message)    
+
+    @staticmethod
     def remind_player(player_name, player_twitter, player_cookie, is_scoring):
         if is_scoring:
             message = "Just a reminder: you're still scoring; you haven't done anything in over a week. %s" % TwitterHelper._game_url(player_cookie)
@@ -1084,9 +1188,7 @@ class Game(db.Model):
     chat_history = db.ListProperty(db.Blob)
 
     is_finished = db.BooleanProperty(default=False)    
-    is_scoring = db.BooleanProperty(default=False)    
-    is_black_done_scoring = db.BooleanProperty(default=False)
-    is_white_done_scoring = db.BooleanProperty(default=False)
+    has_scoring_data = db.BooleanProperty(default=False)    
     reminder_send_time = db.DateTimeProperty(auto_now = False)
     
     def get_black_player(self):
@@ -1095,26 +1197,8 @@ class Game(db.Model):
     def get_white_player(self):
         return ModelCache.player_by_cookie(self.white_cookie)
 
-    def is_color_done_scoring(self, color):
-        if color == CONST.Black_Color:
-            return self.is_black_done_scoring
-        else:
-            return self.is_white_done_scoring
-
-    def is_player_done_scoring(self, player):
-        return self.is_color_done_scoring(player.color)
-
-    def set_color_done_scoring(self, color, done):
-        if color == CONST.Black_Color:
-            self.is_black_done_scoring = done
-        else:
-            self.is_white_done_scoring = done
-
-    def set_player_done_scoring(self, player, done):
-        self.set_color_done_scoring(player.color, done);
-
     def get_player_whose_move(self):
-        if self.is_finished or self.is_scoring:
+        if self.is_finished or self.has_scoring_data:
             return None        
         whose_move = pickle.loads(self.current_state).get_whose_move()
         if whose_move == CONST.Black_Color:
@@ -1123,7 +1207,10 @@ class Game(db.Model):
             return self.get_white_player()
 
     def in_progress(self):
-        return not self.is_scoring and not self.is_finished
+        return not self.has_scoring_data and not self.is_finished
+
+    def is_scoring(self):
+        return self.has_scoring_data and not self.is_finished
         
     def get_black_friendly_name(self):
         return self.get_black_player().get_friendly_name()
@@ -1636,6 +1723,8 @@ class PlayGameHandler(GoHandler):
         state = pickle.loads(game.current_state)            
         your_move = (state.whose_move == player.color)
         board = state.get_board()
+        you_are_done_scoring  = state.is_done_scoring(player.color)
+        opponent_done_scoring = state.is_done_scoring(opponent_player.color)
 
         last_move_x, last_move_y = state.get_last_move()
 
@@ -1665,18 +1754,19 @@ class PlayGameHandler(GoHandler):
             'last_move_was_pass': "true" if state.get_last_move_was_pass() else "false",
             'last_move_was_pass_python': state.get_last_move_was_pass(),
             'has_last_move': last_move_x != -1,
-            'game_is_scoring' : "true" if game.is_scoring else "false",
-            'game_is_scoring_python' : game.is_scoring,
-            'you_are_done_scoring' : "true" if game.is_player_done_scoring(player) else "false",
-            'you_are_done_scoring_python' : game.is_player_done_scoring(player),
-            'opponent_done_scoring' : "true" if game.is_player_done_scoring(opponent_player) else "false",
-            'opponent_done_scoring_python' : game.is_player_done_scoring(opponent_player),
+            'game_is_scoring' : "true" if game.is_scoring() else "false",
+            'game_is_scoring_python' : game.is_scoring(),
+            'you_are_done_scoring' : "true" if you_are_done_scoring else "false",
+            'you_are_done_scoring_python' : you_are_done_scoring,
+            'opponent_done_scoring' : "true" if opponent_done_scoring else "false",
+            'opponent_done_scoring_python' : opponent_done_scoring,
+            'scoring_number' : state.get_scoring_number(),
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'game_in_progress': "true" if game.in_progress() else "false",
             'game_in_progress_python': game.in_progress(),
             'any_captures': (state.get_black_stones_captured() + state.get_white_stones_captured()) > 0,
-            'any_territory': (game.is_scoring or game.is_finished),
+            'has_scoring_data': game.has_scoring_data,
             'black_territory': state.get_black_territory(),
             'white_territory': state.get_white_territory(),
             'board_class': board.get_class(),
@@ -1876,9 +1966,11 @@ class PassHandler(GoHandler):
         previous_also_passed = state.get_last_move_was_pass()        
 
         if previous_also_passed:
-            move_message = "Mark the dead stones. Click done when finished. If you and your opponent agree, the game will end." 
-            game.is_scoring = True
+            move_message = "Mark the dead stones. Click done when finished. When you and your opponent agree, the game will end." 
+            game.has_scoring_data = True
+            new_state.increment_scoring_number()
             new_state.get_board().mark_territory()
+            new_state.count_territory()
         else:
             move_message = "Your opponent passed. You can make a move, or you can pass again to end the game."
         new_state.set_last_move_message(move_message)
@@ -1904,7 +1996,10 @@ class PassHandler(GoHandler):
             'success': True,
             'flash': 'OK',
             'current_move_number': game.get_current_move_number(),
-            'game_is_scoring': game.is_scoring,
+            'white_territory': new_state.get_white_territory(),
+            'black_territory': new_state.get_black_territory(),
+            'scoring_number': new_state.get_scoring_number(),
+            'game_is_scoring': game.is_scoring(),
             'game_is_finished': game.is_finished }
                     
         self.render_json(items)
@@ -1940,15 +2035,15 @@ class MarkStoneHandler(GoHandler):
             self.fail("No more stones can be marked dead; the game is finished.")
             return
 
-        if not game.is_scoring:
+        if game.in_progress():
             self.fail("Scoring is not allowed yet; the game is still in progress.")
             return
 
-        if game.is_player_done_scoring(player):
+        state = pickle.loads(game.current_state)
+
+        if state.is_done_scoring(player.color):
             self.fail("Sorry, but you have already finished scoring.")
             return
-
-        state = pickle.loads(game.current_state)
 
         board = state.get_board()
         try:
@@ -1956,7 +2051,7 @@ class MarkStoneHandler(GoHandler):
             stone_y = int(self.request.POST.get("stone_y"))
             owner = int(self.request.POST.get("owner"))
         except:
-            self.fail("Invalid move x/y coordinate.")
+            self.fail("Invalid scoring x/y coordinate.")
             return
 
         if (stone_x < 0) or (stone_x >= board.get_width()) or (stone_y < 0) or (stone_y >= board.get_height()):
@@ -1981,6 +2076,9 @@ class MarkStoneHandler(GoHandler):
         new_state = state.clone()
         new_board = new_state.get_board()        
 
+        # Increment the scoring number.
+        new_state.increment_scoring_number()
+
         # Deal with other dead/alive stones.
         stones = new_board.compute_changed_stones(stone_x, stone_y)
 
@@ -1993,7 +2091,7 @@ class MarkStoneHandler(GoHandler):
             new_board.set_owner(x, y, owner)
 
         new_board.mark_territory()
-        new_state.compute_territory()
+        new_state.count_territory()
 
         # Replace the current game state.
         game.current_state = db.Blob(pickle.dumps(new_state))
@@ -2006,25 +2104,21 @@ class MarkStoneHandler(GoHandler):
             game.put()
 
         opponent = player.get_opponent()
-        if game.is_player_done_scoring(opponent):
-            game.set_player_done_scoring(opponent, False)
-            try:
-                opponent.put()
-            except:
-                opponent.put()
+        was_done_scoring = state.is_done_scoring(opponent.color)
+
+        if was_done_scoring:
             # Send an email to the opponent.
             if opponent.wants_email:
-                EmailHelper.notify_not_done(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email)
+                EmailHelper.notify_scoring(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, no_longer_done=True)
             elif opponent.does_want_twitter():
-                TwitterHelper.notify_not_done(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name())
+                TwitterHelper.notify_scoring(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), no_longer_done=True)
 
         items = {
             'success': True,
             'flash': 'TODO',
-            'white_stones_captured': new_state.get_white_stones_captured(),
-            'black_stones_captured': new_state.get_black_stones_captured(),
             'white_territory': new_state.get_white_territory(),
             'black_territory': new_state.get_black_territory(),
+            'scoring_number': new_state.get_scoring_number(),
             'board_state_string': new_state_string }
                     
         self.render_json(items)
@@ -2039,11 +2133,17 @@ class DoneHandler(GoHandler):
 
     def fail(self, message):
         self.render_json({'success': False, 'flash': message})           
-    
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
             self.fail("Unexpected error: no cookie found.")
+            return
+
+        try:
+            done_scoring_number = int(self.request.POST.get("scoring_number"))
+        except:
+            self.fail()
             return
 
         player = ModelCache.player_by_cookie(cookie)
@@ -2058,45 +2158,65 @@ class DoneHandler(GoHandler):
         if game.is_finished:
             self.fail("The game is already finished.")
             return
-        if not game.is_scoring:
+        if game.in_progress():
             self.fail("The game has not started scoring yet.")
             return
-        if game.is_player_done_scoring(player):
+
+        state = pickle.loads(game.current_state)
+        if state.is_done_scoring(player.color):
             self.fail("You have already finished scoring.")
             return
 
-        game.set_player_done_scoring(player, True)
-        opponent = player.get_opponent()
+        if state.get_scoring_number() != done_scoring_number:
+            items = {
+                    'success': True,
+                    'is_done': False,
+                    'flash': 'Something has changed; review before clicking done.',
+                    'white_territory': game.get_white_territory(),
+                    'black_territory': game.get_black_territory(),
+                    'scoring_number': game.get_scoring_number(),
+                    'game_is_finished': game.is_finished }
 
-        if game.is_player_done_scoring(opponent):
-            game.is_scoring = False
+            self.render_json(items)
+            return
+
+        # Mark the player as done.
+        new_state = state.clone()
+        new_state.increment_scoring_number()
+        new_state.set_done_scoring(player.color)
+
+        if new_state.is_done_scoring():
             game.is_finished = True
             move_message = "The game is over!"
-
-            state = pickle.loads(game.current_state)
-            new_state = state.clone()
             new_state.set_last_move_message(move_message)
-            game.current_state = db.Blob(pickle.dumps(new_state))
-            game.reminder_send_time = datetime.now()
+
+        game.reminder_send_time = datetime.now()
+        game.current_state = db.Blob(pickle.dumps(new_state))
 
         try:
             game.put()
         except:
             game.put()
 
-        # send an email.
-
         # Send an email, but only if they want it.
         opponent = player.get_opponent()
         if opponent.wants_email:
-            EmailHelper.notify_done(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message, new_state.get_current_move_number())
+            EmailHelper.notify_scoring(opponent.get_friendly_name(),
+                    opponent.email, opponent.cookie,
+                    player.get_friendly_name(), player.email,
+                    you_are_done=True, game_over=game.is_finished)
         elif opponent.does_want_twitter():
-            TwitterHelper.notify_done(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
+            TwitterHelper.notify_scoring(opponent.get_friendly_name(),
+                    opponent.twitter, opponent.cookie,
+                    player.get_friendly_name(),
+                    game_over=game.is_finished)
                     
         items = {
             'success': True,
             'flash': 'OK',
-            'current_move_number': game.get_current_move_number(),
+            'white_territory': game.get_white_territory(),
+            'black_territory': game.get_black_territory(),
+            'scoring_number': game.get_scoring_number(),
             'game_is_scoring': game.is_scoring,
             'game_is_finished': game.is_finished }
                     
@@ -2217,7 +2337,60 @@ class HasOpponentMovedHandler(GoHandler):
                 'last_move_x': last_move_x,
                 'last_move_y': last_move_y,
                 'last_move_was_pass': state.get_last_move_was_pass(),
+                'white_territory': state.get_white_territory(),
+                'black_territory': state.get_black_territory(),
+                'scoring_number': state.get_scoring_number(),
                 'game_is_scoring': game.is_scoring,
+                'game_is_finished': game.is_finished})
+
+#------------------------------------------------------------------------------
+# "Has Opponent Scored" Handler        
+#------------------------------------------------------------------------------
+
+class HasOpponentScoredHandler(GoHandler):
+    def __init__(self):
+        super(HasOpponentScoredHandler, self).__init__()
+
+    def fail(self, message):
+        self.render_json({'success': False, 'flash': message})           
+        
+    def post(self, *args):
+        cookie = self.request.POST.get("your_cookie")
+        if not cookie:
+            self.fail("Unexpected error: no cookie found.")
+            return
+
+        player = ModelCache.player_by_cookie(cookie)
+        if not player:
+            self.fail("Unexpected error: invalid player.")
+            return
+
+        game = player.game
+        if not game:
+            self.fail("Unexpected error: no game found.")
+            return
+
+        if game.in_progress():
+            self.fail("Scoring is not allowed yet; the game is still in progress.")
+            return
+
+        state = pickle.loads(game.current_state)
+
+        base_scoring_number = int(self.request.POST.get("scoring_number"))
+        if state.get_scoring_number() == base_scoring_number:
+            self.render_json({'success': True, 'flash': 'OK', 'has_opponent_scored': False})
+        else:
+            board = state.get_board()
+            opponent = player.get_opponent()
+            self.render_json({
+                'success': True,
+                'flash': 'OK',
+                'has_opponent_scored': True,
+                'board_state_string': board.get_state_string(),
+                'white_territory': state.get_white_territory(),
+                'black_territory': state.get_black_territory(),
+                'scoring_number': state.get_scoring_number(),
+                'opponent_done_scoring': state.is_done_scoring(opponent.color),
                 'game_is_finished': game.is_finished})
 
 
@@ -2928,7 +3101,7 @@ def main():
         ('/service/make-this-move/', MakeThisMoveHandler),
         ('/service/has-opponent-moved/', HasOpponentMovedHandler),
         ('/service/mark-stone/', MarkStoneHandler),
-        #('/service/has-opponent-scored/', HasOpponentScoredHandler),
+        ('/service/has-opponent-scored/', HasOpponentScoredHandler),
         ('/service/done/', DoneHandler),
         ('/service/change-options/', ChangeOptionsHandler),
         ('/service/change-grid-options/', ChangeGridOptionsHandler),
