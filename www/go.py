@@ -459,7 +459,7 @@ class GameBoard(object):
         # Initialize "status" to have boundaries.
         for x in range(self.width):
             for y in range(self.height):
-                if self.get(x, y) != CONST.No_Color && self.get_owner(x, y) == CONST.No_Color:
+                if self.get(x, y) != CONST.No_Color and self.get_owner(x, y) == CONST.No_Color:
                     status.set(x, y, self.get(x, y))
                 else:
                     status.set(x, y, CONST.No_Color)
@@ -467,7 +467,7 @@ class GameBoard(object):
         for x in range(self.width):
             for y in range(self.height):
                 if status.get(x, y) == CONST.No_Color:
-                    coords, color = search_for_boundaries(x, y)
+                    coords, color = self.search_for_boundaries(x, y)
                     for a, b in coords:
                         status.set(a, b, color + 4)
         # Check for Japanese corner cases.
@@ -476,7 +476,7 @@ class GameBoard(object):
                 color = status.get(x, y) - 4
                 if color != CONST.No_Color:
                     other = opposite_color(color)
-                    if (is_japanese_corner_case(x, y, color)):
+                    if (self.is_japanese_corner_case(x, y, color)):
                         status.set(x, y, CONST.No_Color + 4)
         # Mark the owners.
         for x in range(self.width):
