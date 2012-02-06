@@ -2217,7 +2217,7 @@ class DoneHandler(GoHandler):
             'white_territory': game.get_white_territory(),
             'black_territory': game.get_black_territory(),
             'scoring_number': game.get_scoring_number(),
-            'game_is_scoring': game.is_scoring,
+            'game_is_scoring': game.is_scoring(),
             'game_is_finished': game.is_finished }
                     
         self.render_json(items)
@@ -2286,7 +2286,7 @@ class ResignHandler(GoHandler):
             'success': True,
             'flash': 'OK',
             'current_move_number': game.get_current_move_number(),
-            'game_is_scoring': game.is_scoring,
+            'game_is_scoring': game.is_scoring(),
             'game_is_finished': game.is_finished }
                     
         self.render_json(items)
@@ -2340,7 +2340,7 @@ class HasOpponentMovedHandler(GoHandler):
                 'white_territory': state.get_white_territory(),
                 'black_territory': state.get_black_territory(),
                 'scoring_number': state.get_scoring_number(),
-                'game_is_scoring': game.is_scoring,
+                'game_is_scoring': game.is_scoring(),
                 'game_is_finished': game.is_finished})
 
 #------------------------------------------------------------------------------
@@ -2374,9 +2374,14 @@ class HasOpponentScoredHandler(GoHandler):
             self.fail("Scoring is not allowed yet; the game is still in progress.")
             return
 
+        try:
+            base_scoring_number = int(self.request.POST.get("scoring_number"))
+        except:
+            self.fail("Unexpected error: invalid scoring request")
+            return
+
         state = pickle.loads(game.current_state)
 
-        base_scoring_number = int(self.request.POST.get("scoring_number"))
         if state.get_scoring_number() == base_scoring_number:
             self.render_json({'success': True, 'flash': 'OK', 'has_opponent_scored': False})
         else:
@@ -3052,7 +3057,7 @@ class SendRemindersHandler(GoHandler):
                     else:
                         players = []
 
-                        if stale_game.is_scoring:
+                        if stale_game.is_scoring():
                             black = stale_game.get_black_player()
                             white = stale_game.get_white_player()
                             for player in [ black, white ]:
@@ -3070,10 +3075,10 @@ class SendRemindersHandler(GoHandler):
                             if player.wants_email:
                                 opponent = player.get_opponent()
                                 state = pickle.loads(stale_game.current_state)
-                                EmailHelper.remind_player(player.get_friendly_name(), player.email, player.cookie, opponent.get_friendly_name(), state.get_current_move_number(), stale_game.is_scoring)
+                                EmailHelper.remind_player(player.get_friendly_name(), player.email, player.cookie, opponent.get_friendly_name(), state.get_current_move_number(), stale_game.is_scoring())
                                 message = "Sent an email reminder to %s about game %s!" % (player.email, player.cookie)
                             elif player.does_want_twitter():
-                                TwitterHelper.remind_player(player.get_friendly_name(), player.twitter, player.cookie, stale_game.is_scoring)
+                                TwitterHelper.remind_player(player.get_friendly_name(), player.twitter, player.cookie, stale_game.is_scoring())
                                 message = "Sent a twitter reminder to %s about game %s!" % (player.twitter, player.cookie)
                             else:
                                 message = "Found 'stale' game %s that I couldn't notify about: player did not want notification." % player.cookie

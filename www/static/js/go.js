@@ -2023,7 +2023,6 @@ var GameController = Class.create({
         {
             this.next_update_timeout = 5 * 60; /* 5 minutes max delay */
         }
-        this._has_opponent_moved.bind(this).delay(this.next_update_timeout);
         this.wait_for_opponent();
     },
     
@@ -2044,7 +2043,8 @@ var GameController = Class.create({
 
                 parameters:
                 {
-                    "your_cookie": this.your_cookie
+                    "your_cookie": this.your_cookie,
+                    "scoring_number": this.scoring_number
                 },
 
                 onSuccess : function(transport)
