@@ -1767,7 +1767,6 @@ var GameController = Class.create({
         this.scoring_number = scoring_number;
         this.update_territory(white_territory, black_territory);
 
-        this.deactivate_view_history_link();
         this.deactivate_pass_and_resign_links();
         this.activate_show_previous_link();
         this.show_captures_if_needed();

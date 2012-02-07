@@ -118,7 +118,7 @@
                     <br />
                     <a href="javascript:game_controller.show_last_move()" id="show_previous_move" class="{% if has_last_move %}move_link{% else %}disabled_move_link{% endif %}">show the previous move &raquo;</a>
                 </div>
-                <div id="scoring_links" {% if not game_is_scoring %}class="hide"{% endif %}>
+                <div id="scoring_links" {% if not game_is_scoring_python %}class="hide"{% endif %}>
                     <a href="javascript:game_controller.done_scoring();" id="done_scoring" class="move_link">done &raquo;</a>
                 </div>
             </div>
