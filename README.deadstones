@@ -137,9 +137,10 @@ specific.
      - Update the territory calculations.
  - you click _done_
    - _scoring_                ->  _scoring_
-     - Occurs when you click _done_, but the server a _scoring_number_ higher
-       than the one sent in.
+     - Occurs when you click _done_, but the server has a _scoring_number_
+       higher than the one sent in.
      - Update the territory calculations.
+     - Update _scoring_number_.
    - _scoring_                ->  _you_are_done_
      - Occurs when you click _done_, and the server has the same
        _scoring_number_.
@@ -147,24 +148,30 @@ specific.
    - _opponent_is_done_       ->  _game_finished_
      - Occurs when you click _done_.
      - Hide the _done_ link.
+     - Display game over text.
  - _opponent_has_scored_ request succeeds
    - _scoring_                ->  _scoring_
      - Occurs when opponent _mark_stone_.
      - Update territory calculations.
+     - Update _scoring_number_.
    - _scoring_                ->  _opponent_is_done_
      - Occurs when opponent clicks _done_.
      - Update territory calculations, since opponent may have used
        _mark_stone_.
+     - Update _scoring_number_.
    - _you_are_done_           ->  _scoring_
      - Occurs when opponent _mark_stone_.
      - Enable the _done_ link.
      - Update the territory calculations.
+     - Update _scoring_number_.
    - _you_are_done_           ->  _opponent_is_done_
      - Occurs when opponent _mark_stone_ and then clicks _done_.
      - Enable the _done_ link.
      - Update territory calculations.
+     - Update _scoring_number_.
    - _you_are_done_           ->  _game_finished_
      - Occurs when opponent clicks _done_.
      - Hide the _done_ link.
+     - Display game over text.
 
 // vi: set ft=asciidoc:
