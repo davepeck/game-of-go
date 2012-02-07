@@ -2361,6 +2361,7 @@ class HasOpponentMovedHandler(GoHandler):
             self.render_json({'success': True, 'flash': 'OK', 'has_opponent_moved': False})
         else:
             board = state.get_board()
+            opponent = player.get_opponent()
             last_move_x, last_move_y = state.get_last_move()
             self.render_json({
                 'success': True,
@@ -2377,6 +2378,8 @@ class HasOpponentMovedHandler(GoHandler):
                 'white_territory': state.get_white_territory(),
                 'black_territory': state.get_black_territory(),
                 'scoring_number': state.get_scoring_number(),
+                'you_win': state.is_winner(player.color),
+                'opponent_wins': state.is_winner(opponent.color),
                 'game_is_scoring': game.is_scoring(),
                 'game_is_finished': game.is_finished})
 
@@ -2419,7 +2422,7 @@ class HasOpponentScoredHandler(GoHandler):
 
         state = pickle.loads(game.current_state)
 
-        if state.get_scoring_number() == base_scoring_number:
+        if state.get_scoring_number() == base_scoring_number and not game.is_finished:
             self.render_json({'success': True, 'flash': 'OK', 'has_opponent_scored': False})
         else:
             board = state.get_board()

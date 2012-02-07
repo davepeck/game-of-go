@@ -1618,7 +1618,7 @@ var GameController = Class.create({
         this.is_grid_active = show_grid;
         $("grid_button").observe('click', this._click_grid_button.bindAsEventListener(this));        
         
-        if (!this.is_your_move() && !this.game_is_finished) 
+        if ((!this.is_your_move() || this.game_is_scoring) && !this.game_is_finished) 
         {
             this.start_waiting_for_opponent();
         }
@@ -1770,8 +1770,9 @@ var GameController = Class.create({
         this.activate_show_previous_link();
         this.show_captures_if_needed();
 
-        $("scoring_links").removeClassName("hide");
         $("playing_links").addClassName("hide");
+        $("scoring_links").removeClassName("hide");
+        $("territory_message").removeClassName("hide");
 
         // Always wait for opponent when scoring.
         this._set_scoring_message();
@@ -1952,12 +1953,11 @@ var GameController = Class.create({
 
     wait_for_opponent : function()
     {
-        if (this.game_is_scoring)
-        {
+        if (this.game_is_finished) {
+            this.stop_waiting_for_opponent();
+        } else if (this.game_is_scoring) {
             this._has_opponent_scored.bind(this).delay(this.next_update_timeout);
-        }
-        else
-        {
+        } else {
             this._has_opponent_moved.bind(this).delay(this.next_update_timeout);
         }
 
@@ -1965,6 +1965,10 @@ var GameController = Class.create({
 
     _has_opponent_moved : function()
     {
+        if (this.game_is_scoring || this.game_is_finished) {
+            return;
+        }
+
         var self = this;
         this._start_loading();
         new Ajax.Request(
@@ -1989,7 +1993,7 @@ var GameController = Class.create({
                         }
                         else
                         {
-                            self._opponent_has_moved(response['board_state_string'], response['current_move_number'], response['black_stones_captured'], response['white_stones_captured'], response['last_move_message'], response['last_move_x'], response['last_move_y'], response['last_move_was_pass'], response['white_territory'], response['black_territory'], response['scoring_number'], response['game_is_scoring'], response['game_is_finished']);
+                            self._opponent_has_moved(response['board_state_string'], response['current_move_number'], response['black_stones_captured'], response['white_stones_captured'], response['last_move_message'], response['last_move_x'], response['last_move_y'], response['last_move_was_pass'], response['white_territory'], response['black_territory'], response['scoring_number'], response['game_is_scoring'], response['you_win'], response['opponent_wins'], response['game_is_finished']);
                         }
                     }
                     else
@@ -2009,8 +2013,14 @@ var GameController = Class.create({
         );
     },
 
-    _opponent_has_moved : function(board_state_string, current_move_number, black_stones_captured, white_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, white_territory, black_territory, scoring_number, game_is_scoring, game_is_finished)
+    _opponent_has_moved : function(board_state_string, current_move_number, black_stones_captured, white_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, white_territory, black_territory, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished)
     {
+        if (this.game_is_finished) {
+            // There seem to be some corner cases where this message is
+            // received late.
+            return;
+        }
+
         this.update_board(board_state_string);
 
         $("black_stones_captured").update(black_stones_captured.toString());
@@ -2022,6 +2032,9 @@ var GameController = Class.create({
         this.last_move_y = last_move_y;
         this.last_move_was_pass = last_move_was_pass;
         this.game_is_scoring = game_is_scoring;
+        this.game_is_finished = game_is_finished;
+        this.you_win = you_win;
+        this.opponent_wins = opponent_wins;
 
         if (this.last_move_was_pass)
         {
@@ -2034,12 +2047,14 @@ var GameController = Class.create({
         
         this.stop_waiting_for_opponent();
 
-        if (this.game_is_scoring)
-        {
+        if (this.game_is_finished) {
+            // In case an old window hasn't updated until now.
+            this.update_scoring(scoring_number, white_territory, black_territory);
+            $("territory_message").removeClassName("hide");
+            this.finish_game();
+        } else if (this.game_is_scoring) {
             this.start_scoring(white_territory, black_territory, scoring_number);
-        }
-        else
-        {
+        } else {
             this.become_your_move(black_stones_captured, white_stones_captured);
         }
     },
@@ -2292,8 +2307,7 @@ var GameController = Class.create({
                                            response['black_territory'],
                                            response['scoring_number'],
                                            response['board_state_string'],
-                                           response['game_is_scoring'],
-                                           response['game_is_finished']);
+                                           response['game_is_scoring']);
                     }
                     else
                     {
@@ -2310,7 +2324,7 @@ var GameController = Class.create({
         );
     },
 
-    _succeed_pass : function(current_move_number, white_territory, black_territory, scoring_number, board_state_string, game_is_scoring, game_is_finished)
+    _succeed_pass : function(current_move_number, white_territory, black_territory, scoring_number, board_state_string, game_is_scoring)
     {
         this.game_is_scoring = game_is_scoring;
         if (this.game_is_scoring) {
