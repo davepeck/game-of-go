@@ -515,6 +515,7 @@ class GameState(object):
         self.black_territory = 0
         self.black_done_number = -1
         self.white_done_number = -1
+        self.winner = CONST.No_Color
     
     def get_board(self):
         return self.board
@@ -591,6 +592,18 @@ class GameState(object):
             self.white_done_number = self.get_scoring_number()
         elif color == CONST.Black_Color:
             self.black_done_number = self.get_scoring_number()
+
+    def get_winner(self):
+        if self.get_version() < 3:
+            try:
+                return self.winner
+            except Exception:
+                return CONST.No_Color
+        else:
+            return self.winner
+
+    def set_winner(self, color):
+        self.winner = color
 
     def get_white_territory(self):
         if self.has_scoring_data():
@@ -1725,6 +1738,9 @@ class PlayGameHandler(GoHandler):
         board = state.get_board()
         you_are_done_scoring  = state.is_done_scoring(player.color)
         opponent_done_scoring = state.is_done_scoring(opponent_player.color)
+        you_win = (state.get_winner() == player.color)
+        opponent_wins = (state.get_winner() == opponent_player.color)
+        by_resignation = (you_win or opponent_wins) and not state.has_scoring_data() 
 
         last_move_x, last_move_y = state.get_last_move()
 
@@ -1769,6 +1785,12 @@ class PlayGameHandler(GoHandler):
             'has_scoring_data': game.has_scoring_data,
             'black_territory': state.get_black_territory(),
             'white_territory': state.get_white_territory(),
+            'you_win' : "true" if you_win else "false",
+            'you_win_python' : you_win,
+            'opponent_wins' : "true" if opponent_wins else "false",
+            'opponent_wins_python' : opponent_wins,
+            'by_resignation' : "true" if by_resignation else "false",
+            'by_resignation_python' : by_resignation,
             'board_class': board.get_class(),
             'komi': board.get_komi(),
             'show_grid': "true" if player.get_safe_show_grid() else "false",
@@ -2257,6 +2279,7 @@ class ResignHandler(GoHandler):
         # Create the potentially new state
         new_state = state.clone()
         new_state.increment_current_move_number()
+        new_state.set_winner(opposite_color(player.color))
         new_state.set_whose_move(opposite_color(player.color))
         new_state.set_last_move_was_pass(True)
 
