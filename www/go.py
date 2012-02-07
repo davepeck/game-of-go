@@ -602,6 +602,9 @@ class GameState(object):
         else:
             return self.winner
 
+    def is_winner(self, color):
+        return color == self.get_winner()
+
     def set_winner(self, color):
         self.winner = color
 
@@ -1728,18 +1731,15 @@ class PlayGameHandler(GoHandler):
         black_player = ModelCache.player_by_cookie(game.black_cookie)
         white_player = ModelCache.player_by_cookie(game.white_cookie)
 
-        if player.color == CONST.Black_Color:
-            opponent_player = white_player
-        else:
-            opponent_player = black_player
+        opponent_player = player.get_opponent()
 
         state = pickle.loads(game.current_state)            
         your_move = (state.whose_move == player.color)
         board = state.get_board()
         you_are_done_scoring  = state.is_done_scoring(player.color)
         opponent_done_scoring = state.is_done_scoring(opponent_player.color)
-        you_win = (state.get_winner() == player.color)
-        opponent_wins = (state.get_winner() == opponent_player.color)
+        you_win       = state.is_winner(player.color)
+        opponent_wins = state.is_winner(opponent_player.color)
         by_resignation = (you_win or opponent_wins) and not state.has_scoring_data() 
 
         last_move_x, last_move_y = state.get_last_move()
@@ -1789,8 +1789,7 @@ class PlayGameHandler(GoHandler):
             'you_win_python' : you_win,
             'opponent_wins' : "true" if opponent_wins else "false",
             'opponent_wins_python' : opponent_wins,
-            'by_resignation' : "true" if by_resignation else "false",
-            'by_resignation_python' : by_resignation,
+            'by_resignation' : by_resignation,
             'board_class': board.get_class(),
             'komi': board.get_komi(),
             'show_grid': "true" if player.get_safe_show_grid() else "false",
@@ -1981,6 +1980,8 @@ class PassHandler(GoHandler):
 
         # Create the potentially new state
         new_state = state.clone()
+        new_board = new_state.get_board()
+
         new_state.increment_current_move_number()
         new_state.set_whose_move(opposite_color(player.color))
         new_state.set_last_move_was_pass(True)
@@ -1989,9 +1990,11 @@ class PassHandler(GoHandler):
 
         if previous_also_passed:
             move_message = "Mark the dead stones. Click done when finished. When you and your opponent agree, the game will end." 
+
             game.has_scoring_data = True
             new_state.increment_scoring_number()
-            new_state.get_board().mark_territory()
+
+            new_board.mark_territory()
             new_state.count_territory()
         else:
             move_message = "Your opponent passed. You can make a move, or you can pass again to end the game."
@@ -2018,6 +2021,7 @@ class PassHandler(GoHandler):
             'success': True,
             'flash': 'OK',
             'current_move_number': game.get_current_move_number(),
+            'board_state_string': new_board.get_state_string(),
             'white_territory': new_state.get_white_territory(),
             'black_territory': new_state.get_black_territory(),
             'scoring_number': new_state.get_scoring_number(),
@@ -2190,27 +2194,28 @@ class DoneHandler(GoHandler):
             return
 
         if state.get_scoring_number() != done_scoring_number:
-            items = {
-                    'success': True,
-                    'is_done': False,
-                    'flash': 'Something has changed; review before clicking done.',
-                    'white_territory': game.get_white_territory(),
-                    'black_territory': game.get_black_territory(),
-                    'scoring_number': game.get_scoring_number(),
-                    'game_is_finished': game.is_finished }
-
-            self.render_json(items)
+            if state.is_done_scoring(player.color):
+                # Weird... must have two windows open or something.
+                self.render_success(game, player, state, 'OK')
+            else:
+                self.render_success(game, player, state,
+                        'Something has changed; review before clicking done.')
             return
 
         # Mark the player as done.
         new_state = state.clone()
-        new_state.increment_scoring_number()
         new_state.set_done_scoring(player.color)
 
         if new_state.is_done_scoring():
             game.is_finished = True
             move_message = "The game is over!"
             new_state.set_last_move_message(move_message)
+
+            # Calculate the winner.  Tie goes to white.
+            if new_state.white_territory >= new_state.black_territory:
+                new_state.set_winner(CONST.White_Color)
+            else:
+                new_state.set_winner(CONST.Black_Color)
 
         game.reminder_send_time = datetime.now()
         game.current_state = db.Blob(pickle.dumps(new_state))
@@ -2233,15 +2238,24 @@ class DoneHandler(GoHandler):
                     player.get_friendly_name(),
                     game_over=game.is_finished)
                     
+        self.render_success(game, player, new_state, 'OK')
+
+    def render_success(self, game, player, state, flash):
+        opponent = player.get_opponent()
+        board = state.get_board()
         items = {
-            'success': True,
-            'flash': 'OK',
-            'white_territory': game.get_white_territory(),
-            'black_territory': game.get_black_territory(),
-            'scoring_number': game.get_scoring_number(),
-            'game_is_scoring': game.is_scoring(),
-            'game_is_finished': game.is_finished }
-                    
+                'success': True,
+                'flash': flash,
+                'board_state_string': board.get_state_string(),
+                'you_are_done_scoring': state.is_done_scoring(player.color),
+                'opponent_done_scoring': state.is_done_scoring(opponent.color),
+                'white_territory': state.get_white_territory(),
+                'black_territory': state.get_black_territory(),
+                'scoring_number': state.get_scoring_number(),
+                'you_win': state.is_winner(player.color),
+                'opponent_wins': state.is_winner(opponent.color),
+                'game_is_finished': game.is_finished }
+
         self.render_json(items)
 
 #------------------------------------------------------------------------------
@@ -2279,12 +2293,12 @@ class ResignHandler(GoHandler):
         # Create the potentially new state
         new_state = state.clone()
         new_state.increment_current_move_number()
-        new_state.set_winner(opposite_color(player.color))
         new_state.set_whose_move(opposite_color(player.color))
         new_state.set_last_move_was_pass(True)
 
         move_message = "The game is over!" 
         game.is_finished = True        
+        new_state.set_winner(opposite_color(player.color))
         new_state.set_last_move_message(move_message)
 
         game.history.append(game.current_state)
@@ -2415,11 +2429,14 @@ class HasOpponentScoredHandler(GoHandler):
                 'flash': 'OK',
                 'has_opponent_scored': True,
                 'board_state_string': board.get_state_string(),
+                'you_are_done_scoring': state.is_done_scoring(player.color),
+                'opponent_done_scoring': state.is_done_scoring(opponent.color),
                 'white_territory': state.get_white_territory(),
                 'black_territory': state.get_black_territory(),
                 'scoring_number': state.get_scoring_number(),
-                'opponent_done_scoring': state.is_done_scoring(opponent.color),
-                'game_is_finished': game.is_finished})
+                'you_win': state.is_winner(player.color),
+                'opponent_wins': state.is_winner(opponent.color),
+                'game_is_finished': game.is_finished })
 
 
 #------------------------------------------------------------------------------

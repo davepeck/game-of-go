@@ -1562,7 +1562,7 @@ var ChatController = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameController = Class.create({            
-    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, by_resignation, game_is_finished, last_move_message, show_grid)
+    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
@@ -1590,6 +1590,7 @@ var GameController = Class.create({
         this.speculation_color = your_color;
         this.move_x = -1;
         this.move_y = -1;
+        this.previous_owner = CONST.No_Color;
 
         this.game_is_scoring = game_is_scoring;
         this.you_are_done_scoring = you_are_done_scoring;
@@ -1597,7 +1598,6 @@ var GameController = Class.create({
         this.scoring_number = scoring_number;
         this.you_win = false;
         this.opponent_wins = false;
-        this.by_resignation = false;
 
         this.is_loading = false;
         this.is_waiting_for_opponent = false;
@@ -1618,7 +1618,7 @@ var GameController = Class.create({
         this.is_grid_active = show_grid;
         $("grid_button").observe('click', this._click_grid_button.bindAsEventListener(this));        
         
-        if (!this.is_your_move() && !this.is_game_finished) 
+        if (!this.is_your_move() && !this.game_is_finished) 
         {
             this.start_waiting_for_opponent();
         }
@@ -1764,8 +1764,7 @@ var GameController = Class.create({
 
     start_scoring : function(white_territory, black_territory, scoring_number)
     {
-        this.scoring_number = scoring_number;
-        this.update_territory(white_territory, black_territory);
+        this.update_scoring(scoring_number, white_territory, black_territory);
 
         this.deactivate_pass_and_resign_links();
         this.activate_show_previous_link();
@@ -1775,7 +1774,14 @@ var GameController = Class.create({
         $("playing_links").addClassName("hide");
 
         // Always wait for opponent when scoring.
+        this._set_scoring_message();
         this.start_waiting_for_opponent();
+    },
+
+    update_scoring : function(scoring_number, white_territory, black_territory)
+    {
+        this.scoring_number = scoring_number;
+        this.update_territory(white_territory, black_territory);
     },
 
     update_territory : function(white_territory, black_territory)
@@ -1911,6 +1917,18 @@ var GameController = Class.create({
         $("make_this_move").addClassName("disabled_move_link");
     },
 
+    activate_done_scoring_link : function()
+    {
+        $("done_scoring").removeClassName("disabled_move_link");
+        $("done_scoring").addClassName("move_link");
+    },
+
+    deactivate_done_scoring_link : function()
+    {
+        $("done_scoring").removeClassName("move_link");
+        $("done_scoring").addClassName("disabled_move_link");
+    },
+
     show_captures_if_needed : function()
     {
         if (this.state.are_stones_captured())
@@ -1971,7 +1989,7 @@ var GameController = Class.create({
                         }
                         else
                         {
-                            self._opponent_has_moved(response['board_state_string'], response['current_move_number'], response['black_stones_captured'], response['white_stones_captured'], response['last_move_message'], response['last_move_x'], response['last_move_y'], response['last_move_was_pass'], response['game_is_scoring'], response['game_is_finished']);
+                            self._opponent_has_moved(response['board_state_string'], response['current_move_number'], response['black_stones_captured'], response['white_stones_captured'], response['last_move_message'], response['last_move_x'], response['last_move_y'], response['last_move_was_pass'], response['white_territory'], response['black_territory'], response['scoring_number'], response['game_is_scoring'], response['game_is_finished']);
                         }
                     }
                     else
@@ -1993,8 +2011,7 @@ var GameController = Class.create({
 
     _opponent_has_moved : function(board_state_string, current_move_number, black_stones_captured, white_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, white_territory, black_territory, scoring_number, game_is_scoring, game_is_finished)
     {
-        this.board.set_from_state_string(board_state_string);
-        this.board_view.update_dom();
+        this.update_board(board_state_string);
 
         $("black_stones_captured").update(black_stones_captured.toString());
         $("white_stones_captured").update(white_stones_captured.toString());
@@ -2025,6 +2042,12 @@ var GameController = Class.create({
         {
             this.become_your_move(black_stones_captured, white_stones_captured);
         }
+    },
+
+    update_board : function(board_state_string)
+    {
+        this.board.set_from_state_string(board_state_string);
+        this.board_view.update_dom();
     },
 
     _keep_waiting_for_opponent : function()
@@ -2062,24 +2085,21 @@ var GameController = Class.create({
                 {
                     self._stop_loading();
                     var response = eval_json(transport.responseText);
-                    if (response['success'])
-                    {
-                        if (!response['has_opponent_scored'])
-                        {
+                    if (response['success']) {
+                        if (!response['has_opponent_scored']) {
                             self._keep_waiting_for_opponent();
-                        }
-                        else
-                        {
-                            self._opponent_has_scored(response['board_state_string'],
+                        } else {
+                            self._opponent_has_scored(response['you_are_done_scoring'],
+                                                      response['opponent_done_scoring'],
                                                       response['scoring_number'],
+                                                      response['board_state_string'],
                                                       response['white_territory'],
                                                       response['black_territory'],
-                                                      response['opponent_done_scoring'],
-                                                      response['game_is_finished']);
+                                                      response['game_is_finished'],
+                                                      response['you_win'],
+                                                      response['opponent_wins']);
                         }
-                    }
-                    else
-                    {
+                    } else {
                         // something went wrong, so just keep waiting
                         self._keep_waiting_for_opponent();
                     }
@@ -2095,28 +2115,34 @@ var GameController = Class.create({
         );
     },
 
-    _opponent_has_scored : function(board_state_string, scoring_number, white_territory, black_territory, opponent_done_scoring, game_is_finished)
+    _opponent_has_scored : function(you_are_done_scoring, opponent_done_scoring, scoring_number, board_state_string, white_territory, black_territory, game_is_finished, you_win, opponent_wins)
     {
         this.stop_waiting_for_opponent();
 
-        this.board.set_from_state_string(board_state_string);
-        this.board_view.update_dom();
+        this.you_are_done_scoring = you_are_done_scoring;
+        this.opponent_done_scoring = opponent_done_scoring;
+        this.you_win = you_win;
+        this.opponent_wins = opponent_wins;
+        this.game_is_finished = game_is_finished;
 
-        this.update_territory(white_territory, black_territory);
+        this.update_board(board_state_string);
+        this.update_scoring(scoring_number, white_territory, black_territory);
 
-        if (game_is_finished)
-        {
-            $("The game is over!").update(last_move_message);
-        }
-        else if (opponent_done_scoring)
-        {
-            this._set_opponent_done_message();
-        }
-        else
-        {
-            this.start_waiting_for_opponent();
-        }
+        if (game_is_finished) {
+            this.finish_game();
+        } else if (you_are_done_scoring) {
+            this.deactivate_done_scoring_link();
+            this._set_you_are_done_message();
+        } else {
+            this.activate_done_scoring_link();
 
+            if (opponent_done_scoring) {
+                this._set_opponent_done_message();
+            } else {
+                this._set_scoring_message();
+                this.start_waiting_for_opponent();
+            }
+        }
     },
 
 
@@ -2143,7 +2169,7 @@ var GameController = Class.create({
     
     _set_you_are_done_message : function()
     {
-        $("turn_message").update("You&#146;re waiting for " + this.opponent_name + " finish scoring.");
+        $("turn_message").update("You&#146;re waiting for " + this.opponent_name + " to finish scoring.");
     },
     
     _set_opponent_done_message : function()
@@ -2265,6 +2291,7 @@ var GameController = Class.create({
                                            response['white_territory'],
                                            response['black_territory'],
                                            response['scoring_number'],
+                                           response['board_state_string'],
                                            response['game_is_scoring'],
                                            response['game_is_finished']);
                     }
@@ -2283,15 +2310,13 @@ var GameController = Class.create({
         );
     },
 
-    _succeed_pass : function(current_move_number, white_territory, black_territory, scoring_number, game_is_scoring, game_is_finished)
+    _succeed_pass : function(current_move_number, white_territory, black_territory, scoring_number, board_state_string, game_is_scoring, game_is_finished)
     {
         this.game_is_scoring = game_is_scoring;
-        if (this.game_is_scoring)
-        {
+        if (this.game_is_scoring) {
+            this.update_board(board_state_string);
             this.start_scoring(white_territory, black_territory, scoring_number);
-        }
-        else
-        {
+        } else {
             this.become_opponents_move(this.state.get_black_stones_captured(), this.state.get_white_stones_captured());
             this.update_pass_links_after_last_was_pass();
         }
@@ -2351,48 +2376,50 @@ var GameController = Class.create({
     {
         this.you_win = false;
         this.opponent_wins = true;
-        this.by_resignation = true;
 
         finish_game();
     },
 
+    by_resignation : function()
+    {
+        return this.game_is_finished
+            && (this.you_win || this.opponent_wins)
+            && this.scoring_number < 0;
+    },
+
     finish_game : function()
     {
+        this.game_is_scoring = false;
+
         var gameOver = "The game is over";
-        if (this.you_win)
-        {
+        if (this.you_win) {
             gameOver += ", and you won";
-        }
-        else if (this.opponent_wins)
-        {
+        } else if (this.opponent_wins) {
             gameOver += ", and " + this.opponent_name + " won";
         }
-
-        if (this.by_resignation)
-        {
+        
+        if (this.by_resignation()) {
             gameOver += " by resignation";
         }
 
-        if (this.opponent_contact_type == CONST.Email_Contact)
-        {
+        if (this.opponent_contact_type == CONST.Email_Contact) {
             $("turn_message").update(gameOver + "! <a href=\"mailto:" + this.opponent_contact + "\" class=\"subtle-link\">Email your opponent</a> to discuss the game!");
-        }
-        else
-        {
+        } else {
             $("turn_message").update(gameOver + "! <a href=\"http://twitter.com/home?status=@" + this.opponent_contact + " How was the game?\" class=\"subtle-link\">Twitter your opponent</a> to discuss the game!");
         }
 
         $("playing_links").addClassName("hide");
         $("scoring_links").addClassName("hide");
-
-        this.deactivate_done_link();
     },
     
     mark_stone : function(owner)
     {
-        if (!this.game_is_scoring)
-        {
+        if (!this.game_is_scoring) {
             return;
+        }
+
+        if (this.you_are_done_scoring) {
+            return
         }
         
         if (this.move_x == -1 || this.move_y == -1)
@@ -2446,32 +2473,42 @@ var GameController = Class.create({
     {
         this.move_x = -1;
         this.move_y = -1;
-        this.board.set_from_state_string(board_state_string);
-        this.board_view.update_dom();
 
-        this.scoring_number = scoring_number;
-
-        this.update_territory(white_territory, black_territory);
-
+        this.update_board(board_state_string);
+        this.update_scoring(scoring_number, white_territory, black_territory);
         this._set_scoring_message();
+
+        if (this.opponent_done_scoring) {
+            this.opponent_done_scoring = false;
+            this.start_waiting_for_opponent();
+        }
     },
 
     _fail_mark_stone : function(flash)
     {
+        var x = this.move_x;
+        var y = this.move_y;
+        this.board.set_point(x, y, this.board.get_point(x, y), this.previous_owner, false);
+        this.board_view.update_dom_at(x, y);
+
         this.move_x = -1;
         this.move_y = -1;
+        this.previous_owner = CONST.No_Color;
+
         $("turn_message").update(flash);        
     },
 
     done_scoring : function()
     {
-        if (!this.game_is_scoring)
-        {
+        if (this.you_are_done_scoring) {
             return;
         }
 
-        if (this.confirming_done)
-        {
+        if (!this.game_is_scoring) {
+            return;
+        }
+
+        if (this.confirming_done) {
             return;
         }
         
@@ -2484,7 +2521,7 @@ var GameController = Class.create({
         }
         else
         {
-            confirmed = confirm("Are you sure you are finished scoring? Your opponent will be allowed restart scoring, or to decide to finalize the score.");
+            confirmed = confirm("Are you sure you are finished scoring? Your opponent will be allowed restart scoring, or to finalize the score.");
         }
 
         if (confirmed)
@@ -2516,11 +2553,15 @@ var GameController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        self._succeed_done_scoring(response['is_done'],
+                        self._succeed_done_scoring(response['you_are_done_scoring'],
+                                                   response['opponent_done_scoring'],
+                                                   response['scoring_number'],
                                                    response['board_state_string'],
                                                    response['white_territory'],
                                                    response['black_territory'],
                                                    response['game_is_finished'],
+                                                   response['you_win'],
+                                                   response['opponent_wins'],
                                                    response['flash']);
                     }
                     else
@@ -2538,27 +2579,29 @@ var GameController = Class.create({
         );        
     },
 
-    _succeed_done_scoring : function(is_done, board_state_string, white_territory, black_territory, game_is_finished, flash)
+    _succeed_done_scoring : function(you_are_done_scoring, opponent_done_scoring, scoring_number, board_state_string, white_territory, black_territory, game_is_finished, you_win, opponent_wins, flash)
     {
-        if (!is_done) {
+        this.you_are_done_scoring = you_are_done_scoring;
+        this.opponent_done_scoring = opponent_done_scoring;
+        this.you_win = you_win;
+        this.opponent_wins = opponent_wins;
+        this.game_is_finished = game_is_finished;
+
+        this.update_board(board_state_string);
+        this.update_scoring(scoring_number, white_territory, black_territory);
+
+        if (!you_are_done_scoring) {
             $("turn_message").update(flash);
             return
         }
 
+        this.deactivate_done_scoring_link();
+
         if (game_is_finished) {
-            $("turn_message").update(flash);
+            this.finish_game();
         } else {
             this._set_you_are_done_message();
         }
-        this.last_move_x = this.move_x;
-        this.last_move_y = this.move_y;
-        this.board.set_from_state_string(board_state_string);
-        this.board_view.update_dom();
-        $("white_territory").update(white_territory.toString());
-        $("black_territory").update(black_territory.toString());
-
-        $("done_scoring").addClassName("disabled_move_link");
-        $("done_scoring").removeClassName("move_link");
     },
 
     _fail_done_scoring : function(flash)
@@ -2658,6 +2701,10 @@ var GameController = Class.create({
 
     _click_board_score : function(x, y)
     {
+        if (this.you_are_done_scoring) {
+            return
+        }
+
         if (this.move_x != -1 || this.move_y != -1) {
             return
         }
@@ -2665,16 +2712,15 @@ var GameController = Class.create({
         this.move_x = x;
         this.move_y = y;
         var point = this.board.get_point(x, y);
-        var current_owner = this.board.get_owner(x, y);
+        this.previous_owner = this.board.get_owner(x, y);
+
         var owner = CONST.No_Color;
-        if (current_owner == CONST.No_Color)
-        {
+        if (this.previous_owner == CONST.No_Color) {
             owner = opposite_color(point);
         }
 
         this.board.set_point(x, y, point, owner, true);
         this.board_view.update_dom_at(x, y);
-        this._set_scoring_message();
         this.mark_stone(owner);
     },
 
@@ -3333,9 +3379,9 @@ function init_get_going()
     get_going = new GetGoing();    
 }
 
-function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, by_resignation, game_is_finished, last_move_message, show_grid)
+function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
 {
-    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, by_resignation, game_is_finished, last_move_message, show_grid);
+    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid);
     chat_controller = new ChatController(your_cookie);
     chat_controller.start_listening_to_chat();
 }

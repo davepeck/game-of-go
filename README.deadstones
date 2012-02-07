@@ -115,14 +115,14 @@ Details of client-side state transitions during scoring
 
 There are lots of client-side bugs in the UI, so I'm going to get more
 specific.
- - _opponent_has_moved_ request succeeds
+ - _has_opponent_moved_ request succeeds
    - _you_have_passed_        ->  _scoring_
      - Occurs when opponent clicks _pass_ after you.
      - Hide the links about passing, etc., and show the _done_ link.
      - Show initial territory calculations.
    - other possibilites not relevant.
  - you click _pass_
-   - _opponent_has_passed_    ->  _scoring_
+   - _has_opponent_passed_    ->  _scoring_
      - Occurs when you click _pass_ after opponent.
      - Hide the links about passing, etc., and show the _done_ link.
      - Show initial territory calculations.
@@ -149,7 +149,7 @@ specific.
      - Occurs when you click _done_.
      - Hide the _done_ link.
      - Display game over text.
- - _opponent_has_scored_ request succeeds
+ - _has_opponent_scored_ request succeeds
    - _scoring_                ->  _scoring_
      - Occurs when opponent _mark_stone_.
      - Update territory calculations.
