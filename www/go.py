@@ -185,14 +185,13 @@ class GameBoard(object):
 
         self._make_board()
         self._apply_handicap()
-        self._make_owners()
         
     def _make_board(self):
         self.board = []
         for x in range(self.width):
             self.board.append( [CONST.No_Color] * self.height )
     
-    def _make_owners(self):
+    def make_owners(self):
         self.owners = []
         for x in range(self.width):
             self.owners.append( [CONST.No_Color] * self.height )
@@ -214,13 +213,13 @@ class GameBoard(object):
         if self.has_owners():
             return self.owners[x][y]
         else:
-            # Compatability with versions before v3.
+            # Until the final game state, nothing is owned by either player.
             return CONST.No_Color
     
     def set_owner(self, x, y, color):
         if not self.has_owners():
-            # Compatability with versions before v3.
-            self._make_owners();
+            # Created on demand to reduce size of Game.history.
+            self.make_owners();
         self.owners[x][y] = color
     
     def get_width(self):
