@@ -1841,7 +1841,7 @@ class MakeThisMoveHandler(GoHandler):
             current_move_number_str = self.request.POST.get("current_move_number")
             current_move_number = int(current_move_number_str)
         except:
-            self.fail("Invalid current move number.")
+            self.fail("Invalid current move number; refresh game board.")
             return
 
         if current_move_number != game.get_current_move_number():
@@ -1992,7 +1992,7 @@ class PassHandler(GoHandler):
             current_move_number_str = self.request.POST.get("current_move_number")
             current_move_number = int(current_move_number_str)
         except:
-            self.fail("Invalid current move number.")
+            self.fail("Invalid current move number; refresh game board.")
             return
 
         if current_move_number != game.get_current_move_number():
@@ -2315,7 +2315,7 @@ class ResignHandler(GoHandler):
             current_move_number_str = self.request.POST.get("current_move_number")
             current_move_number = int(current_move_number_str)
         except:
-            self.fail("Invalid current move number.")
+            self.fail("Invalid current move number; refresh game board.")
             return
 
         if current_move_number != game.get_current_move_number():
