@@ -1562,10 +1562,11 @@ var ChatController = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameController = Class.create({            
-    initialize : function(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
+    initialize : function(your_cookie, your_color, current_move_number, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
+        this.current_move_number = current_move_number;
         
         this.wants_email = wants_email;
         this.toggling_wants_email = false;
@@ -2021,6 +2022,7 @@ var GameController = Class.create({
             return;
         }
 
+        this.current_move_number = current_move_number;
         this.update_board(board_state_string);
 
         $("black_stones_captured").update(black_stones_captured.toString());
@@ -2214,6 +2216,7 @@ var GameController = Class.create({
                 parameters: 
                 {
                     "your_cookie": this.your_cookie,
+                    "current_move_number": this.current_move_number,
                     "move_x": this.move_x,
                     "move_y": this.move_y
                 },
@@ -2243,6 +2246,7 @@ var GameController = Class.create({
 
     _succeed_make_this_move : function(board_state_string, white_stones_captured, black_stones_captured, current_move_number, flash)
     {
+        this.current_move_number = current_move_number;
         this.last_move_x = this.move_x;
         this.last_move_y = this.move_y;
         this.board.set_from_state_string(board_state_string);
@@ -2293,7 +2297,8 @@ var GameController = Class.create({
 
                 parameters:
                 {
-                    "your_cookie": this.your_cookie
+                    "your_cookie": this.your_cookie,
+                    "current_move_number": this.current_move_number
                 },
 
                 onSuccess : function(transport)
@@ -2326,6 +2331,7 @@ var GameController = Class.create({
 
     _succeed_pass : function(current_move_number, white_territory, black_territory, scoring_number, board_state_string, game_is_scoring)
     {
+        this.current_move_number = current_move_number;
         this.game_is_scoring = game_is_scoring;
         if (this.game_is_scoring) {
             this.update_board(board_state_string);
@@ -2360,7 +2366,8 @@ var GameController = Class.create({
 
                 parameters:
                 {
-                    "your_cookie": this.your_cookie
+                    "your_cookie": this.your_cookie,
+                    "current_move_number": this.current_move_number
                 },
 
                 onSuccess : function(transport)
@@ -2369,7 +2376,7 @@ var GameController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        self._resign_success();
+                        self._resign_success(response['current_move_number']);
                     }
                     else
                     {
@@ -2386,8 +2393,9 @@ var GameController = Class.create({
         );
     },
     
-    _resign_success : function()
+    _resign_success : function(current_move_number)
     {
+        this.current_move_number = current_move_number;
         this.you_win = false;
         this.opponent_wins = true;
 
@@ -3393,9 +3401,9 @@ function init_get_going()
     get_going = new GetGoing();    
 }
 
-function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
+function init_play(your_cookie, your_color, current_move_number, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
 {
-    game_controller = new GameController(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid);
+    game_controller = new GameController(your_cookie, your_color, current_move_number, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid);
     chat_controller = new ChatController(your_cookie);
     chat_controller.start_listening_to_chat();
 }

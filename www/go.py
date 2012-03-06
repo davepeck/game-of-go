@@ -1837,6 +1837,17 @@ class MakeThisMoveHandler(GoHandler):
             self.fail("Sorry, but it is not your turn.")
             return
 
+        try:
+            current_move_number_str = self.request.POST.get("current_move_number")
+            current_move_number = int(current_move_number_str)
+        except:
+            self.fail("Invalid current move number.")
+            return
+
+        if current_move_number != game.get_current_move_number():
+            self.fail("Wrong move number; refresh stale game board.")
+            return
+
         board = state.get_board()
         move_x_str = self.request.POST.get("move_x")
         move_y_str = self.request.POST.get("move_y")
@@ -1975,6 +1986,17 @@ class PassHandler(GoHandler):
         state = pickle.loads(game.current_state)
         if state.whose_move != player.color:
             self.fail("Sorry, but it is not your turn.")
+            return
+
+        try:
+            current_move_number_str = self.request.POST.get("current_move_number")
+            current_move_number = int(current_move_number_str)
+        except:
+            self.fail("Invalid current move number.")
+            return
+
+        if current_move_number != game.get_current_move_number():
+            self.fail("Wrong move number; refresh stale game board.")
             return
 
         # Create the potentially new state
@@ -2287,6 +2309,17 @@ class ResignHandler(GoHandler):
         state = pickle.loads(game.current_state)
         if state.whose_move != player.color:
             self.fail("Sorry, but it is not your turn.")
+            return
+
+        try:
+            current_move_number_str = self.request.POST.get("current_move_number")
+            current_move_number = int(current_move_number_str)
+        except:
+            self.fail("Invalid current move number.")
+            return
+
+        if current_move_number != game.get_current_move_number():
+            self.fail("Wrong move number; refresh stale game board.")
             return
 
         # Create the potentially new state
