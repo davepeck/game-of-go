@@ -109,6 +109,15 @@ function set_cursor_position(input, position)
     set_selection_range(input, position, position);
 }
 
+function fill_from_query_string(form)
+{
+    var query_params = window.location.search.toQueryParams();
+    form.getInputs().each(function(input)
+    {
+        input.setValue(query_params[input.id]);
+    });
+}
+
 
 //-----------------------------------------------------------------------------
 // Validators
@@ -510,6 +519,7 @@ var GetGoing = Class.create({
         this._evaluate_validity();
     }
 });
+
 
 
 //-----------------------------------------------------------------------------
@@ -2895,6 +2905,7 @@ var database_update_controller = null;
 function init_get_going()
 {
     get_going = new GetGoing();    
+    fill_from_query_string($('game_form'));
 }
 
 function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message, show_grid)
