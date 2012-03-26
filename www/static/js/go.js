@@ -180,14 +180,26 @@ var GetGoing = Class.create({
 
         this.auto_komi = true;
 
+        //We can't just assign the correct contact types, because the
+        //HTML has a default that's updated by swapping.
         this.your_contact_type = CONST.Email_Contact;
+        if (ContactValidator.is_probably_good_twitter(
+                $F('your_contact')))
+        {
+            this.swap_your_contact_type();
+        }
         this.opponent_contact_type = CONST.Email_Contact;
-        
-        this.valid_your_name = false;
-        this.valid_your_contact = false;
-        this.valid_opponent_name = false;
-        this.valid_opponent_contact = false;
-        this.valid = false;
+        if (ContactValidator.is_probably_good_twitter(
+                $F('opponent_contact')))
+        {
+            this.swap_opponent_contact_type();
+        }
+
+        //Update validity flags
+        this._input_your_name();
+        this._input_your_contact();
+        this._input_opponent_name();
+        this._input_opponent_contact();
 
         this.showing_twitter_password = false;
         
@@ -2904,8 +2916,8 @@ var database_update_controller = null;
 
 function init_get_going()
 {
-    get_going = new GetGoing();    
     fill_from_query_string($('game_form'));
+    get_going = new GetGoing();    
 }
 
 function init_play(your_cookie, your_color, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, game_is_finished, last_move_message, show_grid)
