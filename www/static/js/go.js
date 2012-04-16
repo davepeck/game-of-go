@@ -109,6 +109,15 @@ function set_cursor_position(input, position)
     set_selection_range(input, position, position);
 }
 
+function fill_from_query_string(form)
+{
+    var query_params = window.location.search.toQueryParams();
+    form.getInputs().each(function(input)
+    {
+        input.setValue(query_params[input.id]);
+    });
+}
+
 
 //-----------------------------------------------------------------------------
 // Validators
@@ -171,14 +180,26 @@ var GetGoing = Class.create({
 
         this.auto_komi = true;
 
+        //We can't just assign the correct contact types, because the
+        //HTML has a default that's updated by swapping.
         this.your_contact_type = CONST.Email_Contact;
+        if (ContactValidator.is_probably_good_twitter(
+                $F('your_contact')))
+        {
+            this.swap_your_contact_type();
+        }
         this.opponent_contact_type = CONST.Email_Contact;
-        
-        this.valid_your_name = false;
-        this.valid_your_contact = false;
-        this.valid_opponent_name = false;
-        this.valid_opponent_contact = false;
-        this.valid = false;
+        if (ContactValidator.is_probably_good_twitter(
+                $F('opponent_contact')))
+        {
+            this.swap_opponent_contact_type();
+        }
+
+        //Update validity flags
+        this._input_your_name();
+        this._input_your_contact();
+        this._input_opponent_name();
+        this._input_opponent_contact();
 
         this.showing_twitter_password = false;
         
@@ -510,6 +531,7 @@ var GetGoing = Class.create({
         this._evaluate_validity();
     }
 });
+
 
 
 //-----------------------------------------------------------------------------
@@ -2894,6 +2916,7 @@ var database_update_controller = null;
 
 function init_get_going()
 {
+    fill_from_query_string($('game_form'));
     get_going = new GetGoing();    
 }
 
