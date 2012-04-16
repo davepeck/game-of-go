@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 6-bjaress-params
+version: 7-des-dead-stones
 runtime: python
 api_version: 1
 
