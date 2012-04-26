@@ -485,7 +485,7 @@ class GameBoard(object):
         return count
 
     def count_white_territory(self, black_stones_captured):
-        return self.count_territory(CONST.White_Color, black_stones_captured)
+        return self.count_territory(CONST.White_Color, black_stones_captured) + self.get_komi()
 
     def count_black_territory(self, white_stones_captured):
         return self.count_territory(CONST.Black_Color, white_stones_captured)
