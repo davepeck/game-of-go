@@ -2426,7 +2426,7 @@ var GameController = Class.create({
         this.you_win = false;
         this.opponent_wins = true;
 
-        finish_game();
+        this.finish_game();
     },
 
     by_resignation : function()
