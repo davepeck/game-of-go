@@ -2074,7 +2074,12 @@ var GameController = Class.create({
         if (this.game_is_finished) {
             // In case an old window hasn't updated until now.
             this.update_scoring(scoring_number, white_territory, black_territory);
-            $("territory_message").removeClassName("hide");
+
+            if (!this.by_resignation())
+            {
+                $("territory_message").removeClassName("hide");
+            }
+
             this.finish_game();
         } else if (this.game_is_scoring) {
             this.start_scoring(white_territory, black_territory, scoring_number);
