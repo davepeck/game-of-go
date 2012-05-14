@@ -1080,7 +1080,7 @@ var GameBoardView = Class.create({
         {
             return "bottom";
         }
-        else if (this._is_star_point(x, y))
+        else if (this._is_star_point(x, y) && this.board.get_owner(x, y) == CONST.No_Color)
         {
             return "star";
         }
