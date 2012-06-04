@@ -2641,7 +2641,7 @@ var GameController = Class.create({
 
         if (!you_are_done_scoring) {
             $("turn_message").update(flash);
-            return
+            return;
         }
 
         this.deactivate_done_scoring_link();
