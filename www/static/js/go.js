@@ -1294,6 +1294,36 @@ var ChatController = Class.create({
         return string;        
     },
 
+    linkify_move_number : function(string)
+    {
+        if (string.length < 2)
+            return string;
+        if (string.charAt(0) != "#")
+            return string;
+        var move = string.substr(1);
+        if (isNaN(parseInt(move)))
+            return string;
+        return '<a href="javascript:history.move_to(' + move + ');" class="subtle-link" >' + string + '</a>';
+    },
+
+    _linkify_move_numbers : function(string)
+    {
+        // Allow any positive integer starting from "0", but don't allow
+        // numbers like "01".
+        var move_regex = /\B#(0|[1-9]\d*)\b/g;
+        
+        var self = this;
+        string = string.replace
+        (
+            move_regex,
+            function(matched_text)
+            {
+                return self.linkify_move_number(matched_text);
+            }
+        );
+        return string;
+    },
+
     _linkify_board_coordinates : function(string)
     {
         var board_regex = /\b[A-T]\d{1,2}\b/gi;
@@ -1353,6 +1383,7 @@ var ChatController = Class.create({
     {
         var processed_message = this._linkify_urls(message, 'class="subtle-link" target="_blank" rel="nofollow"');
         processed_message = this._linkify_board_coordinates(processed_message);
+        processed_message = this._linkify_move_numbers(processed_message);
         return processed_message;
     },
     
@@ -1372,8 +1403,10 @@ var ChatController = Class.create({
         chats.each(function(chat) {
             var name = chat['name'];
             var message = chat['message'];
+            var move_number = chat['move_number'];
             var processed_message = self._process_chat_message(message);
-            chat_html = '<div class="chat_entry"><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + processed_message + '</span></div>' + chat_html;
+            var move_link = self.linkify_move_number('#' + move_number);
+            chat_html = '<div class="chat_entry"><span class="chat_move_number">' + move_link + '</span><span class="chat_separator"> </span><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + processed_message + '</span></div>' + chat_html;
         });
 
         if (chat_html.length < 1)
