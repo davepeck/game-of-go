@@ -2852,7 +2852,7 @@ var HistoryCache = Class.create({
             }
             this.max_move_number = max_move_number;
         }
-    }
+    },
 
     has_move : function(move_number)
     {
