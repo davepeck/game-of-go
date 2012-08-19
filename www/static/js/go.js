@@ -1303,7 +1303,7 @@ var ChatController = Class.create({
         var move = string.substr(1);
         if (isNaN(parseInt(move)))
             return string;
-        return '<a href="javascript:history.move_to(' + move + ');" class="subtle-link" >' + string + '</a>';
+        return '<a href="/history/' + this.your_cookie + '/' + move + '/" class="subtle-link" >' + string + '</a>';
     },
 
     _linkify_move_numbers : function(string)
@@ -2839,12 +2839,20 @@ var HistoryCacheItem = Class.create({
 var HistoryCache = Class.create({
     initialize : function(max_move_number)
     {
-        this.max_move_number = max_move_number;
+        this.max_move_number = -1;
         this.items = new Array();
-        for (var i = 0; i <= max_move_number; i++) {
-            this.items[i] = new HistoryCacheItem();
-        }
+        this.update_max_move_number(max_move_number);
     },
+
+    update_max_move_number : function(max_move_number)
+    {
+        if (max_move_number > this.max_move_number) {
+            for (var i = this.max_move_number + 1; i <= max_move_number; i++) {
+                this.items[i] = new HistoryCacheItem();
+            }
+            this.max_move_number = max_move_number;
+        }
+    }
 
     has_move : function(move_number)
     {
@@ -2862,7 +2870,7 @@ var HistoryCache = Class.create({
 });
 
 var HistoryController = Class.create({            
-    initialize : function(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
+    initialize : function(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, current_move_number, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
@@ -2872,14 +2880,14 @@ var HistoryController = Class.create({
         this.board_view = new GameBoardView(this.board, function(e, x, y) { /* no-op */ }, show_grid);
 
         this.max_move_number = max_move_number;
-        this.current_move_number = max_move_number;
-        this.next_move_number = max_move_number;
+        this.current_move_number = current_move_number;
+        this.next_move_number = current_move_number;
 
         // Sync with the DOM to avoid a funny reload interaction.
         this.sync_move_number();
 
         this.cache = new HistoryCache(max_move_number);
-        this._save_move(max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
+        this._save_move(current_move_number, max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
 
         this.last_move_message = last_move_message;
         this.last_move_x = last_move_x;
@@ -2963,6 +2971,15 @@ var HistoryController = Class.create({
             this.retrieve_move_number(new_number);
     },
 
+    update_max_move_number : function(max_move_number)
+    {
+        if (max_move_number > this.max_move_number) {
+            this.max_move_number = max_move_number;
+            this.cache.update_max_move_number(max_move_number);
+            $("max_move_number").update(max_move_number.toString());
+        }
+    },
+
     update_move_number : function()
     {
         if (this.next_move_number == this.current_move_number) { return; }
@@ -3032,6 +3049,7 @@ var HistoryController = Class.create({
                         self._save_move
                         (
                             response['current_move_number'],
+                            response['max_move_number'],
                             response['board_state_string'],
                             response['white_stones_captured'],
                             response['black_stones_captured'],
@@ -3059,8 +3077,9 @@ var HistoryController = Class.create({
         );        
     },
 
-    _save_move : function(move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
+    _save_move : function(move_number, max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
     {
+        this.update_max_move_number(max_move_number);
         this.cache.get_move(move_number).save(board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
         if (this.next_move_number == move_number)
             this.update_move_number();
