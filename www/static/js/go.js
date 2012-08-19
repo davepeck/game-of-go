@@ -1303,7 +1303,7 @@ var ChatController = Class.create({
         var move = string.substr(1);
         if (isNaN(parseInt(move)))
             return string;
-        return '<a href="javascript:history.move_to(' + move + ');" class="subtle-link" >' + string + '</a>';
+        return '<a href="/history/' + this.your_cookie + '/' + move + '/" class="subtle-link" >' + string + '</a>';
     },
 
     _linkify_move_numbers : function(string)
