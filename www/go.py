@@ -1699,7 +1699,7 @@ class CreateGameHandler(GoHandler):
 
 class NotYourTurnHandler(GoHandler):
     def __init__(self):
-        super(GetGoingHandler, self).__init__()
+        super(NotYourTurnHandler, self).__init__()
 
     def get(self, *args):
         self.render_template("not-your-turn.html")
