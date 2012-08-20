@@ -80,6 +80,20 @@
             <div id="capture_message">At this point, you&#146;ve captured <span class="count" id="black_stones_captured">{{black_stones_captured}}</span> stones; {{black_name}} has captured <span class="count" id="white_stones_captured">{{white_stones_captured}}</span>.</div>
             {% endif %}
     </div>
+
+        <div id="chat">
+            <div id="chat_bar">
+                <h2 class="chat_heading">Chat</h2>
+                <span id="characters_remaining" class="dim">&nbsp;</span>
+            </div>
+         <div id="chat_form_container">
+                <div id="chat_textarea_container"><textarea rows="3" cols="58" id="chat_textarea"></textarea></div>
+                <a href="javascript:chat_controller.update_chat()" id="chat_update_link" class="disabled_move_link">update &raquo;</a>
+           </div>
+            <div id="chat_error" class="hide">&nbsp;</div>
+            <div id="chat_contents" class="all_chat">&nbsp;</div>
+        </div>
+
   </div>
 
   <div class="loading" id="loading" style="opacity:0.0"><img src="/img/loading-spinner.gif" alt="loading..." /></div>

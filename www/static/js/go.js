@@ -1155,9 +1155,10 @@ var GameBoardView = Class.create({
 //-----------------------------------------------------------------------------
 
 var ChatController = Class.create({
-    initialize : function(your_cookie)
+    initialize : function(your_cookie, has_history)
     {
         this.your_cookie = your_cookie;
+        this.has_history = has_history;
         this.is_listening_to_chat = false;
         this.next_listen_timeout = 10; /* in seconds */
         this.can_update = false;
@@ -1300,10 +1301,18 @@ var ChatController = Class.create({
             return string;
         if (string.charAt(0) != "#")
             return string;
+
         var move = string.substr(1);
         if (isNaN(parseInt(move)))
             return string;
-        return '<a href="/history/' + this.your_cookie + '/' + move + '/" class="subtle-link" >' + string + '</a>';
+
+        var href = "";
+        if (this.has_history) {
+            href = 'javascript:history_controller.set_move_number(' + move + ');';
+        } else {
+            href = '/history/' + this.your_cookie + '/' + move + '/';
+        }
+        return '<a href="' + href + '" class="subtle-link" >' + string + '</a>';
     },
 
     _linkify_move_numbers : function(string)
@@ -3484,13 +3493,15 @@ function init_get_going()
 function init_play(your_cookie, your_color, current_move_number, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
 {
     game_controller = new GameController(your_cookie, your_color, current_move_number, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid);
-    chat_controller = new ChatController(your_cookie);
+    chat_controller = new ChatController(your_cookie, false);
     chat_controller.start_listening_to_chat();
 }
 
 function init_history(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
 {
     history_controller = new HistoryController(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid);
+    chat_controller = new ChatController(your_cookie, true);
+    chat_controller.start_listening_to_chat();
 }
 
 function init_options(your_cookie, your_email, your_twitter, your_contact_type)
