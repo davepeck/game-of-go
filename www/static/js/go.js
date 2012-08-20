@@ -768,8 +768,9 @@ var GameState = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameBoardView = Class.create({
-    initialize : function(board, click_callback, show_grid)
+    initialize : function(controller, board, click_callback, show_grid)
     {
+        this.controller = controller;
         this.board = board;
         this.size_index = board.size_index;
         this.width = board.width;
@@ -1097,7 +1098,7 @@ var GameBoardView = Class.create({
 
     point_name : function(x, y)
     {
-        return CONST.Column_Names[x] + '' + (game_controller.get_board_height()-y).toString();
+        return CONST.Column_Names[x] + '' + (this.controller.get_board_height()-y).toString();
     },                          
 
     _make_board_dom : function(show_grid)
@@ -1363,7 +1364,8 @@ var ChatController = Class.create({
                         }
 
                         // bounds check x
-                        if (x < 1 || x > game_controller.get_board_width())
+                        var controller = self.has_history ? history_controller : game_controller;
+                        if (x < 1 || x > controller.get_board_width())
                         {
                             return inner_matched_text;
                         }
@@ -1373,13 +1375,14 @@ var ChatController = Class.create({
                         y = parseInt(y_str, 10);
 
                         // bounds check y
-                        if (isNaN(y) || y < 1 || y > game_controller.get_board_height())
+                        if (isNaN(y) || y < 1 || y > controller.get_board_height())
                         {
                             return inner_matched_text;
                         }
 
                         // linkify! (and account for the fact that we're 1-based when writing out grid squares as text.)
-                        return '<a href="javascript:game_controller.get_board_view().force_blink_at(' + (x-1).toString() + ',' + (game_controller.get_board_height()-y).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
+                        var controller_name = self.has_history ? "history_controller" : "game_controller";
+                        return '<a href="javascript:' + controller_name + '.get_board_view().force_blink_at(' + (x-1).toString() + ',' + (controller.get_board_height()-y).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
                     }
                 );
             }
@@ -1672,7 +1675,7 @@ var GameController = Class.create({
 
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(e, x, y) { self._click_board(e, x, y); }, show_grid);
+        this.board_view = new GameBoardView(this, this.board, function(e, x, y) { self._click_board(e, x, y); }, show_grid);
 
         this.state = new GameState(this.board, whose_move, white_stones_captured, black_stones_captured);
 
@@ -2884,9 +2887,11 @@ var HistoryController = Class.create({
         this.your_cookie = your_cookie;
         this.your_color = your_color;
 
+        var self = this;
+
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(e, x, y) { /* no-op */ }, show_grid);
+        this.board_view = new GameBoardView(this, this.board, function(e, x, y) { self._click_board(e, x, y); }, show_grid);
 
         this.max_move_number = max_move_number;
         this.current_move_number = current_move_number;
@@ -2919,7 +2924,6 @@ var HistoryController = Class.create({
         }
     },
 
-    
     //--------------------------------------------------------------------------
     // controller callbacks
     //--------------------------------------------------------------------------    
@@ -3023,6 +3027,50 @@ var HistoryController = Class.create({
         }
         
         this.whose_move = move.whose_move; /* TODO anything we can do with THIS? */
+    },
+
+    //--------------------------------------------------------------------------
+    // accessor methods to get at information about the board
+    //--------------------------------------------------------------------------
+
+    get_point_name : function(x, y)
+    {
+        return this.board_view.point_name(x, y);
+    },
+    
+    get_board_width : function()
+    {
+        return this.board.get_width();
+    },
+
+    get_board_height : function()
+    {
+        return this.board.get_height();
+    },
+
+    get_board_view : function()
+    {
+        return this.board_view;
+    },
+    
+    //--------------------------------------------------------------------------
+    // board click callbacks
+    //--------------------------------------------------------------------------    
+
+    _click_board : function(e, x, y)
+    {
+        if (e.shiftKey && e.shiftKey == 1)
+        {
+            this._selected_square(x, y);
+        }
+        // else do nothing -- nothing can be done!
+    },
+
+    _selected_square : function(x, y)
+    {
+        var name = history_controller.get_board_view().point_name(x, y);        
+        this.board_view.force_blink_at(x, y);
+        chat_controller.paste_text(name + " ");
     },
 
     //--------------------------------------------------------------------------
