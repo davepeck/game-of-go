@@ -768,8 +768,9 @@ var GameState = Class.create({
 //-----------------------------------------------------------------------------
 
 var GameBoardView = Class.create({
-    initialize : function(board, click_callback, show_grid)
+    initialize : function(controller, board, click_callback, show_grid)
     {
+        this.controller = controller;
         this.board = board;
         this.size_index = board.size_index;
         this.width = board.width;
@@ -1097,7 +1098,7 @@ var GameBoardView = Class.create({
 
     point_name : function(x, y)
     {
-        return CONST.Column_Names[x] + '' + (game_controller.get_board_height()-y).toString();
+        return CONST.Column_Names[x] + '' + (this.controller.get_board_height()-y).toString();
     },                          
 
     _make_board_dom : function(show_grid)
@@ -1155,9 +1156,10 @@ var GameBoardView = Class.create({
 //-----------------------------------------------------------------------------
 
 var ChatController = Class.create({
-    initialize : function(your_cookie)
+    initialize : function(your_cookie, has_history)
     {
         this.your_cookie = your_cookie;
+        this.has_history = has_history;
         this.is_listening_to_chat = false;
         this.next_listen_timeout = 10; /* in seconds */
         this.can_update = false;
@@ -1294,6 +1296,44 @@ var ChatController = Class.create({
         return string;        
     },
 
+    linkify_move_number : function(string)
+    {
+        if (string.length < 2)
+            return string;
+        if (string.charAt(0) != "#")
+            return string;
+
+        var move = string.substr(1);
+        if (isNaN(parseInt(move)))
+            return string;
+
+        var href = "";
+        if (this.has_history) {
+            href = 'javascript:history_controller.set_move_number(' + move + ');';
+        } else {
+            href = '/history/' + this.your_cookie + '/' + move + '/';
+        }
+        return '<a href="' + href + '" class="subtle-link" >' + string + '</a>';
+    },
+
+    _linkify_move_numbers : function(string)
+    {
+        // Allow any positive integer starting from "0", but don't allow
+        // numbers like "01".
+        var move_regex = /\B#(0|[1-9]\d*)\b/g;
+        
+        var self = this;
+        string = string.replace
+        (
+            move_regex,
+            function(matched_text)
+            {
+                return self.linkify_move_number(matched_text);
+            }
+        );
+        return string;
+    },
+
     _linkify_board_coordinates : function(string)
     {
         var board_regex = /\b[A-T]\d{1,2}\b/gi;
@@ -1324,7 +1364,8 @@ var ChatController = Class.create({
                         }
 
                         // bounds check x
-                        if (x < 1 || x > game_controller.get_board_width())
+                        var controller = self.has_history ? history_controller : game_controller;
+                        if (x < 1 || x > controller.get_board_width())
                         {
                             return inner_matched_text;
                         }
@@ -1334,13 +1375,14 @@ var ChatController = Class.create({
                         y = parseInt(y_str, 10);
 
                         // bounds check y
-                        if (isNaN(y) || y < 1 || y > game_controller.get_board_height())
+                        if (isNaN(y) || y < 1 || y > controller.get_board_height())
                         {
                             return inner_matched_text;
                         }
 
                         // linkify! (and account for the fact that we're 1-based when writing out grid squares as text.)
-                        return '<a href="javascript:game_controller.get_board_view().force_blink_at(' + (x-1).toString() + ',' + (game_controller.get_board_height()-y).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
+                        var controller_name = self.has_history ? "history_controller" : "game_controller";
+                        return '<a href="javascript:' + controller_name + '.get_board_view().force_blink_at(' + (x-1).toString() + ',' + (controller.get_board_height()-y).toString() + ');" class="subtle-link" >' + inner_matched_text + '</a>';
                     }
                 );
             }
@@ -1353,6 +1395,7 @@ var ChatController = Class.create({
     {
         var processed_message = this._linkify_urls(message, 'class="subtle-link" target="_blank" rel="nofollow"');
         processed_message = this._linkify_board_coordinates(processed_message);
+        processed_message = this._linkify_move_numbers(processed_message);
         return processed_message;
     },
     
@@ -1372,8 +1415,10 @@ var ChatController = Class.create({
         chats.each(function(chat) {
             var name = chat['name'];
             var message = chat['message'];
+            var move_number = chat['move_number'];
             var processed_message = self._process_chat_message(message);
-            chat_html = '<div class="chat_entry"><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + processed_message + '</span></div>' + chat_html;
+            var move_link = self.linkify_move_number('#' + move_number);
+            chat_html = '<div class="chat_entry"><span class="chat_move_number">' + move_link + '</span><span class="chat_separator"> </span><span class="chat_name">' + name + '</span><span class="chat_separator">: </span><span class="chat_message">' + processed_message + '</span></div>' + chat_html;
         });
 
         if (chat_html.length < 1)
@@ -1630,7 +1675,7 @@ var GameController = Class.create({
 
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(e, x, y) { self._click_board(e, x, y); }, show_grid);
+        this.board_view = new GameBoardView(this, this.board, function(e, x, y) { self._click_board(e, x, y); }, show_grid);
 
         this.state = new GameState(this.board, whose_move, white_stones_captured, black_stones_captured);
 
@@ -2806,10 +2851,18 @@ var HistoryCacheItem = Class.create({
 var HistoryCache = Class.create({
     initialize : function(max_move_number)
     {
-        this.max_move_number = max_move_number;
+        this.max_move_number = -1;
         this.items = new Array();
-        for (var i = 0; i <= max_move_number; i++) {
-            this.items[i] = new HistoryCacheItem();
+        this.update_max_move_number(max_move_number);
+    },
+
+    update_max_move_number : function(max_move_number)
+    {
+        if (max_move_number > this.max_move_number) {
+            for (var i = this.max_move_number + 1; i <= max_move_number; i++) {
+                this.items[i] = new HistoryCacheItem();
+            }
+            this.max_move_number = max_move_number;
         }
     },
 
@@ -2829,24 +2882,26 @@ var HistoryCache = Class.create({
 });
 
 var HistoryController = Class.create({            
-    initialize : function(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
+    initialize : function(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, current_move_number, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
     {
         this.your_cookie = your_cookie;
         this.your_color = your_color;
 
+        var self = this;
+
         this.board = new GameBoard(board_size_index);
         this.board.set_from_state_string(board_state_string);
-        this.board_view = new GameBoardView(this.board, function(e, x, y) { /* no-op */ }, show_grid);
+        this.board_view = new GameBoardView(this, this.board, function(e, x, y) { self._click_board(e, x, y); }, show_grid);
 
         this.max_move_number = max_move_number;
-        this.current_move_number = max_move_number;
-        this.next_move_number = max_move_number;
+        this.current_move_number = current_move_number;
+        this.next_move_number = current_move_number;
 
         // Sync with the DOM to avoid a funny reload interaction.
         this.sync_move_number();
 
         this.cache = new HistoryCache(max_move_number);
-        this._save_move(max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
+        this._save_move(current_move_number, max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
 
         this.last_move_message = last_move_message;
         this.last_move_x = last_move_x;
@@ -2869,7 +2924,6 @@ var HistoryController = Class.create({
         }
     },
 
-    
     //--------------------------------------------------------------------------
     // controller callbacks
     //--------------------------------------------------------------------------    
@@ -2930,6 +2984,15 @@ var HistoryController = Class.create({
             this.retrieve_move_number(new_number);
     },
 
+    update_max_move_number : function(max_move_number)
+    {
+        if (max_move_number > this.max_move_number) {
+            this.max_move_number = max_move_number;
+            this.cache.update_max_move_number(max_move_number);
+            $("max_move_number").update(max_move_number.toString());
+        }
+    },
+
     update_move_number : function()
     {
         if (this.next_move_number == this.current_move_number) { return; }
@@ -2967,6 +3030,50 @@ var HistoryController = Class.create({
     },
 
     //--------------------------------------------------------------------------
+    // accessor methods to get at information about the board
+    //--------------------------------------------------------------------------
+
+    get_point_name : function(x, y)
+    {
+        return this.board_view.point_name(x, y);
+    },
+    
+    get_board_width : function()
+    {
+        return this.board.get_width();
+    },
+
+    get_board_height : function()
+    {
+        return this.board.get_height();
+    },
+
+    get_board_view : function()
+    {
+        return this.board_view;
+    },
+    
+    //--------------------------------------------------------------------------
+    // board click callbacks
+    //--------------------------------------------------------------------------    
+
+    _click_board : function(e, x, y)
+    {
+        if (e.shiftKey && e.shiftKey == 1)
+        {
+            this._selected_square(x, y);
+        }
+        // else do nothing -- nothing can be done!
+    },
+
+    _selected_square : function(x, y)
+    {
+        var name = history_controller.get_board_view().point_name(x, y);        
+        this.board_view.force_blink_at(x, y);
+        chat_controller.paste_text(name + " ");
+    },
+
+    //--------------------------------------------------------------------------
     // ajax state callbacks
     //--------------------------------------------------------------------------    
 
@@ -2999,6 +3106,7 @@ var HistoryController = Class.create({
                         self._save_move
                         (
                             response['current_move_number'],
+                            response['max_move_number'],
                             response['board_state_string'],
                             response['white_stones_captured'],
                             response['black_stones_captured'],
@@ -3026,8 +3134,9 @@ var HistoryController = Class.create({
         );        
     },
 
-    _save_move : function(move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
+    _save_move : function(move_number, max_move_number, board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move)
     {
+        this.update_max_move_number(max_move_number);
         this.cache.get_move(move_number).save(board_state_string, white_stones_captured, black_stones_captured, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move);
         if (this.next_move_number == move_number)
             this.update_move_number();
@@ -3432,13 +3541,15 @@ function init_get_going()
 function init_play(your_cookie, your_color, current_move_number, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid)
 {
     game_controller = new GameController(your_cookie, your_color, current_move_number, whose_move, board_size_index, board_state_string, white_stones_captured, black_stones_captured, your_name, opponent_name, opponent_contact, opponent_contact_type, wants_email, last_move_x, last_move_y, last_move_was_pass, you_are_done_scoring, opponent_done_scoring, scoring_number, game_is_scoring, you_win, opponent_wins, game_is_finished, last_move_message, show_grid);
-    chat_controller = new ChatController(your_cookie);
+    chat_controller = new ChatController(your_cookie, false);
     chat_controller.start_listening_to_chat();
 }
 
 function init_history(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid)
 {
     history_controller = new HistoryController(your_cookie, your_color, board_size_index, board_state_string, white_stones_captured, black_stones_captured, max_move_number, last_move_message, last_move_x, last_move_y, last_move_was_pass, whose_move, show_grid);
+    chat_controller = new ChatController(your_cookie, true);
+    chat_controller.start_listening_to_chat();
 }
 
 function init_options(your_cookie, your_email, your_twitter, your_contact_type)
