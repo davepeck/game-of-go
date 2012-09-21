@@ -1699,7 +1699,7 @@ class CreateGameHandler(GoHandler):
 
 class NotYourTurnHandler(GoHandler):
     def __init__(self):
-        super(GetGoingHandler, self).__init__()
+        super(NotYourTurnHandler, self).__init__()
 
     def get(self, *args):
         self.render_template("not-your-turn.html")
@@ -2817,6 +2817,9 @@ class HistoryHandler(GoHandler):
         self.render_template("fail.html", {'message': message})
         
     def get(self, cookie, *args):
+        self.get_move(cookie)
+
+    def get_move(self, cookie, move=None):
         player = ModelCache.player_by_cookie(cookie)
         if not player:
             self.fail("No game with that ID could be found.")
@@ -2835,7 +2838,21 @@ class HistoryHandler(GoHandler):
         else:
             opponent_player = black_player
 
-        state = pickle.loads(game.current_state)            
+        move_number = None
+        if move:
+            try:
+                move_number = int(move)
+            except:
+                move_number = None
+
+        max_move_number = len(game.history)
+        requested_state = None
+        if move_number is None or move_number >= max_move_number or move_number < 0:
+            requested_state = game.current_state
+        else:
+            requested_state = game.history[move_number]
+
+        state = pickle.loads(requested_state)
         your_move = (state.whose_move == player.color)
         board = state.get_board()
 
@@ -2849,7 +2866,8 @@ class HistoryHandler(GoHandler):
             'board_state_string': board.get_state_string(),
             'white_stones_captured': state.get_white_stones_captured(),
             'black_stones_captured': state.get_black_stones_captured(),
-            'max_move_number': state.current_move_number,
+            'current_move_number': state.current_move_number,
+            'max_move_number': max_move_number,
             'last_move_message': state.get_last_move_message(),
             'last_move_x': last_move_x,
             'last_move_y': last_move_y,
@@ -2869,6 +2887,12 @@ class HistoryHandler(GoHandler):
                                 
         self.render_template("history.html", items)
 
+class HistoryMoveHandler(HistoryHandler):
+    def __init__(self):
+        super(HistoryMoveHandler, self).__init__()
+
+    def get(self, cookie, move, *args):
+        self.get_move(cookie, move)
 
 #------------------------------------------------------------------------------
 # "Get Historical State" Handler       
@@ -2907,9 +2931,10 @@ class GetHistoricalStateHandler(GoHandler):
             return
 
         requested_state = None
-        if move_number >= len(game.history):
+        max_move_number = len(game.history)
+        if move_number >= max_move_number:
             requested_state = game.current_state
-        elif (move_number >= 0) and (move_number < len(game.history)):
+        elif (move_number >= 0) and (move_number < max_move_number):
             requested_state = game.history[move_number]
         else:
             self.fail("Unexpected error: move number is out of range.")
@@ -2926,7 +2951,8 @@ class GetHistoricalStateHandler(GoHandler):
             'board_state_string': board.get_state_string(),
             'white_stones_captured': state.get_white_stones_captured(),
             'black_stones_captured': state.get_black_stones_captured(),
-            'current_move_number': move_number,
+            'current_move_number': state.current_move_number,
+            'max_move_number': max_move_number,
             'last_move_message': state.get_last_move_message(),
             'last_move_x': last_move_x,
             'last_move_y': last_move_y,
@@ -3177,6 +3203,7 @@ def main():
         ('/play/([-\w]+)/', PlayGameHandler),
         ('/history/([-\w]+)/', HistoryHandler),
         ('/history/([-\w]+)\.sgf', SGFHandler),
+        ('/history/([-\w]+)/(0|[1-9]\d*)/', HistoryMoveHandler),
         ('/options/([-\w]+)/', OptionsHandler),
         ('/service/create-game/', CreateGameHandler),
         ('/service/make-this-move/', MakeThisMoveHandler),
