@@ -17,7 +17,7 @@
 
 
 application: davepeck-go
-version: 7-des-dead-stones
+version: 8-des-chat-links
 runtime: python
 api_version: 1
 
