@@ -25,7 +25,7 @@ Anyway, dive in and enjoy. With a little work, I bet we can turn this project in
 
 ### What's the current status?
 
-*June 18, 2013*. I built this website in 2009. Now, in 2013, _tons_ of people use it every day to learn and play go!
+**June 18, 2013**. I built this website in 2009. Now, in 2013, _tons_ of people use it every day to learn and play go!
 
 So: I'm doubling down. I've got lots of exciting things in mind for the site, but the core mission will remain the same:
 
@@ -82,18 +82,18 @@ There is a LOT of stuff to do here, so dive in! I'm open to all suggestions and 
 
 This list is in "no particular order":
 
-- *User accounts*: I want to make sure that people can continue to use the service without ever having to create an account, choose a password, or login. That said, there are some power users who play many games at once. For them, I want to make sure they can log in and track all their games in one central place.
-- *Ranks, user profiles, and other social features*: I think community aspects are ultimately important in any single-game site like this
-- *UI Improvements*: I'm not a designer. I tried to make things simple, but I think there's probably lots of room for improvement, both visually and in terms of the interaction model. I'll leave this open-ended and see what people come up with.
-- *Game branching and speculation*: I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made, so they can try a new path.
-- *Chat improvement*: At the moment, when you chat, the internal representation ties what you said to a particular move. But I don't expose this in the UI anywhere. It would be helpful!
-- *Better layout for 9x9 and 13x13 games*: Right now the gameplay visual layout is designed with the 19x19 board size in mind. The chat area, in particular, looks wonky on smaller boards. This is one specific "UI Imprvoement" that's probably worth calling out.
-- *Facebook integration*: Not sure about this, but perhaps some people would use it?
-- *Code cleanup*: (!) I wrote this service as a "weekend hack." As a result, there are lots of strange things still in there. Many data structures, local variables, etc. are either extraneous, or duplicated, or something in between. I had the idea that I would do true MVC on the javascript side. The "models" would directly parallel python types on the back end. The views were just about managing visual appearance. And the controllers tied them together. I got partway there, because frankly it just wasn't important to keep this separation when doing a three day hack. I'd like to go back and really clean this stuff up now. Check out go.js for details. The "service" URLs are a bit of a mess. I originally wrote one to check to see if your opponent moved, but what I really should have is a single unified "get state" POST request that takes the desired move number and returns the state. It should work for history as well as game play. I want this in-part for cleanliness, in-part because I think it will make implementing an iPhone front-end easier.
-- *Make it look better in IE9+* For example, I use :hover CSS pseudo-classes on a bunch of non-anchor-tags. That's an IE no-no, but I did it anyway.
-- *Clean up CSS*: This is madness.
-- *Documentation*: Y'know, python docstrings, etc. Like a real piece of software.
-- *Tests*: Y'know, like a real piece of software.
+- **User accounts**: I want to make sure that people can continue to use the service without ever having to create an account, choose a password, or login. That said, there are some power users who play many games at once. For them, I want to make sure they can log in and track all their games in one central place.
+- **Ranks, user profiles, and other social features**: I think community aspects are ultimately important in any single-game site like this
+- **UI Improvements**: I'm not a designer. I tried to make things simple, but I think there's probably lots of room for improvement, both visually and in terms of the interaction model. I'll leave this open-ended and see what people come up with.
+- **Game branching and speculation**: I'd like people to be able to look through the history of a game and then "branch" it where some critical move was made, so they can try a new path.
+- **Chat improvement**: At the moment, when you chat, the internal representation ties what you said to a particular move. But I don't expose this in the UI anywhere. It would be helpful!
+- **Better layout for 9x9 and 13x13 games**: Right now the gameplay visual layout is designed with the 19x19 board size in mind. The chat area, in particular, looks wonky on smaller boards. This is one specific "UI Imprvoement" that's probably worth calling out.
+- **Facebook integration**: Not sure about this, but perhaps some people would use it?
+- **Code cleanup**: (!) I wrote this service as a "weekend hack." As a result, there are lots of strange things still in there. Many data structures, local variables, etc. are either extraneous, or duplicated, or something in between. I had the idea that I would do true MVC on the javascript side. The "models" would directly parallel python types on the back end. The views were just about managing visual appearance. And the controllers tied them together. I got partway there, because frankly it just wasn't important to keep this separation when doing a three day hack. I'd like to go back and really clean this stuff up now. Check out go.js for details. The "service" URLs are a bit of a mess. I originally wrote one to check to see if your opponent moved, but what I really should have is a single unified "get state" POST request that takes the desired move number and returns the state. It should work for history as well as game play. I want this in-part for cleanliness, in-part because I think it will make implementing an iPhone front-end easier.
+- **Make it look better in IE9+**: For example, I use :hover CSS pseudo-classes on a bunch of non-anchor-tags. That's an IE no-no, but I did it anyway.
+- **Clean up CSS**: This is madness.
+- **Documentation**: Y'know, python docstrings, etc. Like a real piece of software.
+- **Tests**: Y'know, like a real piece of software.
 
 ## Licenses
 
