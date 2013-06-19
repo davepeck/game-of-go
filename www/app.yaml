@@ -17,17 +17,18 @@
 
 
 application: davepeck-go
-version: 8-des-chat-links
-runtime: python
+version: 9-python27
+runtime: python27
 api_version: 1
+threadsafe: true
 
 handlers:
 - url: /img
   static_dir: static/img
-  
+
 - url: /css
   static_dir: static/css
-  
+
 - url: /js
   static_dir: static/js
 
@@ -44,9 +45,11 @@ handlers:
   upload: static/img/apple-touch-icon.png
 
 - url: /cron/.*
-  script: go.py
+  script: go.application
   login: admin
 
 - url: /.*
-  script: go.py
+  script: go.application
+
+
 

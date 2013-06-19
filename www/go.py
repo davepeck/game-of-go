@@ -27,11 +27,10 @@ import pickle
 import random
 import string
 import traceback
-from datetime import datetime, timedelta, date
+import webapp2
+from datetime import datetime, timedelta
 import simplejson
-import wsgiref.handlers
 
-from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext import db
 from google.appengine.api import memcache
@@ -48,12 +47,12 @@ import secrets
 #------------------------------------------------------------------------------
 
 class CONST(object):
-    No_Color = 0    
+    No_Color = 0
     Black_Color = 1
-    White_Color = 2    
+    White_Color = 2
     Both_Colors = 3
     Color_Names = ['none', 'black', 'white', 'both']
-    Star_Ordinals = [[3, 9, 15], [3, 6, 9], [2, 4, 6]]  
+    Star_Ordinals = [[3, 9, 15], [3, 6, 9], [2, 4, 6]]
     Board_Sizes = [(19, 19), (13, 13), (9, 9)]
     Board_Classes = ['nineteen_board', 'thirteen_board', 'nine_board']
     Board_Size_Names = ['19 x 19', '13 x 13', '9 x 9']
@@ -70,9 +69,9 @@ class CONST(object):
     Twitter_Contact = "twitter"
     No_Contact = "none"
     Default_Email = "nobody@example.com"
-    
+
     # "I" is purposfully skipped because, historically, people got confused between "I" and "J"
-    Column_Names = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]    
+    Column_Names = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]
 
 def handicap_position(stone, handicap, size_index, version):
     # Placement of the centre stone was changed in version 1.
@@ -93,16 +92,16 @@ def pos_to_coord(pos):
     x, y = pos
     return "%s%s" % (string.letters[x], string.letters[y])
 
-    
+
 #------------------------------------------------------------------------------
 # Exception Handling & AppEngine Helpers
 #------------------------------------------------------------------------------
 
 # Work around dev_appserver limitations (stdout goes to browser.)
 def BREAKPOINT():
-  import pdb
-  p = pdb.Pdb(None, sys.__stdin__, sys.__stdout__)
-  p.set_trace()
+    import pdb
+    p = pdb.Pdb(None, sys.__stdin__, sys.__stdout__)
+    p.set_trace()
 
 class ExceptionHelper:
     @staticmethod
@@ -123,7 +122,6 @@ class ExceptionHelper:
         """called to extract useful information from an exception"""
         exc = sys.exc_info()
         exc_type = ExceptionHelper._typename(exc[0])
-        exc_message = str(exc[1])
         exc_contents = "".join(traceback.format_exception(*sys.exc_info()))
         return "[%s]\n %s" % (exc_type, exc_contents)
 
@@ -141,8 +139,8 @@ class AppEngineHelper:
             return "http://go.davepeck.org/"
         else:
             return "http://localhost:8080/"
-        
-    
+
+
 #------------------------------------------------------------------------------
 # Game State
 #------------------------------------------------------------------------------
@@ -150,15 +148,15 @@ class AppEngineHelper:
 import array
 import itertools
 class BoardArray(object):
-    def __init__(self, width = 19, height = 19, default = 0, typecode = 'i'):
+    def __init__(self, width=19, height=19, default=0, typecode='i'):
         self.width = width
         self.height = height
-        self.board = array.array(typecode, itertools.repeat(default, width*height))
+        self.board = array.array(typecode, itertools.repeat(default, width * height))
 
     def index(self, x, y):
         assert (0 <= x) and (x < self.width)
         assert (0 <= y) and (y < self.height)
-        return y*self.height + x
+        return y * self.height + x
 
     def get(self, x, y):
         return self.board[self.index(x, y)]
@@ -167,7 +165,7 @@ class BoardArray(object):
         self.board[self.index(x, y)] = value
 
 class GameBoard(object):
-    def __init__(self, board_size_index = 0, handicap_index = 0, komi_index = 0):
+    def __init__(self, board_size_index=0, handicap_index=0, komi_index=0):
         super(GameBoard, self).__init__()
         self.width = CONST.Board_Sizes[board_size_index][0]
         self.height = CONST.Board_Sizes[board_size_index][1]
@@ -179,52 +177,52 @@ class GameBoard(object):
 
         # v2: access via get_komi_index.
         self._komi_index = komi_index
-        
+
         # v3: access via has_owners.
         self._has_owners = False
 
         self._make_board()
         self._apply_handicap()
-        
+
     def _make_board(self):
         self.board = []
         for x in range(self.width):
-            self.board.append( [CONST.No_Color] * self.height )
-    
+            self.board.append([CONST.No_Color] * self.height)
+
     def make_owners(self):
         self.owners = []
         for x in range(self.width):
-            self.owners.append( [CONST.No_Color] * self.height )
+            self.owners.append([CONST.No_Color] * self.height)
         self._has_owners = True
-    
+
     def _apply_handicap(self):
         positions_handicap = self.get_handicap_positions()
 
         for i in range(self.get_handicap()):
-            self.set(positions_handicap[i][0], positions_handicap[i][1], CONST.Black_Color)                    
-    
+            self.set(positions_handicap[i][0], positions_handicap[i][1], CONST.Black_Color)
+
     def get(self, x, y):
         return self.board[x][y]
-    
+
     def set(self, x, y, color):
         self.board[x][y] = color
-    
+
     def get_owner(self, x, y):
         if self.has_owners():
             return self.owners[x][y]
         else:
             # Until the final game state, nothing is owned by either player.
             return CONST.No_Color
-    
+
     def set_owner(self, x, y, color):
         if not self.has_owners():
             # Created on demand to reduce size of Game.history.
             self.make_owners();
         self.owners[x][y] = color
-    
+
     def get_width(self):
         return self.width
-    
+
     def get_height(self):
         return self.height
 
@@ -302,7 +300,7 @@ class GameBoard(object):
 
     def is_in_bounds(self, x, y):
         return (x >= 0) and (x < self.get_width()) and (y >= 0) and (y < self.get_height())
-        
+
     def is_stone_in_suicide(self, x, y):
         liberties = LibertyFinder(self, x, y)
         return liberties.get_liberty_count() == 0
@@ -318,15 +316,15 @@ class GameBoard(object):
         finder = LibertyFinder(self, x, y)
         return (finder.get_liberty_count(), finder.get_connected_stones())
 
-    def compute_atari_and_captures(self, x, y):        
+    def compute_atari_and_captures(self, x, y):
         color = self.get(x, y)
         other = opposite_color(color)
 
         liberties = []
-        liberties.append(self._compute_liberties_at(x-1, y, other))
-        liberties.append(self._compute_liberties_at(x, y-1, other))
-        liberties.append(self._compute_liberties_at(x+1, y, other))
-        liberties.append(self._compute_liberties_at(x, y+1, other))
+        liberties.append(self._compute_liberties_at(x - 1, y, other))
+        liberties.append(self._compute_liberties_at(x, y - 1, other))
+        liberties.append(self._compute_liberties_at(x + 1, y, other))
+        liberties.append(self._compute_liberties_at(x, y + 1, other))
 
         ataris = 0
         captures = []
@@ -384,10 +382,10 @@ class GameBoard(object):
             if not self.is_alive(x, y, other_color):
                 if self.get(x, y) == color:
                     coords.append((x, y))
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x+1, y)
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x-1, y)
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y+1)
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y-1)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x + 1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x - 1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y + 1)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y - 1)
 
         return coords
 
@@ -413,10 +411,10 @@ class GameBoard(object):
                 found_white = True
             else:
                 coords.append((x, y))
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x+1, y)
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x-1, y)
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y+1)
-                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y-1)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x + 1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x - 1, y)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y + 1)
+                add_stone_to_queue(self.is_in_bounds, visited, queue, x, y - 1)
 
         owner = CONST.No_Color
         if found_black and not found_white:
@@ -473,7 +471,7 @@ class GameBoard(object):
                     else:
                         self.set_owner(x, y, owner)
 
-    def count_territory(self, color, captures = 0):
+    def count_territory(self, color, captures=0):
         count = captures
         opposite = opposite_color(color)
         for x in range(self.width):
@@ -492,13 +490,14 @@ class GameBoard(object):
 
     def get_class(self):
         return CONST.Board_Classes[self.size_index]
-    
+
     def clone(self):
-        return copy.deepcopy(self)    
+        return copy.deepcopy(self)
 
 class GameState(object):
     def __init__(self):
         super(GameState, self).__init__()
+
         self.board = None
         self.white_stones_captured = 0
         self.black_stones_captured = 0
@@ -515,31 +514,31 @@ class GameState(object):
         self.black_done_number = -1
         self.white_done_number = -1
         self.winner = CONST.No_Color
-    
+
     def get_board(self):
         return self.board
-        
+
     def get_version(self):
         return self.get_board().get_version()
 
     def set_board(self, board):
-        self.board = board        
-        
+        self.board = board
+
     def get_whose_move(self):
         return self.whose_move
 
     def set_whose_move(self, whose_move):
         self.whose_move = whose_move
-        
+
     def get_white_stones_captured(self):
         return self.white_stones_captured
-    
+
     def set_white_stones_captured(self, wsc):
         self.white_stones_captured = wsc
-    
+
     def get_black_stones_captured(self):
         return self.black_stones_captured
-        
+
     def set_black_stones_captured(self, bsc):
         self.black_stones_captured = bsc
 
@@ -612,16 +611,16 @@ class GameState(object):
             return self.white_territory
         else:
             return -1
-    
+
     def set_white_territory(self, territory):
         self.white_territory = territory
-    
+
     def get_black_territory(self):
         if self.has_scoring_data():
             return self.black_territory
         else:
             return -1
-        
+
     def set_black_territory(self, territory):
         self.black_territory = territory
 
@@ -642,7 +641,7 @@ class GameState(object):
     def set_current_move_number(self, number):
         self.current_move_number = number
 
-    def increment_current_move_number(self, by = 1):
+    def increment_current_move_number(self, by=1):
         self.current_move_number += by
 
     def get_last_move(self):
@@ -670,9 +669,9 @@ class GameState(object):
 
         # Added in v3 of GameBoard.
         if self.has_scoring_data():
-            clone.scoring_number    = self.scoring_number
-            clone.white_territory   = self.white_territory
-            clone.black_territory   = self.black_territory
+            clone.scoring_number = self.scoring_number
+            clone.white_territory = self.white_territory
+            clone.black_territory = self.black_territory
             clone.black_done_number = self.black_done_number
             clone.white_done_number = self.white_done_number
 
@@ -696,13 +695,13 @@ class ChatEntry(object):
 
     def get_player(self):
         return ModelCache.player_by_cookie(self.cookie)
-    
+
     def get_player_friendly_name(self):
         return self.get_player().get_friendly_name()
 
     def get_player_email(self):
         return self.get_player().email
-    
+
 
 #------------------------------------------------------------------------------
 # LibertyFinder: given a stone, find all connected stones and count liberties
@@ -713,8 +712,8 @@ class LibertyFinder(object):
         super(LibertyFinder, self).__init__()
         self.board = board
         self.start_x = start_x
-        self.start_y = start_y        
-        self.color = self.board.get(self.start_x, self.start_y)        
+        self.start_y = start_y
+        self.color = self.board.get(self.start_x, self.start_y)
         self.connected_stones = []
         self.liberty_count = -1
         self._make_found()
@@ -724,11 +723,11 @@ class LibertyFinder(object):
     def _make_found(self):
         w = self.board.get_width()
         h = self.board.get_height()
-        
-        self.reached = []        
+
+        self.reached = []
         for x in range(w):
             self.reached.append([False] * h)
-        
+
     def _find_connected_stones(self):
         q = [(self.start_x, self.start_y)]
 
@@ -742,28 +741,28 @@ class LibertyFinder(object):
             self.connected_stones.append((x, y))
 
             # left
-            if (x-1) >= 0:
-                left = self.board.get(x-1, y)
-                if left == self.color and not self.reached[x-1][y]:
-                    q.append((x-1, y))
+            if (x - 1) >= 0:
+                left = self.board.get(x - 1, y)
+                if left == self.color and not self.reached[x - 1][y]:
+                    q.append((x - 1, y))
 
             # top
-            if (y-1) >= 0:
-                top = self.board.get(x, y-1)
-                if top == self.color and not self.reached[x][y-1]:
-                    q.append((x, y-1))
+            if (y - 1) >= 0:
+                top = self.board.get(x, y - 1)
+                if top == self.color and not self.reached[x][y - 1]:
+                    q.append((x, y - 1))
 
             # right
-            if (x+1) < self.board.get_width():
-                 right = self.board.get(x+1, y)
-                 if right == self.color and not self.reached[x+1][y]:
-                     q.append((x+1, y))
+            if (x + 1) < self.board.get_width():
+                right = self.board.get(x + 1, y)
+                if right == self.color and not self.reached[x + 1][y]:
+                    q.append((x + 1, y))
 
             # bottom
-            if (y+1) < self.board.get_height():
-                bottom = self.board.get(x, y+1)
-                if bottom == self.color and not self.reached[x][y+1]:
-                    q.append((x, y+1))
+            if (y + 1) < self.board.get_height():
+                bottom = self.board.get(x, y + 1)
+                if bottom == self.color and not self.reached[x][y + 1]:
+                    q.append((x, y + 1))
 
         # force a canoncial order for connected stones
         # so that we can determine if two sets of
@@ -772,61 +771,61 @@ class LibertyFinder(object):
 
     def _get_liberty_count_at(self, x, y, w, h, already_counted):
         libs = 0
-        
+
         # left liberty?
-        if (x-1) >= 0:        
-            left = self.board.get(x-1, y)
-            if left == CONST.No_Color and not already_counted[x-1][y]:
+        if (x - 1) >= 0:
+            left = self.board.get(x - 1, y)
+            if left == CONST.No_Color and not already_counted[x - 1][y]:
                 libs += 1
-                already_counted[x-1][y] = True
+                already_counted[x - 1][y] = True
 
         # top liberty?
-        if (y-1) >= 0:
-            top = self.board.get(x, y-1)
-            if top == CONST.No_Color and not already_counted[x][y-1]:
+        if (y - 1) >= 0:
+            top = self.board.get(x, y - 1)
+            if top == CONST.No_Color and not already_counted[x][y - 1]:
                 libs += 1
-                already_counted[x][y-1] = True
+                already_counted[x][y - 1] = True
 
         # right liberty?
-        if (x+1) < w:
-            right = self.board.get(x+1, y)
-            if right == CONST.No_Color and not already_counted[x+1][y]:
+        if (x + 1) < w:
+            right = self.board.get(x + 1, y)
+            if right == CONST.No_Color and not already_counted[x + 1][y]:
                 libs += 1
-                already_counted[x+1][y] = True
+                already_counted[x + 1][y] = True
 
         # bottom liberty?
-        if (y+1) < h:
-            bottom = self.board.get(x, y+1)
-            if bottom == CONST.No_Color and not already_counted[x][y+1]:
+        if (y + 1) < h:
+            bottom = self.board.get(x, y + 1)
+            if bottom == CONST.No_Color and not already_counted[x][y + 1]:
                 libs += 1
-                already_counted[x][y+1] = True
-                
+                already_counted[x][y + 1] = True
+
         return libs
-        
+
     def _count_liberties(self):
         w = self.board.get_width()
         h = self.board.get_height()
-        already_counted = []        
+        already_counted = []
         for x in range(w):
             already_counted.append([False] * h)
-            
+
         self.liberty_count = 0
         for connected_stone in self.connected_stones:
             x, y = connected_stone
             self.liberty_count += self._get_liberty_count_at(x, y, w, h, already_counted)
-            
+
     def get_liberty_count(self):
         return self.liberty_count
-    
+
     def get_connected_stones(self):
         return self.connected_stones
-        
-    
+
+
 #------------------------------------------------------------------------------
 # Game Cookies: How to get back to the game
 #------------------------------------------------------------------------------
 
-class GameCookie(object):    
+class GameCookie(object):
     @staticmethod
     def _base_n(num, base):
         # Works for 2 <= n <= 62
@@ -841,12 +840,12 @@ class GameCookie(object):
     def random_cookie():
         # Random, but not necessarily unique
         return GameCookie._base_62(random.randint(1, 50000000000))
-    
+
     @staticmethod
     def unique_pair():
         # Return two guaranteed-unique (and non-identical) cookies
         unique = False
-        
+
         while not unique:
             one = GameCookie.random_cookie()
             two = GameCookie.random_cookie()
@@ -855,9 +854,9 @@ class GameCookie(object):
             test_one = Player.all().filter('cookie =', one).get()
             test_two = Player.all().filter('cookie =', two).get()
             unique = (test_one is None) and (test_two is None)
-        
+
         return (one, two)
-                            
+
 
 #------------------------------------------------------------------------------
 # Code to help with sending out emails.
@@ -865,7 +864,7 @@ class GameCookie(object):
 
 class EmailHelper(object):
     No_Reply_Address = "Dave Peck's Go <no-reply@davepeck.org>"
-    
+
     @staticmethod
     def _rfc_address(name, email):
         return "%s <%s>" % (name, email)
@@ -920,13 +919,12 @@ Hi %s,
             opponent_message.body += "It's your turn to move, so get going!"
 
         # SEND opponent message!
-        opponent_message.send()        
+        opponent_message.send()
 
-        
+
     @staticmethod
     def notify_your_turn(your_name, your_email, your_cookie, opponent_name, opponent_email, move_message, move_number):
         your_address = EmailHelper._rfc_address(your_name, your_email)
-        opponent_address = EmailHelper._rfc_address(opponent_name, opponent_email)
 
         message = mail.EmailMessage()
         message.sender = EmailHelper.No_Reply_Address
@@ -938,7 +936,7 @@ Hi %s,
             email_body = "It's your turn to make a move against %s." % opponent_name
         else:
             email_body = move_message
-        email_body += " Just follow this link:\n\n%s\n" % EmailHelper._game_url(your_cookie)        
+        email_body += " Just follow this link:\n\n%s\n" % EmailHelper._game_url(your_cookie)
         message.body = email_body
 
         message.send()
@@ -946,7 +944,6 @@ Hi %s,
     @staticmethod
     def notify_scoring(your_name, your_email, your_cookie, opponent_name, opponent_email, you_are_done=False, no_longer_done=False, game_over=False):
         your_address = EmailHelper._rfc_address(your_name, your_email)
-        opponent_address = EmailHelper._rfc_address(opponent_name, opponent_email)
 
         message = mail.EmailMessage()
         message.sender = EmailHelper.No_Reply_Address
@@ -961,7 +958,7 @@ Hi %s,
             email_body = "%s has finished scoring; you should do the same." % opponent_name
         else:
             email_body = "It's time to score your game against %s." % opponent_name
-        email_body += " Just follow this link:\n\n%s\n" % EmailHelper._game_url(your_cookie)        
+        email_body += " Just follow this link:\n\n%s\n" % EmailHelper._game_url(your_cookie)
         message.body = email_body
 
         message.send()
@@ -989,10 +986,10 @@ class TwitterBuffer(object):
     def __init__(self, text):
         super(TwitterBuffer, self).__init__()
         self._text = text
-        
+
     def read(self):
         return self._text
-        
+
 class TwitterHelper(object):
     @staticmethod
     def _open_basic_auth_url(username, password, url, params):
@@ -1003,7 +1000,7 @@ class TwitterHelper(object):
         # BREAKPOINT()
         req = urllib2.Request(url, data)
         base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
-        authheader =  "Basic %s" % base64string
+        authheader = "Basic %s" % base64string
         req.add_header("Authorization", authheader)
         try:
             handle = urllib2.urlopen(req)
@@ -1016,37 +1013,37 @@ class TwitterHelper(object):
                 pass
             logging.warn("Got HTTP %d during twitter request for URL %s: %s" % (e.code, url, message))
             # HACK HACK HACK to get around the new (and, I think, bad) change to the twitter API
-            # that causes an HTTP 403 (forbidden) to get returned on friendship creation 
+            # that causes an HTTP 403 (forbidden) to get returned on friendship creation
             # IF you're already following that person. 403 seems like the wrong answer, and it
-            # screws up the design of my code...            
+            # screws up the design of my code...
             if (e.code == 403) and ('friendships/create' in url):
                 return TwitterBuffer(raw_message)
             else:
-                return None            
+                return None
         return handle
 
     @staticmethod
     def _make_twitter_call_as(url, params, user, user_password):
         handle = TwitterHelper._open_basic_auth_url(user, user_password, url, params)
         if handle is None:
-            return None        
+            return None
         try:
             result = simplejson.loads(handle.read())
         except:
             logging.warn("Couldn't process json result from twitter: %s" % ExceptionHelper.exception_string())
             return None
         return result
-    
+
     @staticmethod
     def _make_twitter_call(url, params):
         return TwitterHelper._make_twitter_call_as(url, params, secrets.twitter_user, secrets.twitter_pass)
-        
+
     @staticmethod
     def _make_boolean_twitter_call(url, params):
         result = TwitterHelper._make_twitter_call(url, params)
         if result is None:
             return None
-        if type(result) != type(True):
+        if not isinstance(result, bool):
             return None
         return result
 
@@ -1063,15 +1060,15 @@ class TwitterHelper(object):
         if result is None:
             return None
         return not ('error' in result)
-    
+
     @staticmethod
     def _game_url(cookie):
         return "%splay/%s/" % (AppEngineHelper.base_url(), cookie)
-    
+
     @staticmethod
     def _trim_name(name):
         return name.strip()[:16]
-    
+
     @staticmethod
     def does_follow(a, b):
         # Does "a" follow "b"?
@@ -1102,7 +1099,7 @@ class TwitterHelper(object):
     @staticmethod
     def does_user_follow_go_account(user):
         return TwitterHelper.does_follow(user, secrets.twitter_user)
-    
+
     @staticmethod
     def make_go_account_follow_user(user):
         did = TwitterHelper.create_follow(secrets.twitter_user, user, secrets.twitter_pass)
@@ -1125,12 +1122,12 @@ class TwitterHelper(object):
     @staticmethod
     def send_notification_to_user(user, message):
         return TwitterHelper.send_direct_message(secrets.twitter_user, user, secrets.twitter_pass, message)
-    
+
     @staticmethod
     def notify_you_new_game(your_name, your_twitter, your_cookie, opponent_name, your_turn):
         if your_turn:
             message = "You've started a game of Go with %s. It is your turn. You can play by visiting %s" % (TwitterHelper._trim_name(opponent_name), TwitterHelper._game_url(your_cookie))
-        else:            
+        else:
             message = "You've started a game of Go with %s. You can see what's happening by visiting %s" % (TwitterHelper._trim_name(opponent_name), TwitterHelper._game_url(your_cookie))
         return TwitterHelper.send_notification_to_user(your_twitter, message)
 
@@ -1138,10 +1135,10 @@ class TwitterHelper(object):
     def notify_opponent_new_game(your_name, opponent_name, opponent_twitter, opponent_cookie, your_turn):
         if your_turn:
             message = "%s has started a game of Go with you. You can see what's happening by visiting %s" % (TwitterHelper._trim_name(your_name), TwitterHelper._game_url(opponent_cookie))
-        else:            
+        else:
             message = "%s has started a game of Go with you. It's your turn. You can play by visiting %s" % (TwitterHelper._trim_name(your_name), TwitterHelper._game_url(opponent_cookie))
         return TwitterHelper.send_notification_to_user(opponent_twitter, message)
-    
+
     @staticmethod
     def notify_your_turn(your_name, your_twitter, your_cookie, opponent_name, move_message):
         if move_message == "It's your turn to move.":
@@ -1150,7 +1147,7 @@ class TwitterHelper(object):
         else:
             message = move_message
         message += " " + TwitterHelper._game_url(your_cookie)
-        return TwitterHelper.send_notification_to_user(your_twitter, message)    
+        return TwitterHelper.send_notification_to_user(your_twitter, message)
 
     @staticmethod
     def notify_scoring(your_name, your_twitter, your_cookie, opponent_name, game_over=False):
@@ -1159,7 +1156,7 @@ class TwitterHelper(object):
         else:
             message = "It's your turn to score against %s." % TwitterHelper._trim_name(opponent_name)
         message += " " + TwitterHelper._game_url(your_cookie)
-        return TwitterHelper.send_notification_to_user(your_twitter, message)    
+        return TwitterHelper.send_notification_to_user(your_twitter, message)
 
     @staticmethod
     def remind_player(player_name, player_twitter, player_cookie, is_scoring):
@@ -1168,7 +1165,7 @@ class TwitterHelper(object):
         else:
             message = "Just a reminder: it's still your turn to move; you haven't moved in over a week. %s" % TwitterHelper._game_url(player_cookie)
         return TwitterHelper.send_notification_to_user(player_twitter, message)
-        
+
 #------------------------------------------------------------------------------
 # Models
 #------------------------------------------------------------------------------
@@ -1184,14 +1181,14 @@ class ModelCache(object):
             if player is not None:
                 memcache.set(cookie, player)
             return player
-        
+
     @staticmethod
     def clear_cookie(cookie):
         memcache.delete(cookie)
-        
+
 class Game(db.Model):
-    date_created = db.DateTimeProperty(auto_now = False)
-    date_last_moved = db.DateTimeProperty(auto_now = False)    
+    date_created = db.DateTimeProperty(auto_now=False)
+    date_last_moved = db.DateTimeProperty(auto_now=False)
     history = db.ListProperty(db.Blob)
     current_state = db.BlobProperty()
 
@@ -1202,10 +1199,10 @@ class Game(db.Model):
     # Recent chat
     chat_history = db.ListProperty(db.Blob)
 
-    is_finished = db.BooleanProperty(default=False)    
-    has_scoring_data = db.BooleanProperty(default=False)    
-    reminder_send_time = db.DateTimeProperty(auto_now = False)
-    
+    is_finished = db.BooleanProperty(default=False)
+    has_scoring_data = db.BooleanProperty(default=False)
+    reminder_send_time = db.DateTimeProperty(auto_now=False)
+
     def get_black_player(self):
         return ModelCache.player_by_cookie(self.black_cookie)
 
@@ -1214,7 +1211,7 @@ class Game(db.Model):
 
     def get_player_whose_move(self):
         if self.is_finished or self.has_scoring_data:
-            return None        
+            return None
         whose_move = pickle.loads(self.current_state).get_whose_move()
         if whose_move == CONST.Black_Color:
             return self.get_black_player()
@@ -1226,7 +1223,7 @@ class Game(db.Model):
 
     def is_scoring(self):
         return self.has_scoring_data and not self.is_finished
-        
+
     def get_black_friendly_name(self):
         return self.get_black_player().get_friendly_name()
 
@@ -1241,7 +1238,7 @@ class Game(db.Model):
         if self.history is None:
             return 0
         return len(self.history)
-    
+
     # 1.0 shipped without chat, so some games may not have this.
     # hence this helper routine.
     def get_chat_history_blobs(self):
@@ -1270,7 +1267,7 @@ class Game(db.Model):
     def dont_remind_for_long_time(self):
         self.reminder_send_time = datetime.now() + timedelta(weeks=52)
         self.put()
-    
+
 # Because there is no notion of 'account', players are created
 # anew each time a game is constructed.
 
@@ -1280,7 +1277,7 @@ class Game(db.Model):
 # twitter, and I've got to make sure old player objects continue to behave
 # well. I decided to use a less-than-ideal representation so that I didn't
 # have to go back and fix all the old player objects.
-    
+
 class Player(db.Model):
     game = db.ReferenceProperty(Game)
     cookie = db.StringProperty()
@@ -1297,9 +1294,9 @@ class Player(db.Model):
         try:
             safe_show_grid = self.show_grid
         except:
-            safe_show_grid = False            
+            safe_show_grid = False
         return safe_show_grid
-    
+
     def get_safe_email(self):
         try:
             safe_email = self.email
@@ -1319,7 +1316,7 @@ class Player(db.Model):
         if safe_twitter is None:
             return ""
         return safe_twitter
-    
+
     def get_opponent(self):
         opponent_color = opposite_color(self.color)
         if opponent_color == CONST.Black_Color:
@@ -1374,30 +1371,27 @@ class Player(db.Model):
         else:
             return self.twitter
 
-        
+
 #------------------------------------------------------------------------------
 # Base Handler
 #------------------------------------------------------------------------------
 
-class GoHandler(webapp.RequestHandler):
-    def __init__(self):
-        super(GoHandler, self).__init__()
-    
+class GoHandler(webapp2.RequestHandler):
     def _template_path(self, filename):
         return os.path.join(os.path.dirname(__file__), 'templates', filename)
-        
+
     def render_json(self, obj):
         self.response.headers['Content-Type'] = 'application/json'
         self.response.out.write(simplejson.dumps(obj))
 
     def render_json_as_text(self, obj):
-        self.response.headers['Content-Type'] = 'text/plain'        
+        self.response.headers['Content-Type'] = 'text/plain'
         self.response.out.write(simplejson.dumps(obj))
-        
+
     def render_text(self, text):
-        self.response.headers['Content-Type'] = 'text/plain'        
+        self.response.headers['Content-Type'] = 'text/plain'
         self.response.out.write(text)
-                
+
     def render_template(self, filename, template_args=None, content_type='text/html', **template_extras):
         if not template_args:
             final_args = {}
@@ -1406,43 +1400,43 @@ class GoHandler(webapp.RequestHandler):
         final_args.update(template_extras)
         self.response.headers['Content-Type'] = content_type
         self.response.out.write(template.render(self._template_path(filename), final_args))
-    
+
     def is_valid_name(self, name):
         return (name is not None) and (len(name) > 0) and (len(name) < 200)
-        
+
     def is_valid_email(self, email):
-        # There is no "correct" way to validate an email. 
+        # There is no "correct" way to validate an email.
         # This is the best you can really do.
         if email is None:
             return False
-            
+
         if len(email) <= 4:
             return False
-        
+
         if len(email) > 200:
             return False
-            
+
         i_at = email.find('@')
         i_p = email.find('.')
         i_right_p = email.rfind('.')
-        i_last = len(email) - 1
-        
+        # i_last = len(email) - 1 XXX what is this?
+
         if i_at == -1 or i_p == -1:
             return False
 
         # @ can't come at front
         if i_at == 0:
             return False
-            
+
         # @ must come before .
         # and there must be a character in between
         if i_at >= (i_right_p - 1):
             return False
-        
+
         # final domain names must be one or more characters
         if i_right_p >= len(email) - 1:
             return False
-        
+
         return True
 
     def is_valid_twitter(self, twitter):
@@ -1466,50 +1460,44 @@ class GoHandler(webapp.RequestHandler):
 
     def is_valid_active_contact_type(self, contact_type):
         return (contact_type == CONST.Email_Contact) or (contact_type == CONST.Twitter_Contact) or (contact_type == CONST.No_Contact)
-        
+
     def is_valid_contact(self, contact, contact_type):
         if contact_type == CONST.Email_Contact:
             return self.is_valid_email(contact)
         else:
             return self.is_valid_twitter(contact)
-        
+
 
 #------------------------------------------------------------------------------
 # "Get Going" Handler
 #------------------------------------------------------------------------------
 
 class GetGoingHandler(GoHandler):
-    def __init__(self):
-        super(GetGoingHandler, self).__init__()
-    
     def get(self, *args):
         self.render_template("get-going.html")
 
-        
+
 #------------------------------------------------------------------------------
 # "Create Game" Handler
 #------------------------------------------------------------------------------
-        
+
 class CreateGameHandler(GoHandler):
-    def __init__(self):
-        super(CreateGameHandler, self).__init__()
-    
     def fail(self, flash="Invalid input."):
         self.render_json({'success': False, 'need_your_twitter_password': False, 'flash': flash})
 
     def require_twitter_password(self, flash):
-        self.render_json({'success': True, 'need_your_twitter_password': True, 'flash': flash})    
+        self.render_json({'success': True, 'need_your_twitter_password': True, 'flash': flash})
 
     def create_game(self, your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index, komi_index):
-        # Create cookies for accessing the game        
-        your_cookie, opponent_cookie = GameCookie.unique_pair()                
+        # Create cookies for accessing the game
+        your_cookie, opponent_cookie = GameCookie.unique_pair()
 
         # Create the game state and board blobs
         board = GameBoard(board_size_index, handicap_index, komi_index)
         state = GameState()
         state.set_board(board)
         state.whose_move = CONST.Black_Color if CONST.Handicaps[handicap_index] == 0 else CONST.White_Color
-        
+
         # Create a game model instance
         game = Game()
         game.date_created = datetime.now()
@@ -1527,7 +1515,7 @@ class CreateGameHandler(GoHandler):
 
         # Whose turn?
         your_turn = (your_color == state.whose_move)
-        
+
         # Write the game to the datastore
         game_key = game.put()
 
@@ -1550,7 +1538,7 @@ class CreateGameHandler(GoHandler):
             your_player.twitter = your_contact
             your_player.wants_twitter = True
             your_twitter = your_contact
-                
+
         # Create opponent player
         opponent_player = Player()
         opponent_player.game = game_key
@@ -1585,13 +1573,13 @@ class CreateGameHandler(GoHandler):
             EmailHelper.notify_opponent_new_game(your_name, opponent_name, opponent_email, opponent_cookie, your_turn)
         elif opponent_player.does_want_twitter():
             TwitterHelper.notify_opponent_new_game(your_name, opponent_name, opponent_twitter, opponent_cookie, your_turn)
-            
+
         # Great; the game is created!
         return (your_cookie, your_turn)
 
-    def success(self, your_cookie, your_turn):        
+    def success(self, your_cookie, your_turn):
         self.render_json({'success': True, 'need_your_twitter_password': False, 'your_cookie': your_cookie, 'your_turn': your_turn})
-    
+
     def post(self, *args):
         try:
             your_name = self.request.POST.get("your_name")
@@ -1608,27 +1596,27 @@ class CreateGameHandler(GoHandler):
             self.fail()
             return
 
-        try:            
+        try:
             your_twitter_password = self.request.POST.get("your_twitter_password")
         except:
             your_twitter_password = None
-            
+
         if (your_color < CONST.Black_Color) or (your_color > CONST.White_Color):
             self.fail("Invalid color.")
             return
-        
+
         if (board_size_index < 0) or (board_size_index >= len(CONST.Board_Sizes)):
             self.fail("Invalid board size.")
             return
-        
+
         if (handicap_index < 0) or (handicap_index >= len(CONST.Handicaps)):
             self.fail("Invalid handicap.")
             return
-            
+
         if (komi_index < 0) or (komi_index >= len(CONST.Komis)):
             self.fail("Invalid komi.")
             return
-            
+
         if not self.is_valid_name(your_name):
             self.fail("Your name is invalid.")
             return
@@ -1640,15 +1628,15 @@ class CreateGameHandler(GoHandler):
         if not self.is_valid_contact_type(opponent_contact_type):
             self.fail("Your opponent's contact type is invalid.")
             return
-        
+
         if not self.is_valid_contact(your_contact, your_contact_type):
             self.fail("Your contact information is invalid.")
             return
-            
+
         if not self.is_valid_name(opponent_name):
             self.fail("Your opponent's name is invalid.")
             return
-        
+
         if not self.is_valid_contact(opponent_contact, opponent_contact_type):
             self.fail("Your opponent's contact information is invalid.")
             return
@@ -1656,7 +1644,7 @@ class CreateGameHandler(GoHandler):
         #
         # Twitter test cases: if necessary, connect up all contacts so we can direct-message
         #
-        
+
         if your_contact_type == CONST.Twitter_Contact:
             if not TwitterHelper.make_go_account_follow_user(your_contact):
                 self.fail("Sorry, but we couldn't contact twitter or couldn't follow your account. Try again soon, or use email for now.")
@@ -1684,9 +1672,9 @@ class CreateGameHandler(GoHandler):
                 self.fail("Sorry, but your opponent is not following @%s on twitter. Because of this, you should use email to start the game with your opponent." % secrets.twitter_user)
                 return
             # success -- opponent is following @davepeckgo
-            
+
         try:
-            your_cookie, your_turn = self.create_game(your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index, komi_index) 
+            your_cookie, your_turn = self.create_game(your_name, your_contact, your_contact_type, opponent_name, opponent_contact, opponent_contact_type, your_color, board_size_index, handicap_index, komi_index)
             self.success(your_cookie, your_turn)
         except:
             logging.error("An unexpected error occured in CreateGameHandler: %s" % ExceptionHelper.exception_string())
@@ -1698,30 +1686,24 @@ class CreateGameHandler(GoHandler):
 #------------------------------------------------------------------------------
 
 class NotYourTurnHandler(GoHandler):
-    def __init__(self):
-        super(NotYourTurnHandler, self).__init__()
-
     def get(self, *args):
         self.render_template("not-your-turn.html")
 
 
 #------------------------------------------------------------------------------
-# "Play Game" Handler        
+# "Play Game" Handler
 #------------------------------------------------------------------------------
 
 class PlayGameHandler(GoHandler):
-    def __init__(self):
-        super(PlayGameHandler, self).__init__()
-
     def fail(self, message):
         self.render_template("fail.html", {'message': message})
-        
+
     def get(self, cookie, *args):
         player = ModelCache.player_by_cookie(cookie)
         if not player:
             self.fail("No game with that ID could be found.")
             return
-        
+
         game = player.game
         if not game:
             self.fail("Found a reference to a player, but couldn't find the game. Try again in a few minutes?")
@@ -1732,14 +1714,14 @@ class PlayGameHandler(GoHandler):
 
         opponent_player = player.get_opponent()
 
-        state = pickle.loads(game.current_state)            
+        state = pickle.loads(game.current_state)
         your_move = (state.whose_move == player.color)
         board = state.get_board()
-        you_are_done_scoring  = state.is_done_scoring(player.color)
+        you_are_done_scoring = state.is_done_scoring(player.color)
         opponent_done_scoring = state.is_done_scoring(opponent_player.color)
-        you_win       = state.is_winner(player.color)
+        you_win = state.is_winner(player.color)
         opponent_wins = state.is_winner(opponent_player.color)
-        by_resignation = (you_win or opponent_wins) and not state.has_scoring_data() 
+        by_resignation = (you_win or opponent_wins) and not state.has_scoring_data()
 
         last_move_x, last_move_y = state.get_last_move()
 
@@ -1769,13 +1751,13 @@ class PlayGameHandler(GoHandler):
             'last_move_was_pass': "true" if state.get_last_move_was_pass() else "false",
             'last_move_was_pass_python': state.get_last_move_was_pass(),
             'has_last_move': last_move_x != -1,
-            'game_is_scoring' : "true" if game.is_scoring() else "false",
-            'game_is_scoring_python' : game.is_scoring(),
-            'you_are_done_scoring' : "true" if you_are_done_scoring else "false",
-            'you_are_done_scoring_python' : you_are_done_scoring,
-            'opponent_done_scoring' : "true" if opponent_done_scoring else "false",
-            'opponent_done_scoring_python' : opponent_done_scoring,
-            'scoring_number' : state.get_scoring_number(),
+            'game_is_scoring': "true" if game.is_scoring() else "false",
+            'game_is_scoring_python': game.is_scoring(),
+            'you_are_done_scoring': "true" if you_are_done_scoring else "false",
+            'you_are_done_scoring_python': you_are_done_scoring,
+            'opponent_done_scoring': "true" if opponent_done_scoring else "false",
+            'opponent_done_scoring_python': opponent_done_scoring,
+            'scoring_number': state.get_scoring_number(),
             'game_is_finished': "true" if game.is_finished else "false",
             'game_is_finished_python': game.is_finished,
             'game_in_progress': "true" if game.in_progress() else "false",
@@ -1784,12 +1766,12 @@ class PlayGameHandler(GoHandler):
             'has_scoring_data': game.has_scoring_data,
             'black_territory': state.get_black_territory(),
             'white_territory': state.get_white_territory(),
-            'you_win' : "true" if you_win else "false",
-            'you_win_python' : you_win,
-            'opponent_wins' : "true" if opponent_wins else "false",
-            'opponent_wins_python' : opponent_wins,
-            'by_resignation' : "true" if by_resignation else "false",
-            'by_resignation_python' : by_resignation,
+            'you_win': "true" if you_win else "false",
+            'you_win_python': you_win,
+            'opponent_wins': "true" if opponent_wins else "false",
+            'opponent_wins_python': opponent_wins,
+            'by_resignation': "true" if by_resignation else "false",
+            'by_resignation_python': by_resignation,
             'board_class': board.get_class(),
             'komi': board.get_komi(),
             'show_grid': "true" if player.get_safe_show_grid() else "false",
@@ -1797,22 +1779,20 @@ class PlayGameHandler(GoHandler):
             'row_names': board.get_row_names(),
             'column_names': board.get_column_names(),
             'board_width': board.get_width(),
-            'board_height': board.get_height() }
-                                
+            'board_height': board.get_height(),
+        }
+
         self.render_template("play.html", items)
 
-        
+
 #------------------------------------------------------------------------------
-# "Make This Move" Handler        
+# "Make This Move" Handler
 #------------------------------------------------------------------------------
 
 class MakeThisMoveHandler(GoHandler):
-    def __init__(self):
-        super(MakeThisMoveHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-    
+        self.render_json({'success': False, 'flash': message})
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -1862,7 +1842,7 @@ class MakeThisMoveHandler(GoHandler):
         if (move_x < 0) or (move_x >= board.get_width()) or (move_y < 0) or (move_y >= board.get_height()):
             self.fail("Move coordinates are out-of-bounds.")
             return
-        
+
         piece_at = board.get(move_x, move_y)
         if piece_at != CONST.No_Color:
             self.fail("You can't move here; there is already a stone!")
@@ -1873,7 +1853,7 @@ class MakeThisMoveHandler(GoHandler):
         new_state.increment_current_move_number()
         new_state.set_whose_move(opposite_color(player.color))
         new_state.set_last_move_was_pass(False)
-        new_board = new_state.get_board()        
+        new_board = new_state.get_board()
         new_board.set(move_x, move_y, player.color)
 
         # Deal with captures and (new) ataris
@@ -1909,9 +1889,9 @@ class MakeThisMoveHandler(GoHandler):
         if new_board.is_stone_in_suicide(move_x, move_y):
             self.fail("You can't move there; your stone would immediately be captured!")
             return
-        
+
         move_message += "."
-        
+
         new_state.set_last_move_message(move_message)
         new_state.set_last_move(move_x, move_y)
         new_state_string = new_board.get_state_string()
@@ -1926,7 +1906,7 @@ class MakeThisMoveHandler(GoHandler):
             if two_back_state_string == new_state_string:
                 self.fail("Sorry, but this move would violate the <a href=\"http://www.samarkand.net/Academy/learn_go/learn_go_pg8.html\">rule of Ko</a>. Move somewhere else and try playing here later!")
                 return
-        
+
         game.history.append(game.current_state)
         game.current_state = db.Blob(pickle.dumps(new_state))
         game.date_last_moved = datetime.now()
@@ -1943,7 +1923,7 @@ class MakeThisMoveHandler(GoHandler):
             EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message, new_state.get_current_move_number())
         elif opponent.does_want_twitter():
             TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
-                    
+
         items = {
             'success': True,
             'flash': 'TODO',
@@ -1952,22 +1932,20 @@ class MakeThisMoveHandler(GoHandler):
             'black_stones_captured': new_state.get_black_stones_captured(),
             'board_state_string': new_state_string,
             'last_move_x': move_x,
-            'last_move_y': move_y }
-                    
+            'last_move_y': move_y,
+        }
+
         self.render_json(items)
 
 
 #------------------------------------------------------------------------------
-# "Pass" Handler        
+# "Pass" Handler
 #------------------------------------------------------------------------------
 
 class PassHandler(GoHandler):
-    def __init__(self):
-        super(PassHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-    
+        self.render_json({'success': False, 'flash': message})
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -2008,10 +1986,10 @@ class PassHandler(GoHandler):
         new_state.set_whose_move(opposite_color(player.color))
         new_state.set_last_move_was_pass(True)
 
-        previous_also_passed = state.get_last_move_was_pass()        
+        previous_also_passed = state.get_last_move_was_pass()
 
         if previous_also_passed:
-            move_message = "Mark the dead stones. Click done when finished. When you and your opponent agree, the game will end." 
+            move_message = "Mark the dead stones. Click done when finished. When you and your opponent agree, the game will end."
 
             game.has_scoring_data = True
             new_state.increment_scoring_number()
@@ -2038,7 +2016,7 @@ class PassHandler(GoHandler):
             EmailHelper.notify_your_turn(opponent.get_friendly_name(), opponent.email, opponent.cookie, player.get_friendly_name(), player.email, move_message, new_state.get_current_move_number())
         elif opponent.does_want_twitter():
             TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
-                    
+
         items = {
             'success': True,
             'flash': 'OK',
@@ -2048,21 +2026,19 @@ class PassHandler(GoHandler):
             'black_territory': new_state.get_black_territory(),
             'scoring_number': new_state.get_scoring_number(),
             'game_is_scoring': game.is_scoring(),
-            'game_is_finished': game.is_finished }
-                    
+            'game_is_finished': game.is_finished,
+        }
+
         self.render_json(items)
 
 #------------------------------------------------------------------------------
-# "Mark Stone Dead/Alive" Handler        
+# "Mark Stone Dead/Alive" Handler
 #------------------------------------------------------------------------------
 
 class MarkStoneHandler(GoHandler):
-    def __init__(self):
-        super(MarkStoneHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-    
+        self.render_json({'success': False, 'flash': message})
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -2105,7 +2081,7 @@ class MarkStoneHandler(GoHandler):
         if (stone_x < 0) or (stone_x >= board.get_width()) or (stone_y < 0) or (stone_y >= board.get_height()):
             self.fail("Stone coordinates are out-of-bounds.")
             return
-        
+
         piece_at = board.get(stone_x, stone_y)
         owner_at = board.get_owner(stone_x, stone_y)
         if piece_at == CONST.No_Color:
@@ -2122,7 +2098,7 @@ class MarkStoneHandler(GoHandler):
 
         # Create the potentially new state
         new_state = state.clone()
-        new_board = new_state.get_board()        
+        new_board = new_state.get_board()
 
         # Increment the scoring number.
         new_state.increment_scoring_number()
@@ -2167,20 +2143,18 @@ class MarkStoneHandler(GoHandler):
             'white_territory': new_state.get_white_territory(),
             'black_territory': new_state.get_black_territory(),
             'scoring_number': new_state.get_scoring_number(),
-            'board_state_string': new_state_string }
-                    
+            'board_state_string': new_state_string,
+        }
+
         self.render_json(items)
 
 #------------------------------------------------------------------------------
-# "Done" Handler        
+# "Done" Handler
 #------------------------------------------------------------------------------
 
 class DoneHandler(GoHandler):
-    def __init__(self):
-        super(DoneHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
+        self.render_json({'success': False, 'flash': message})
 
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
@@ -2220,8 +2194,7 @@ class DoneHandler(GoHandler):
                 # Weird... must have two windows open or something.
                 self.render_success(game, player, state, 'OK')
             else:
-                self.render_success(game, player, state,
-                        'Something has changed; review before clicking done.')
+                self.render_success(game, player, state, 'Something has changed; review before clicking done.')
             return
 
         # Mark the player as done.
@@ -2250,47 +2223,47 @@ class DoneHandler(GoHandler):
         # Send an email, but only if they want it.
         opponent = player.get_opponent()
         if opponent.wants_email:
-            EmailHelper.notify_scoring(opponent.get_friendly_name(),
-                    opponent.email, opponent.cookie,
-                    player.get_friendly_name(), player.email,
-                    you_are_done=True, game_over=game.is_finished)
+            EmailHelper.notify_scoring(
+                opponent.get_friendly_name(),
+                opponent.email, opponent.cookie,
+                player.get_friendly_name(), player.email,
+                you_are_done=True, game_over=game.is_finished)
         elif opponent.does_want_twitter():
-            TwitterHelper.notify_scoring(opponent.get_friendly_name(),
-                    opponent.twitter, opponent.cookie,
-                    player.get_friendly_name(),
-                    game_over=game.is_finished)
-                    
+            TwitterHelper.notify_scoring(
+                opponent.get_friendly_name(),
+                opponent.twitter, opponent.cookie,
+                player.get_friendly_name(),
+                game_over=game.is_finished)
+
         self.render_success(game, player, new_state, 'OK')
 
     def render_success(self, game, player, state, flash):
         opponent = player.get_opponent()
         board = state.get_board()
         items = {
-                'success': True,
-                'flash': flash,
-                'board_state_string': board.get_state_string(),
-                'you_are_done_scoring': state.is_done_scoring(player.color),
-                'opponent_done_scoring': state.is_done_scoring(opponent.color),
-                'white_territory': state.get_white_territory(),
-                'black_territory': state.get_black_territory(),
-                'scoring_number': state.get_scoring_number(),
-                'you_win': state.is_winner(player.color),
-                'opponent_wins': state.is_winner(opponent.color),
-                'game_is_finished': game.is_finished }
+            'success': True,
+            'flash': flash,
+            'board_state_string': board.get_state_string(),
+            'you_are_done_scoring': state.is_done_scoring(player.color),
+            'opponent_done_scoring': state.is_done_scoring(opponent.color),
+            'white_territory': state.get_white_territory(),
+            'black_territory': state.get_black_territory(),
+            'scoring_number': state.get_scoring_number(),
+            'you_win': state.is_winner(player.color),
+            'opponent_wins': state.is_winner(opponent.color),
+            'game_is_finished': game.is_finished,
+        }
 
         self.render_json(items)
 
 #------------------------------------------------------------------------------
-# "Resign" Handler        
+# "Resign" Handler
 #------------------------------------------------------------------------------
 
 class ResignHandler(GoHandler):
-    def __init__(self):
-        super(ResignHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-    
+        self.render_json({'success': False, 'flash': message})
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -2329,16 +2302,16 @@ class ResignHandler(GoHandler):
         new_state.set_whose_move(opposite_color(player.color))
         new_state.set_last_move_was_pass(True)
 
-        move_message = "The game is over!" 
-        game.is_finished = True        
+        move_message = "The game is over!"
+        game.is_finished = True
         new_state.set_winner(opposite_color(player.color))
         new_state.set_last_move_message(move_message)
 
         game.history.append(game.current_state)
         game.current_state = db.Blob(pickle.dumps(new_state))
-        game.date_last_moved = datetime.now()        
+        game.date_last_moved = datetime.now()
         game.reminder_send_time = datetime.now()
-        
+
         try:
             game.put()
         except:
@@ -2351,28 +2324,26 @@ class ResignHandler(GoHandler):
         elif opponent.does_want_twitter():
             TwitterHelper.notify_your_turn(opponent.get_friendly_name(), opponent.twitter, opponent.cookie, player.get_friendly_name(), move_message)
 
-            
+
         items = {
             'success': True,
             'flash': 'OK',
             'current_move_number': game.get_current_move_number(),
             'game_is_scoring': game.is_scoring(),
-            'game_is_finished': game.is_finished }
-                    
+            'game_is_finished': game.is_finished,
+        }
+
         self.render_json(items)
-        
-        
+
+
 #------------------------------------------------------------------------------
-# "Has Opponent Moved" Handler        
+# "Has Opponent Moved" Handler
 #------------------------------------------------------------------------------
 
 class HasOpponentMovedHandler(GoHandler):
-    def __init__(self):
-        super(HasOpponentMovedHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-        
+        self.render_json({'success': False, 'flash': message})
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -2417,16 +2388,13 @@ class HasOpponentMovedHandler(GoHandler):
                 'game_is_finished': game.is_finished})
 
 #------------------------------------------------------------------------------
-# "Has Opponent Scored" Handler        
+# "Has Opponent Scored" Handler
 #------------------------------------------------------------------------------
 
 class HasOpponentScoredHandler(GoHandler):
-    def __init__(self):
-        super(HasOpponentScoredHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-        
+        self.render_json({'success': False, 'flash': message})
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -2472,7 +2440,8 @@ class HasOpponentScoredHandler(GoHandler):
                 'scoring_number': state.get_scoring_number(),
                 'you_win': state.is_winner(player.color),
                 'opponent_wins': state.is_winner(opponent.color),
-                'game_is_finished': game.is_finished })
+                'game_is_finished': game.is_finished,
+            })
 
 
 #------------------------------------------------------------------------------
@@ -2480,12 +2449,9 @@ class HasOpponentScoredHandler(GoHandler):
 #------------------------------------------------------------------------------
 
 class OptionsHandler(GoHandler):
-    def __init__(self):
-        super(OptionsHandler, self).__init__()
-
     def fail(self, message):
         self.render_template("fail.html", {'message': message})
-    
+
     def get(self, cookie, *args):
         player = ModelCache.player_by_cookie(cookie)
         if not player:
@@ -2496,28 +2462,26 @@ class OptionsHandler(GoHandler):
             'your_cookie': cookie,
             'your_email': player.get_safe_email(),
             'your_twitter': player.get_safe_twitter(),
-            'your_contact_type': player.get_active_contact_type() }
+            'your_contact_type': player.get_active_contact_type(),
+        }
 
         self.render_template("options.html", items)
-        
+
 
 #------------------------------------------------------------------------------
 # "Change Options" Handler
 #------------------------------------------------------------------------------
 
 class ChangeOptionsHandler(GoHandler):
-    def __init__(self):
-        super(ChangeOptionsHandler, self).__init__()
-
     def fail(self, flash="Invalid input."):
         self.render_json({'success': False, 'need_your_twitter_password': False, 'flash': flash})
 
     def require_twitter_password(self, flash):
-        self.render_json({'success': True, 'need_your_twitter_password': True, 'flash': flash})    
+        self.render_json({'success': True, 'need_your_twitter_password': True, 'flash': flash})
 
-    def success(self):        
+    def success(self):
         self.render_json({'success': True, 'need_your_twitter_password': False, 'flash': 'OK'})
-        
+
     def handle_none(self, player):
         try:
             player.wants_email = False
@@ -2525,7 +2489,7 @@ class ChangeOptionsHandler(GoHandler):
             try:
                 player.put()
             except:
-                player.put()                
+                player.put()
             ModelCache.clear_cookie(player.cookie)
         except:
             self.fail('Sorry, but we had a timeout; please try again later.')
@@ -2536,7 +2500,7 @@ class ChangeOptionsHandler(GoHandler):
         if not self.is_valid_email(email):
             self.fail('Invalid email address.')
             return
-        
+
         try:
             player.wants_email = True
             player.wants_twitter = False
@@ -2545,7 +2509,7 @@ class ChangeOptionsHandler(GoHandler):
             try:
                 player.put()
             except:
-                player.put()                
+                player.put()
             ModelCache.clear_cookie(player.cookie)
         except:
             self.fail('Sorry, but we had a timeout; please try again later.')
@@ -2576,7 +2540,7 @@ class ChangeOptionsHandler(GoHandler):
                 self.require_twitter_password("Sorry, either your password is incorrect or we couldn't contact twitter. Try entering your password again, or use email for now.")
                 return
             # success -- you're now following @davepeckgo
-                
+
         try:
             player.wants_email = False
             player.wants_twitter = True
@@ -2585,13 +2549,13 @@ class ChangeOptionsHandler(GoHandler):
             try:
                 player.put()
             except:
-                player.put()                
+                player.put()
             ModelCache.clear_cookie(player.cookie)
         except:
             self.fail('Sorry, but we had a timeout; please try again later.')
         else:
             self.success()
-    
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -2607,7 +2571,7 @@ class ChangeOptionsHandler(GoHandler):
             new_contact_type = self.request.POST.get("new_contact_type")
         except:
             new_contact_type = None
-            
+
         if (new_contact_type is None) or (not self.is_valid_active_contact_type(new_contact_type)):
             self.fail("Unexpected error: invalid contact type.")
             return
@@ -2622,7 +2586,7 @@ class ChangeOptionsHandler(GoHandler):
             if new_contact is None:
                 self.fail("Unexpected error: invalid contact.")
                 return
-        
+
         if new_contact_type == CONST.Email_Contact:
             self.handle_email(player, new_contact)
         elif new_contact_type == CONST.Twitter_Contact:
@@ -2636,9 +2600,6 @@ class ChangeOptionsHandler(GoHandler):
 #------------------------------------------------------------------------------
 
 class ChangeGridOptionsHandler(GoHandler):
-    def __init__(self):
-        super(ChangeGridOptionsHandler, self).__init__()
-
     def fail(self, flash="Invalid input."):
         self.render_json({'success': False, 'flash': flash})
 
@@ -2677,17 +2638,14 @@ class ChangeGridOptionsHandler(GoHandler):
 
         self.render_json({'success': True, 'flash': 'OK'})
 
-            
+
 #------------------------------------------------------------------------------
-# "Recent Chat" Handler     
+# "Recent Chat" Handler
 #------------------------------------------------------------------------------
 
 class RecentChatHandler(GoHandler):
-    def __init__(self):
-        super(RecentChatHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
+        self.render_json({'success': False, 'flash': message})
 
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
@@ -2709,17 +2667,17 @@ class RecentChatHandler(GoHandler):
         if last_chat_seen is None:
             self.fail("Unexpected error: try refreshing your browser window.")
             return
-        
+
         game = player.game
         if not game:
             self.fail("Unexpected error: couldn't find game for player.")
             return
 
         blob_history = game.get_chat_history_blobs()
-        recent_blobs = blob_history[last_chat_seen:]            
+        recent_blobs = blob_history[last_chat_seen:]
         # no longer desirable -- recent_blobs.reverse()
         recent_chats = []
-        
+
         for blob in recent_blobs:
             entry = pickle.loads(blob)
             recent_chats.append({'name': entry.get_player_friendly_name(), 'message': entry.get_message(), 'move_number': entry.get_move_number()})
@@ -2728,22 +2686,19 @@ class RecentChatHandler(GoHandler):
 
 
 #------------------------------------------------------------------------------
-# "Add Chat" Handler     
+# "Add Chat" Handler
 #------------------------------------------------------------------------------
 
 class AddChatHandler(GoHandler):
-    def __init__(self):
-        super(AddChatHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
+        self.render_json({'success': False, 'flash': message})
 
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
             self.fail("Unexpected error: no cookie found.")
             return
-        
+
         player = ModelCache.player_by_cookie(cookie)
         if not player:
             self.fail("Unexpected error: invalid player.")
@@ -2753,9 +2708,9 @@ class AddChatHandler(GoHandler):
         if not game:
             self.fail("Unexpected error: couldn't find game for player.")
             return
-        
+
         state = pickle.loads(game.current_state)
-        
+
         # Message, etc.
         message = self.request.POST.get("message")
         if message is None:
@@ -2782,7 +2737,7 @@ class AddChatHandler(GoHandler):
         if last_chat_seen is None:
             self.fail("Unexpected error: try refreshing your browser window.")
             return
-        
+
         # force game to have chat history
         blob_history = game.get_chat_history_blobs()
         entry = ChatEntry(cookie, clean_message, state.get_current_move_number())
@@ -2797,25 +2752,22 @@ class AddChatHandler(GoHandler):
         recent_blobs = blob_history[last_chat_seen:]
         # no longer desirable -- recent_blobs.reverse()
         recent_chats = []
-        
+
         for blob in recent_blobs:
             entry = pickle.loads(blob)
             recent_chats.append({'name': entry.get_player_friendly_name(), 'message': entry.get_message(), 'move_number': entry.get_move_number()})
 
         self.render_json({'success': True, 'flash': 'OK', 'chat_count': len(blob_history), 'recent_chats': recent_chats})
-                        
+
 
 #------------------------------------------------------------------------------
-# "History" Handler (for main history html page)        
+# "History" Handler (for main history html page)
 #------------------------------------------------------------------------------
 
 class HistoryHandler(GoHandler):
-    def __init__(self):
-        super(HistoryHandler, self).__init__()
-
     def fail(self, message):
         self.render_template("fail.html", {'message': message})
-        
+
     def get(self, cookie, *args):
         self.get_move(cookie)
 
@@ -2824,7 +2776,7 @@ class HistoryHandler(GoHandler):
         if not player:
             self.fail("No game with that ID could be found.")
             return
-        
+
         game = player.game
         if not game:
             self.fail("Found a reference to a player, but couldn't find the game. Try again in a few minutes?")
@@ -2833,10 +2785,11 @@ class HistoryHandler(GoHandler):
         black_player = ModelCache.player_by_cookie(game.black_cookie)
         white_player = ModelCache.player_by_cookie(game.white_cookie)
 
-        if player.color == CONST.Black_Color:
-            opponent_player = white_player
-        else:
-            opponent_player = black_player
+        # XXX this appears unused
+        # if player.color == CONST.Black_Color:
+        #     opponent_player = white_player
+        # else:
+        #     opponent_player = black_player
 
         move_number = None
         if move:
@@ -2853,7 +2806,7 @@ class HistoryHandler(GoHandler):
             requested_state = game.history[move_number]
 
         state = pickle.loads(requested_state)
-        your_move = (state.whose_move == player.color)
+        # XXX this appears unused your_move = (state.whose_move == player.color)
         board = state.get_board()
 
         last_move_x, last_move_y = state.get_last_move()
@@ -2861,8 +2814,8 @@ class HistoryHandler(GoHandler):
         items = {
             'your_cookie': cookie,
             'your_color': player.color,
-            'board_size_index': board.get_size_index(),            
-            
+            'board_size_index': board.get_size_index(),
+
             'board_state_string': board.get_state_string(),
             'white_stones_captured': state.get_white_stones_captured(),
             'black_stones_captured': state.get_black_stones_captured(),
@@ -2872,7 +2825,7 @@ class HistoryHandler(GoHandler):
             'last_move_x': last_move_x,
             'last_move_y': last_move_y,
             'last_move_was_pass': "true" if state.get_last_move_was_pass() else "false",
-            'whose_move': state.whose_move,            
+            'whose_move': state.whose_move,
             'white_name': white_player.get_friendly_name(),
             'black_name': black_player.get_friendly_name(),
             'board_class': board.get_class(),
@@ -2882,29 +2835,23 @@ class HistoryHandler(GoHandler):
             'row_names': board.get_row_names(),
             'column_names': board.get_column_names(),
             'board_width': board.get_width(),
-            'board_height': board.get_height()            
+            'board_height': board.get_height()
         }
-                                
+
         self.render_template("history.html", items)
 
 class HistoryMoveHandler(HistoryHandler):
-    def __init__(self):
-        super(HistoryMoveHandler, self).__init__()
-
     def get(self, cookie, move, *args):
         self.get_move(cookie, move)
 
 #------------------------------------------------------------------------------
-# "Get Historical State" Handler       
+# "Get Historical State" Handler
 #------------------------------------------------------------------------------
 
 class GetHistoricalStateHandler(GoHandler):
-    def __init__(self):
-        super(GetHistoricalStateHandler, self).__init__()
-
     def fail(self, message):
-        self.render_json({'success': False, 'flash': message})           
-        
+        self.render_json({'success': False, 'flash': message})
+
     def post(self, *args):
         cookie = self.request.POST.get("your_cookie")
         if not cookie:
@@ -2941,10 +2888,10 @@ class GetHistoricalStateHandler(GoHandler):
             return
 
         state = pickle.loads(requested_state)
-        
+
         board = state.get_board()
         last_move_x, last_move_y = state.get_last_move()
-                
+
         self.render_json({
             'success': True,
             'flash': 'OK',
@@ -2958,15 +2905,12 @@ class GetHistoricalStateHandler(GoHandler):
             'last_move_y': last_move_y,
             'last_move_was_pass': state.get_last_move_was_pass(),
             'whose_move': state.whose_move})
-        
+
 #------------------------------------------------------------------------------
-# "SGF" Handler (for SGF download)        
+# "SGF" Handler (for SGF download)
 #------------------------------------------------------------------------------
 
 class SGFHandler(GoHandler):
-    def __init__(self):
-        super(SGFHandler, self).__init__()
-
     def fail(self, message):
         self.render_template("fail.html", {'message': message})
 
@@ -2976,7 +2920,7 @@ class SGFHandler(GoHandler):
             # XXX Should 404.
             self.fail("No game with that ID could be found.")
             return
-        
+
         game = player.game
         if not game:
             # XXX Should 500?
@@ -2999,8 +2943,9 @@ class SGFHandler(GoHandler):
         for blob in chat_blobs:
             entry = pickle.loads(blob)
             move = entry.get_move_number()
-            if move <= 0: move = 1
-            move_chats = chats.get(move,[])
+            if move <= 0:
+                move = 1
+            move_chats = chats.get(move, [])
             move_chats.append("%s: %s" % (entry.get_player_friendly_name(), entry.get_message()))
             chats[move] = move_chats
 
@@ -3054,22 +2999,19 @@ class SGFHandler(GoHandler):
 
         self.render_template("game.sgf", items, 'application/x-go-sgf')
 
-        
+
 #------------------------------------------------------------------------------
 # Reminders!
 #------------------------------------------------------------------------------
 
 class EnsureReminderTimesHandler(GoHandler):
-    def __init__(self):
-        super(EnsureReminderTimesHandler, self).__init__()
-
     def post(self, *args):
         # Grab some games and make sure that they each have a reminder_send_time set.
-        # If not, set it!        
+        # If not, set it!
         try:
             # get our request data
             try:
-                last_id_seen = int(self.request.get('last_id_seen'))                
+                last_id_seen = int(self.request.get('last_id_seen'))
             except:
                 last_id_seen = 0
 
@@ -3121,26 +3063,20 @@ class EnsureReminderTimesHandler(GoHandler):
                         db.put(games_to_write)
                     except:
                         db.put(games_to_write)
-                
+
                 self.render_json({'success': True, 'amount_found': amount_found, 'amount_modified': len(games_to_write), 'new_last_id': new_last_id})
         except:
             self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': 0})
-            
-class UpdateDatabaseHandler(GoHandler):
-    def __init__(self):
-        super(UpdateDatabaseHandler, self).__init__()
 
+class UpdateDatabaseHandler(GoHandler):
     def get(self, *args):
         self.response.headers['Content-Type'] = "text/plain"
         self.render_template("update-database.html", {})
-            
-class SendRemindersHandler(GoHandler):
-    def __init__(self):
-        super(SendRemindersHandler, self).__init__()
 
+class SendRemindersHandler(GoHandler):
     def get(self, *args):
         # Handle one game at a time!
-        # (TODO -- this code is ugly -- too many nested tests.)        
+        # (TODO -- this code is ugly -- too many nested tests.)
         message = "No action taken."
         try:
             one_week_ago = datetime.now() - timedelta(weeks=1)
@@ -3162,8 +3098,8 @@ class SendRemindersHandler(GoHandler):
                         if stale_game.is_scoring():
                             black = stale_game.get_black_player()
                             white = stale_game.get_white_player()
-                            for player in [ black, white ]:
-                                if not game.is_player_done_scoring(player):
+                            for player in [black, white]:
+                                if not stale_game.is_player_done_scoring(player):
                                     players.append(player)
                         else:
                             whose_move = stale_game.get_player_whose_move()
@@ -3192,39 +3128,36 @@ class SendRemindersHandler(GoHandler):
         else:
             self.render_json_as_text({'success': True, 'message': message})
 
-            
+
 #------------------------------------------------------------------------------
 # Main WebApp Code
 #------------------------------------------------------------------------------
 
-def main():
-    url_map = [
-        ('/get-going/', GetGoingHandler),
-        ('/play/([-\w]+)/', PlayGameHandler),
-        ('/history/([-\w]+)/', HistoryHandler),
-        ('/history/([-\w]+)\.sgf', SGFHandler),
-        ('/history/([-\w]+)/(0|[1-9]\d*)/', HistoryMoveHandler),
-        ('/options/([-\w]+)/', OptionsHandler),
-        ('/service/create-game/', CreateGameHandler),
-        ('/service/make-this-move/', MakeThisMoveHandler),
-        ('/service/has-opponent-moved/', HasOpponentMovedHandler),
-        ('/service/mark-stone/', MarkStoneHandler),
-        ('/service/has-opponent-scored/', HasOpponentScoredHandler),
-        ('/service/done/', DoneHandler),
-        ('/service/change-options/', ChangeOptionsHandler),
-        ('/service/change-grid-options/', ChangeGridOptionsHandler),
-        ('/service/pass/', PassHandler),
-        ('/service/resign/', ResignHandler),
-        ('/service/recent-chat/', RecentChatHandler),
-        ('/service/add-chat/', AddChatHandler),
-        ('/service/get-historical-state/', GetHistoricalStateHandler),
-        ('/cron/send-reminders/', SendRemindersHandler),
-        ('/cron/ensure-reminder-times/', EnsureReminderTimesHandler),
-        ('/cron/update-database/', UpdateDatabaseHandler)        
-    ]
-    
-    application = webapp.WSGIApplication(url_map, debug=True)
-    wsgiref.handlers.CGIHandler().run(application)
+url_map = [
+    webapp2.Route(r'/get-going/', GetGoingHandler),
+    webapp2.Route(r'/play/<:[-\w]+>/', PlayGameHandler),
+    webapp2.Route(r'/history/<:[-\w]+>/', HistoryHandler),
+    webapp2.Route(r'/history/<:[-\w]+>\.sgf', SGFHandler),
+    webapp2.Route(r'/history/<:[-\w]+>/<0|[1-9]\d*>/', HistoryMoveHandler),
+    webapp2.Route(r'/options/<:[-\w]+>/', OptionsHandler),
+    webapp2.Route(r'/service/create-game/', CreateGameHandler),
+    webapp2.Route(r'/service/make-this-move/', MakeThisMoveHandler),
+    webapp2.Route(r'/service/has-opponent-moved/', HasOpponentMovedHandler),
+    webapp2.Route(r'/service/mark-stone/', MarkStoneHandler),
+    webapp2.Route(r'/service/has-opponent-scored/', HasOpponentScoredHandler),
+    webapp2.Route(r'/service/done/', DoneHandler),
+    webapp2.Route(r'/service/change-options/', ChangeOptionsHandler),
+    webapp2.Route(r'/service/change-grid-options/', ChangeGridOptionsHandler),
+    webapp2.Route(r'/service/pass/', PassHandler),
+    webapp2.Route(r'/service/resign/', ResignHandler),
+    webapp2.Route(r'/service/recent-chat/', RecentChatHandler),
+    webapp2.Route(r'/service/add-chat/', AddChatHandler),
+    webapp2.Route(r'/service/get-historical-state/', GetHistoricalStateHandler),
+    webapp2.Route(r'/cron/send-reminders/', SendRemindersHandler),
+    webapp2.Route(r'/cron/ensure-reminder-times/', EnsureReminderTimesHandler),
+    webapp2.Route(r'/cron/update-database/', UpdateDatabaseHandler)
+]
 
-if __name__ == '__main__':
-    main()
+application = webapp2.WSGIApplication(url_map, debug=True)
+
+
