@@ -16,7 +16,7 @@
 # along with Dave Peck's Go.  If not, see <http://www.gnu.org/licenses/>.
 
 
-application: davepeck-go
+application: davepeck-go-hrd
 version: 9-python27
 runtime: python27
 api_version: 1
