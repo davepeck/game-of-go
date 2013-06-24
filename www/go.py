@@ -30,6 +30,7 @@ import traceback
 import webapp2
 from datetime import datetime, timedelta
 import simplejson
+from StringIO import StringIO
 
 from google.appengine.ext.webapp import template
 from google.appengine.ext import db
@@ -139,6 +140,31 @@ class AppEngineHelper:
             return "http://go.davepeck.org/"
         else:
             return "http://localhost:8080/"
+
+
+#------------------------------------------------------------------------------
+# Hack to patch module changes when moving to the python2.7 API
+#------------------------------------------------------------------------------
+
+_pickle_module_name_map = {
+    '__main__': 'go',
+    'GameState': 'GameState',
+}
+
+def _pickle_map_name(name):
+    return _pickle_module_name_map.get(name, name)
+
+def _pickle_dispatch_global(self):
+    module = _pickle_map_name(self.readline()[:-1])
+    name = _pickle_map_name(self.readline()[:-1])
+    klass = self.find_class(module, name)
+    self.append(klass)
+
+def safe_pickle_loads(s):
+    f = StringIO(s)
+    unpickler = pickle.Unpickler(f)
+    unpickler.dispatch[pickle.GLOBAL] = _pickle_dispatch_global
+    return unpickler.load()
 
 
 #------------------------------------------------------------------------------
@@ -1212,7 +1238,7 @@ class Game(db.Model):
     def get_player_whose_move(self):
         if self.is_finished or self.has_scoring_data:
             return None
-        whose_move = pickle.loads(self.current_state).get_whose_move()
+        whose_move = safe_pickle_loads(self.current_state).get_whose_move()
         if whose_move == CONST.Black_Color:
             return self.get_black_player()
         else:
@@ -1714,7 +1740,7 @@ class PlayGameHandler(GoHandler):
 
         opponent_player = player.get_opponent()
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
         your_move = (state.whose_move == player.color)
         board = state.get_board()
         you_are_done_scoring = state.is_done_scoring(player.color)
@@ -1813,7 +1839,7 @@ class MakeThisMoveHandler(GoHandler):
             self.fail("No more moves can be made; the game is finished.")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
         if state.whose_move != player.color:
             self.fail("Sorry, but it is not your turn.")
             return
@@ -1900,7 +1926,7 @@ class MakeThisMoveHandler(GoHandler):
         # state (aka two moves back, since we haven't yet appended) then you've
         # violated Ko.
         if len(game.history) > 0:
-            two_back_state = pickle.loads(game.history[-1])
+            two_back_state = safe_pickle_loads(game.history[-1])
             two_back_board = two_back_state.get_board()
             two_back_state_string = two_back_board.get_state_string()
             if two_back_state_string == new_state_string:
@@ -1962,7 +1988,7 @@ class PassHandler(GoHandler):
             self.fail("Unexpected error: found the player but not the game.")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
         if state.whose_move != player.color:
             self.fail("Sorry, but it is not your turn.")
             return
@@ -2063,7 +2089,7 @@ class MarkStoneHandler(GoHandler):
             self.fail("Scoring is not allowed yet; the game is still in progress.")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
 
         if state.is_done_scoring(player.color):
             self.fail("Sorry, but you have already finished scoring.")
@@ -2184,7 +2210,7 @@ class DoneHandler(GoHandler):
             self.fail("The game has not started scoring yet.")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
         if state.is_done_scoring(player.color):
             self.fail("You have already finished scoring.")
             return
@@ -2280,7 +2306,7 @@ class ResignHandler(GoHandler):
             self.fail("Unexpected error: found the player but not the game.")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
         if state.whose_move != player.color:
             self.fail("Sorry, but it is not your turn.")
             return
@@ -2360,7 +2386,7 @@ class HasOpponentMovedHandler(GoHandler):
             self.fail("Unexpected error: no game found.")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
         if state.whose_move != player.color:
             self.render_json({'success': True, 'flash': 'OK', 'has_opponent_moved': False})
         else:
@@ -2421,7 +2447,7 @@ class HasOpponentScoredHandler(GoHandler):
             self.fail("Unexpected error: invalid scoring request")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
 
         if state.get_scoring_number() == base_scoring_number and not game.is_finished:
             self.render_json({'success': True, 'flash': 'OK', 'has_opponent_scored': False})
@@ -2679,7 +2705,7 @@ class RecentChatHandler(GoHandler):
         recent_chats = []
 
         for blob in recent_blobs:
-            entry = pickle.loads(blob)
+            entry = safe_pickle_loads(blob)
             recent_chats.append({'name': entry.get_player_friendly_name(), 'message': entry.get_message(), 'move_number': entry.get_move_number()})
 
         self.render_json({'success': True, 'flash': 'OK', 'chat_count': len(blob_history), 'recent_chats': recent_chats})
@@ -2709,7 +2735,7 @@ class AddChatHandler(GoHandler):
             self.fail("Unexpected error: couldn't find game for player.")
             return
 
-        state = pickle.loads(game.current_state)
+        state = safe_pickle_loads(game.current_state)
 
         # Message, etc.
         message = self.request.POST.get("message")
@@ -2754,7 +2780,7 @@ class AddChatHandler(GoHandler):
         recent_chats = []
 
         for blob in recent_blobs:
-            entry = pickle.loads(blob)
+            entry = safe_pickle_loads(blob)
             recent_chats.append({'name': entry.get_player_friendly_name(), 'message': entry.get_message(), 'move_number': entry.get_move_number()})
 
         self.render_json({'success': True, 'flash': 'OK', 'chat_count': len(blob_history), 'recent_chats': recent_chats})
@@ -2805,7 +2831,7 @@ class HistoryHandler(GoHandler):
         else:
             requested_state = game.history[move_number]
 
-        state = pickle.loads(requested_state)
+        state = safe_pickle_loads(requested_state)
         # XXX this appears unused your_move = (state.whose_move == player.color)
         board = state.get_board()
 
@@ -2887,7 +2913,7 @@ class GetHistoricalStateHandler(GoHandler):
             self.fail("Unexpected error: move number is out of range.")
             return
 
-        state = pickle.loads(requested_state)
+        state = safe_pickle_loads(requested_state)
 
         board = state.get_board()
         last_move_x, last_move_y = state.get_last_move()
@@ -2930,7 +2956,7 @@ class SGFHandler(GoHandler):
         black_player = ModelCache.player_by_cookie(game.black_cookie)
         white_player = ModelCache.player_by_cookie(game.white_cookie)
 
-        current_state = pickle.loads(game.current_state)
+        current_state = safe_pickle_loads(game.current_state)
         board = current_state.get_board()
 
         handicap = board.get_handicap()
@@ -2941,7 +2967,7 @@ class SGFHandler(GoHandler):
         chat_blobs = game.get_chat_history_blobs()
         chats = {}
         for blob in chat_blobs:
-            entry = pickle.loads(blob)
+            entry = safe_pickle_loads(blob)
             move = entry.get_move_number()
             if move <= 0:
                 move = 1
@@ -2957,9 +2983,9 @@ class SGFHandler(GoHandler):
         # Make sure the current state is at the end.
         game.history.append(game.current_state)
         # Ensure we have the first move
-        whose_move = pickle.loads(game.history[0]).get_whose_move()
+        whose_move = safe_pickle_loads(game.history[0]).get_whose_move()
         for pstate in game.history[1:]:
-            state = pickle.loads(pstate)
+            state = safe_pickle_loads(pstate)
 
             # Set the move number, if necessary.
             if state.get_current_move_number() != move_number + 1:
@@ -3112,7 +3138,7 @@ class SendRemindersHandler(GoHandler):
                         for player in players:
                             if player.wants_email:
                                 opponent = player.get_opponent()
-                                state = pickle.loads(stale_game.current_state)
+                                state = safe_pickle_loads(stale_game.current_state)
                                 EmailHelper.remind_player(player.get_friendly_name(), player.email, player.cookie, opponent.get_friendly_name(), state.get_current_move_number(), stale_game.is_scoring())
                                 message = "Sent an email reminder to %s about game %s!" % (player.email, player.cookie)
                             elif player.does_want_twitter():
