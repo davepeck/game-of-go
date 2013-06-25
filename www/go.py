@@ -3162,8 +3162,8 @@ class SendRemindersHandler(GoHandler):
 url_map = [
     webapp2.Route(r'/get-going/', GetGoingHandler),
     webapp2.Route(r'/play/<:[-\w]+>/', PlayGameHandler),
+    webapp2.Route(r'/history/<:[-\w]+>.sgf', SGFHandler),
     webapp2.Route(r'/history/<:[-\w]+>/', HistoryHandler),
-    webapp2.Route(r'/history/<:[-\w]+>\.sgf', SGFHandler),
     webapp2.Route(r'/history/<:[-\w]+>/<0|[1-9]\d*>/', HistoryMoveHandler),
     webapp2.Route(r'/options/<:[-\w]+>/', OptionsHandler),
     webapp2.Route(r'/service/create-game/', CreateGameHandler),
