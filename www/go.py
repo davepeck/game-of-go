@@ -3025,12 +3025,134 @@ class SGFHandler(GoHandler):
 
         self.render_template("game.sgf", items, 'application/x-go-sgf')
 
+
+#------------------------------------------------------------------------------
+# Reminders!
+#------------------------------------------------------------------------------
+
+class EnsureReminderTimesHandler(GoHandler):
+    def post(self, *args):
+        # Grab some games and make sure that they each have a reminder_send_time set.
+        # If not, set it!
+        try:
+            # get our request data
+            try:
+                last_id_seen = int(self.request.get('last_id_seen'))
+            except:
+                last_id_seen = 0
+
+            try:
+                amount = int(self.request.get('amount'))
+            except:
+                amount = 10
+
+            # get some games -- if a key is specified, start there.
+            if last_id_seen == 0:
+                query = db.GqlQuery('SELECT * from Game ORDER BY __key__')
+                games = query.fetch(amount)
+            else:
+                last_key_seen = db.Key.from_path('Game', last_id_seen)
+                query = db.GqlQuery('SELECT * from Game WHERE __key__ > :1 ORDER BY __key__', last_key_seen)
+                games = query.fetch(amount)
+
+            # sanity check
+            if games is None:
+                self.render_json({'success': True, 'amount_found': 0, 'amount_modified': 0, 'new_last_id': -1})
+            else:
+                # figure out what the next key will be -- we've got to do
+                # this stuff in batches, after all
+                amount_found = len(games)
+                if amount_found < 1:
+                    last_item = None
+                    new_last_id = -1
+                else:
+                    last_item = games[-1]
+                    new_last_id = int(last_item.key().id())
+
+                # batch up any games that are missing a key
+                games_to_write = []
+                for game in games:
+                    rst = None
+                    try:
+                        rst = game.reminder_send_time
+                    except:
+                        rst = None
+                    if rst is None:
+                        dlm = game.date_last_moved
+                        if dlm is None:
+                            dlm = datetime.now()
+                        game.reminder_send_time = dlm
+                        games_to_write.append(game)
+
+                if len(games_to_write) > 0:
+                    try:
+                        db.put(games_to_write)
+                    except:
+                        db.put(games_to_write)
+
+                self.render_json({'success': True, 'amount_found': amount_found, 'amount_modified': len(games_to_write), 'new_last_id': new_last_id})
+        except:
+            self.render_json({'success': False, 'Error': ExceptionHelper.exception_string(), 'game_count': 0})
+
 class UpdateDatabaseHandler(GoHandler):
     def get(self, *args):
         self.response.headers['Content-Type'] = "text/plain"
         self.render_template("update-database.html", {})
 
+class SendRemindersHandler(GoHandler):
+    def get(self, *args):
+        # Handle one game at a time!
+        # (TODO -- this code is ugly -- too many nested tests.)
+        message = "No action taken."
+        try:
+            one_week_ago = datetime.now() - timedelta(weeks=1)
+            two_months_ago = datetime.now() - timedelta(weeks=8)
+            stale_game = db.GqlQuery("SELECT * FROM Game WHERE reminder_send_time < :1", one_week_ago).get()
+            if (stale_game is None):
+                message = "No stale games to remind about."
+            else:
+                if stale_game.is_finished:
+                    stale_game.dont_remind_for_long_time()
+                    message = "Found a finished 'stale' game. Ignoring."
+                else:
+                    if stale_game.date_last_moved < two_months_ago:
+                        stale_game.dont_remind_for_long_time()
+                        message = "Found a two-month-old 'stale' game. Giving up!"
+                    else:
+                        players = []
 
+                        if stale_game.is_scoring():
+                            black = stale_game.get_black_player()
+                            white = stale_game.get_white_player()
+                            for player in [black, white]:
+                                if not stale_game.is_player_done_scoring(player):
+                                    players.append(player)
+                        else:
+                            whose_move = stale_game.get_player_whose_move()
+                            if whose_move is None:
+                                stale_game.dont_remind_for_long_time()
+                                message = "Found a 'stale' game with no current player. Was it finished? Hrm."
+                            else:
+                                players.append(whose_move)
+
+                        for player in players:
+                            if player.wants_email:
+                                opponent = player.get_opponent()
+                                state = safe_pickle_loads(stale_game.current_state)
+                                EmailHelper.remind_player(player.get_friendly_name(), player.email, player.cookie, opponent.get_friendly_name(), state.get_current_move_number(), stale_game.is_scoring())
+                                message = "Sent an email reminder to %s about game %s!" % (player.email, player.cookie)
+                            elif player.does_want_twitter():
+                                TwitterHelper.remind_player(player.get_friendly_name(), player.twitter, player.cookie, stale_game.is_scoring())
+                                message = "Sent a twitter reminder to %s about game %s!" % (player.twitter, player.cookie)
+                            else:
+                                message = "Found 'stale' game %s that I couldn't notify about: player did not want notification." % player.cookie
+
+                            stale_game.reminder_send_time = datetime.now()
+                            stale_game.put()
+        except:
+            self.render_json_as_text({'success': False, 'Error': ExceptionHelper.exception_string(), 'message': message})
+        else:
+            self.render_json_as_text({'success': True, 'message': message})
 
 
 #------------------------------------------------------------------------------
@@ -3057,10 +3179,10 @@ url_map = [
     webapp2.Route(r'/service/recent-chat/', RecentChatHandler),
     webapp2.Route(r'/service/add-chat/', AddChatHandler),
     webapp2.Route(r'/service/get-historical-state/', GetHistoricalStateHandler),
-    webapp2.Route(r'/cron/update-database/', UpdateDatabaseHandler),
+    webapp2.Route(r'/cron/send-reminders/', SendRemindersHandler),
+    webapp2.Route(r'/cron/ensure-reminder-times/', EnsureReminderTimesHandler),
+    webapp2.Route(r'/cron/update-database/', UpdateDatabaseHandler)
 ]
-
-
 
 application = webapp2.WSGIApplication(url_map, debug=True)
 
