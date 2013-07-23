@@ -8,7 +8,7 @@ https://go.davepeck.org/
 
 This is a website that lets people learn and play the ancient game of Go in an elegant way.
 
-It's currently a Webapp2 site, using Python 2.7, targeted for hosting with Google App Engine. It's open source under the AGPLv3.
+It's currently a Webapp2 site, using Python 2.7, targeted for hosting with Google App Engine. It's open source under the MIT license.
 
 You can see the latest bits running at http://go.davepeck.org/ -- I will always run them there, on my own dime.
 
@@ -36,6 +36,7 @@ There's a lot of technical debt to overcome, first. My immediate next steps are 
 - <span style="text-decoration: line-through;">Update to Python 2.7 (and the modern App Engine Python APIs)</span>
 - <span style="text-decoration: line-through;">Move the application to the App Engine HRD</span>
 - Move from webapp2 to a modern version of Django (1.4 or 1.5 if GAE lets me.)
+- Completely port away from App Engine and onto a bog-standard Django install.
 - Rip out prototype & scriptaculous and replace with jQuery (and coffeescript) in a first pass
 - Properly separate back-end concerns (right now game, game history, players, etc. are oddly intermixed)
 - Properly separate front-end concerns (right now lots of javascript there is a jumble)
