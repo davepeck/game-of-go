@@ -95,18 +95,16 @@ This list is in "no particular order":
 - **Documentation**: Y'know, python docstrings, etc. Like a real piece of software.
 - **Tests**: Y'know, like a real piece of software.
 
+
 ## Licenses
 
-Dave Peck's Go is open source and is licensed under the [GNU Affero GPLv3](http://www.gnu.org/licenses/agpl.html). This is a very restrictive license. You're welcome to run your own service based on this code, but if you make improvements, you have to share them with the community.
+Dave Peck's Go is (c) 2009-2013 Dave Peck, All Rights Reserved. It is licensed under the MIT license. (It used to be licensed under the uber-restrictive AGPLv3 but that was kinda silly, no?)
 
-In general, I'm not a fan of licenses as restrictive as the AGPL. But I think it is an appropriate license for this project. I hope you'll agree.
-
-There are a few other bits of code that are licensed under different terms:
+There are a few other bits of code included; they all happen to be MIT-licensed too:
 
 1. The simplejson library is licensed under an MIT License. A number of people have contributed. You can find out more here: http://code.google.com/p/simplejson/
 2. The prototype.js library is (c) 2005-2008 Sam Stephenson and is also under an MIT License.
 3. The scriptaculous javascript libraries are (c) 2005-2008 Thomas Fuchs, also under an MIT License.
-
 
 As for the graphics:
 
