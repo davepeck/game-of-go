@@ -4,7 +4,7 @@
 
 ### What is this? (Short Version)
 
-https://go.davepeck.org/
+http://go.davepeck.org/
 
 This is a website that lets people learn and play the ancient game of Go in an elegant way.
 
