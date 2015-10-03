@@ -33,8 +33,8 @@ So: I'm doubling down. I've got lots of exciting things in mind for the site, bu
 
 There's a lot of technical debt to overcome, first. My immediate next steps are as follows:
 
-- <span style="text-decoration: line-through;">Update to Python 2.7 (and the modern App Engine Python APIs)</span>
-- <span style="text-decoration: line-through;">Move the application to the App Engine HRD</span>
+- ~~Update to Python 2.7 (and the modern App Engine Python APIs)~~
+- ~~Move the application to the App Engine HRD~~
 - Move from webapp2 to a modern version of Django (1.4 or 1.5 if GAE lets me.)
 - Completely port away from App Engine and onto a bog-standard Django install.
 - Rip out prototype & scriptaculous and replace with jQuery (and coffeescript) in a first pass
