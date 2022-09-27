@@ -15,8 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Dave Peck's Go.  If not, see <http://www.gnu.org/licenses/>.
 
-application: davepeck-go-hrd
-version: 10-python27
+# application: davepeck-go-hrd -- no longer needed in modern gcloud cli land?
+# version: 10-python27
 runtime: python27
 api_version: 1
 threadsafe: true
