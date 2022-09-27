@@ -889,7 +889,7 @@ class GameCookie(object):
 #------------------------------------------------------------------------------
 
 class EmailHelper(object):
-    No_Reply_Address = "Dave Peck's Go <no-reply@davepeck.org>"
+    No_Reply_Address = "Dave Peck's Go <no-reply@davepeck-go-hrd.appspotmail.com>"
 
     @staticmethod
     def _rfc_address(name, email):

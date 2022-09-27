@@ -15,41 +15,37 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Dave Peck's Go.  If not, see <http://www.gnu.org/licenses/>.
 
-
 application: davepeck-go-hrd
-version: 9-python27
+version: 10-python27
 runtime: python27
 api_version: 1
 threadsafe: true
 
 handlers:
-- url: /img
-  static_dir: static/img
+  - url: /img
+    static_dir: static/img
 
-- url: /css
-  static_dir: static/css
+  - url: /css
+    static_dir: static/css
 
-- url: /js
-  static_dir: static/js
+  - url: /js
+    static_dir: static/js
 
-- url: /
-  static_files: static/index.html
-  upload: static/index.html
+  - url: /
+    static_files: static/index.html
+    upload: static/index.html
 
-- url: /favicon.ico
-  static_files: static/img/favicon.ico
-  upload: static/img/favicon.ico
+  - url: /favicon.ico
+    static_files: static/img/favicon.ico
+    upload: static/img/favicon.ico
 
-- url: /apple-touch-icon.png
-  static_files: static/img/apple-touch-icon.png
-  upload: static/img/apple-touch-icon.png
+  - url: /apple-touch-icon.png
+    static_files: static/img/apple-touch-icon.png
+    upload: static/img/apple-touch-icon.png
 
-- url: /cron/.*
-  script: go.application
-  login: admin
+  - url: /cron/.*
+    script: go.application
+    login: admin
 
-- url: /.*
-  script: go.application
-
-
-
+  - url: /.*
+    script: go.application
