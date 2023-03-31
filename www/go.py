@@ -3322,7 +3322,7 @@ url_map = [
     webapp2.Route(r'/export/games/', ExportGamesHandler),
     webapp2.Route(r'/export/players/', ExportPlayersHandler),
     webapp2.Route(r'/_ah/warmup', WarmupHandler),
-    webapp2.Route(r'', MainHandler),
+    webapp2.Route(r'/', MainHandler),
 ]
 
 application = webapp2.WSGIApplication(url_map, debug=True)
