@@ -220,7 +220,7 @@ class GameBoard(object):
             "version": self.get_version(),
             "has_owners": self.has_owners(),
             "board": self.board,
-            "owners": self.owners if self.has_owners else None,
+            "owners": self.owners if self.has_owners() else None,
         }
 
     def _make_board(self):
