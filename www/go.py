@@ -3276,6 +3276,13 @@ class ExportPlayersHandler(GoHandler):
         return self.render_json(response)
 
 
+#------------------------------------------------------------------------------
+# Modern AppEngine Warmup Handler
+#------------------------------------------------------------------------------
+
+class WarmupHandler(GoHandler):
+    def get(self):
+        return self.render_text("Warmup successful!")
 
 
 #------------------------------------------------------------------------------
@@ -3307,6 +3314,7 @@ url_map = [
     webapp2.Route(r'/cron/update-database/', UpdateDatabaseHandler),
     webapp2.Route(r'/export/games/', ExportGamesHandler),
     webapp2.Route(r'/export/players/', ExportPlayersHandler),
+    webapp2.Route(r'/_ah/warmup', WarmupHandler),
 ]
 
 application = webapp2.WSGIApplication(url_map, debug=True)

@@ -21,6 +21,9 @@ runtime: python27
 api_version: 1
 threadsafe: true
 
+inbound_services:
+  - warmup
+
 handlers:
   - url: /img
     static_dir: static/img
@@ -51,10 +54,14 @@ handlers:
     script: go.application
     login: admin
 
+  - url: /_ah/warmup
+    script: go.application
+    login: admin
+
   - url: /.*
     script: go.application
 
-instance_class: B1
-basic_scaling:
+instance_class: F1
+automatic_scaling:
+  min_instances: 0
   max_instances: 1
-  idle_timeout: 1m
