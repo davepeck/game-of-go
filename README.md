@@ -4,14 +4,13 @@
 
 ### What is this? (Short Version)
 
-http://go.davepeck.org/
+https://go.davepeck.org/
 
 This is a website that lets people learn and play the ancient game of Go in an elegant way.
 
 It's currently a Webapp2 site, using Python 2.7, targeted for hosting with Google App Engine. It's open source under the MIT license.
 
-You can see the latest bits running at http://go.davepeck.org/ -- I will always run them there, on my own dime.
-
+You can see the latest bits running at https://go.davepeck.org/ -- I will always run them there, on my own dime.
 
 ### What is this? (Longer Version)
 
@@ -61,7 +60,6 @@ The key files are:
 - `templates/play.html` and `templates/history.html`: these are the two "main" pages. the templates are a little gnarly at the moment.
 - `templates/get-going.html`: the game "creation" form
 
-
 ## Community Contributions To Date
 
 This is an open source, community-driven project. Lots of people have added great things, including:
@@ -75,7 +73,6 @@ This is an open source, community-driven project. Lots of people have added grea
   3. Ability to easily figure out board square names and get them into the chat box.
   4. Auto-linkification of valid http, https, and ftp URLs.
 - Make all pages fully XHTML 1.0 STRICT valid, according to the W3C validator.
-
 
 ## Cool stuff I'd love to see people work on
 
@@ -96,7 +93,6 @@ This list is in "no particular order":
 - **Documentation**: Y'know, python docstrings, etc. Like a real piece of software.
 - **Tests**: Y'know, like a real piece of software.
 
-
 ## Licenses
 
 Dave Peck's Go is (c) 2009-2013 Dave Peck, All Rights Reserved. It is licensed under the MIT license. (It used to be licensed under the uber-restrictive AGPLv3 but that was kinda silly, no?)
@@ -111,6 +107,3 @@ As for the graphics:
 
 1. All of the images used in the main game board are modified versions of files I found on the Wikimedia Commons. These are distributed with the Creative Commons Attribution 2.0 ShareAlike license. Unfortunately, I can't figure out who made them originally -- the user name is Micheletb
 2. All remaining images were hand-drawn by me. I hereby put them under the Creative Commons Attribution ShareAlike 2.0 license: http://creativecommons.org/licenses/by-sa/2.0/
-
-
-

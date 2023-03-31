@@ -137,7 +137,7 @@ class AppEngineHelper:
     @staticmethod
     def base_url():
         if AppEngineHelper.is_production():
-            return "http://go.davepeck.org/"
+            return "https://go.davepeck.org/"
         else:
             return "http://localhost:8080/"
 

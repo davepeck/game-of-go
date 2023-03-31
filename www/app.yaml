@@ -27,39 +27,49 @@ inbound_services:
 handlers:
   - url: /img
     static_dir: static/img
+    secure: always
 
   - url: /css
     static_dir: static/css
+    secure: always
 
   - url: /js
     static_dir: static/js
+    secure: always
 
   - url: /
     static_files: static/index.html
     upload: static/index.html
+    secure: always
 
   - url: /favicon.ico
     static_files: static/img/favicon.ico
     upload: static/img/favicon.ico
+    secure: always
 
   - url: /apple-touch-icon.png
     static_files: static/img/apple-touch-icon.png
     upload: static/img/apple-touch-icon.png
+    secure: always
 
   - url: /cron/.*
     script: go.application
     login: admin
+    secure: always
 
   - url: /export/.*
     script: go.application
     login: admin
+    secure: always
 
   - url: /_ah/warmup
     script: go.application
     login: admin
+    secure: always
 
   - url: /.*
     script: go.application
+    secure: always
 
 instance_class: F1
 automatic_scaling:
