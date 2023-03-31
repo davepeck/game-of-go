@@ -3283,6 +3283,13 @@ class ExportPlayersHandler(GoHandler):
 class WarmupHandler(GoHandler):
     def get(self):
         return self.render_text("Warmup successful!")
+    
+
+class MainHandler(GoHandler):
+    def get(self):
+        # App engine runtime 1 doesn't appear to support
+        # secure: always for static routes, so we have to do this.
+        return self.render_template('index.html')
 
 
 #------------------------------------------------------------------------------
@@ -3315,6 +3322,7 @@ url_map = [
     webapp2.Route(r'/export/games/', ExportGamesHandler),
     webapp2.Route(r'/export/players/', ExportPlayersHandler),
     webapp2.Route(r'/_ah/warmup', WarmupHandler),
+    webapp2.Route(r'', MainHandler),
 ]
 
 application = webapp2.WSGIApplication(url_map, debug=True)

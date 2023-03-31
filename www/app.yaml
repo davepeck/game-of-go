@@ -37,11 +37,6 @@ handlers:
     static_dir: static/js
     secure: always
 
-  - url: /
-    static_files: static/index.html
-    upload: static/index.html
-    secure: always
-
   - url: /favicon.ico
     static_files: static/img/favicon.ico
     upload: static/img/favicon.ico
