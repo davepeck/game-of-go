@@ -47,5 +47,9 @@ handlers:
     script: go.application
     login: admin
 
+  - url: /export/.*
+    script: go.application
+    login: admin
+
   - url: /.*
     script: go.application

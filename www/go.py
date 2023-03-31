@@ -210,6 +210,19 @@ class GameBoard(object):
         self._make_board()
         self._apply_handicap()
 
+    def to_jsonable(self):
+        return {
+            "width": self.width,
+            "height": self.height,
+            "size_index": self.size_index,
+            "handicap_index": self.handicap_index,
+            "komi_index": self.get_komi_index(),
+            "version": self.get_version(),
+            "has_owners": self.has_owners(),
+            "board": self.board,
+            "owners": self.owners,
+        }
+
     def _make_board(self):
         self.board = []
         for x in range(self.width):
@@ -541,6 +554,24 @@ class GameState(object):
         self.white_done_number = -1
         self.winner = CONST.No_Color
 
+    def to_jsonable(self):
+        return {
+            'board': self.board.to_jsonable() if self.board is not None else None,
+            'white_stones_captured': self.white_stones_captured,
+            'black_stones_captured': self.black_stones_captured,
+            'whose_move': self.whose_move,
+            'last_move_message': self.last_move_message,
+            'current_move_number': self.current_move_number,
+            'last_move': self.last_move,
+            'last_move_was_pass': self.last_move_was_pass,
+            'scoring_number': self.scoring_number,
+            'white_territory': self.white_territory,
+            'black_territory': self.black_territory,
+            'black_done_number': self.black_done_number,
+            'white_done_number': self.white_done_number,
+            'winner': self.winner,
+        }
+
     def get_board(self):
         return self.board
 
@@ -709,6 +740,13 @@ class ChatEntry(object):
         self.cookie = cookie
         self.message = message
         self.move_number = current_move_number
+
+    def to_jsonable(self):
+        return {
+            'cookie': self.cookie,
+            'message': self.message,
+            'move_number': self.move_number,
+        }
 
     def get_cookie(self):
         return self.cookie
@@ -1229,6 +1267,21 @@ class Game(db.Model):
     has_scoring_data = db.BooleanProperty(default=False)
     reminder_send_time = db.DateTimeProperty(auto_now=False)
 
+    def to_jsonable(self):
+        return {
+            "id": self.key().id(),
+            "date_created": self.date_created.isoformat(),
+            "date_last_moved": self.date_last_moved.isoformat(),
+            "history": [safe_pickle_loads(h).to_jsonable() for h in self.history],
+            "current_state": safe_pickle_loads(self.current_state).to_jsonable(),
+            "black_cookie": self.black_cookie,
+            "white_cookie": self.white_cookie,
+            "chat_history": [safe_pickle_loads(h).to_jsonable() for h in self.chat_history],
+            "is_finished": self.is_finished,
+            "has_scoring_data": self.has_scoring_data,
+            "reminder_send_time": self.reminder_send_time.isoformat() if self.reminder_send_time is not None else None,
+        }
+
     def get_black_player(self):
         return ModelCache.player_by_cookie(self.black_cookie)
 
@@ -1315,6 +1368,21 @@ class Player(db.Model):
     wants_twitter = db.BooleanProperty(default=False)
     contact_type = db.StringProperty(default=CONST.Email_Contact)
     show_grid = db.BooleanProperty(default=False)
+
+    def to_jsonable(self):
+        return {
+            "id": self.key().id(),
+            "game_id": self.game.key().id(),
+            "cookie": self.cookie,
+            "color": self.color,
+            "name": self.name,
+            "email": self.email,
+            "wants_email": self.wants_email,
+            "twitter": self.twitter,
+            "wants_twitter": self.wants_twitter,
+            "contact_type": self.contact_type,
+            "show_grid": self.show_grid,
+        }
 
     def get_safe_show_grid(self):
         try:
@@ -3155,6 +3223,61 @@ class SendRemindersHandler(GoHandler):
             self.render_json_as_text({'success': True, 'message': message})
 
 
+
+#------------------------------------------------------------------------------
+# Export from GCP Datastore to JSON
+#------------------------------------------------------------------------------
+
+class ExportGamesHandler(GoHandler):
+    def get(self, *args):
+        # get our request data
+        last_id_seen = int(self.request.get('last_id_seen', 0))
+        amount = int(self.request.get('amount', 100))
+
+        # get the games
+        where_clause = '' if last_id_seen == 0 else 'WHERE __key__ > :1'
+        statement = 'SELECT * from Game %s ORDER BY __key__ LIMIT %d' % (where_clause, amount)
+        query_args = [statement] if last_id_seen == 0 else [statement, db.Key.from_path('Game', last_id_seen)]
+        query = db.GqlQuery(*query_args)
+        games = query.fetch(amount)
+
+        # convert to JSON
+        jsonables = []
+        for game in games:
+            jsonables.append(game.to_jsonable())
+        response = {
+            'games': jsonables,
+            'last_id_seen': games[-1].key().id() if games else 0
+        }
+        return self.render_json(response)
+    
+
+class ExportPlayersHandler(GoHandler):
+    def get(self, *args):
+        # get our request data
+        last_id_seen = int(self.request.get('last_id_seen', 0))
+        amount = int(self.request.get('amount', 100))
+
+        # get the games
+        where_clause = '' if last_id_seen == 0 else 'WHERE __key__ > :1'
+        statement = 'SELECT * from Player %s ORDER BY __key__ LIMIT %d' % (where_clause, amount)
+        query_args = [statement] if last_id_seen == 0 else [statement, db.Key.from_path('Player', last_id_seen)]
+        query = db.GqlQuery(*query_args)
+        players = query.fetch(amount)
+
+        # convert to JSON
+        jsonables = []
+        for player in players:
+            jsonables.append(player.to_jsonable())
+        response = {
+            'players': jsonables,
+            'last_id_seen': players[-1].key().id() if players else 0
+        }
+        return self.render_json(response)
+
+
+
+
 #------------------------------------------------------------------------------
 # Main WebApp Code
 #------------------------------------------------------------------------------
@@ -3181,7 +3304,9 @@ url_map = [
     webapp2.Route(r'/service/get-historical-state/', GetHistoricalStateHandler),
     webapp2.Route(r'/cron/send-reminders/', SendRemindersHandler),
     webapp2.Route(r'/cron/ensure-reminder-times/', EnsureReminderTimesHandler),
-    webapp2.Route(r'/cron/update-database/', UpdateDatabaseHandler)
+    webapp2.Route(r'/cron/update-database/', UpdateDatabaseHandler),
+    webapp2.Route(r'/export/games/', ExportGamesHandler),
+    webapp2.Route(r'/export/players/', ExportPlayersHandler),
 ]
 
 application = webapp2.WSGIApplication(url_map, debug=True)
