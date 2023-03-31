@@ -564,12 +564,12 @@ class GameState(object):
             'current_move_number': self.current_move_number,
             'last_move': self.last_move,
             'last_move_was_pass': self.last_move_was_pass,
-            'scoring_number': self.scoring_number,
-            'white_territory': self.white_territory,
-            'black_territory': self.black_territory,
-            'black_done_number': self.black_done_number,
-            'white_done_number': self.white_done_number,
-            'winner': self.winner,
+            'scoring_number': self.get_scoring_number(),
+            'white_territory': self.get_white_territory(),
+            'black_territory': self.get_black_territory(),
+            'black_done_number': getattr(self, 'black_done_number', -1),
+            'white_done_number': getattr(self, 'white_done_number', -1),
+            'winner': self.get_winner(),
         }
 
     def get_board(self):
