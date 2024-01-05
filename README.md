@@ -6,7 +6,7 @@
 
 https://go.davepeck.org/
 
-This is a website that lets people learn and play the ancient game of Go in an elegant way.
+People can learn and play the ancient game of Go elegantly in the website.
 
 It's currently a Webapp2 site, using Python 2.7, targeted for hosting with Google App Engine. It's open source under the MIT license.
 
