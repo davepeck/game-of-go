@@ -6,9 +6,11 @@
 
 https://go.davepeck.org/
 
-This is a website that lets people learn and play the ancient game of Go in an elegant way.
+This is a website that lets people learn and play the ancient game of Go via email correspondence.
 
-It's currently a Webapp2 site, using Python 2.7, targeted for hosting with Google App Engine. It's open source under the MIT license.
+It was a quick hack written in a single weekend so that I could learn about (what at the time, way back in the late 2000s!) was the new Google App Engine service.
+
+Here we are 15+ years later. It is _still_ a Webapp2 site, built with Python 2.7, targeted for hosting with Google App Engine. It's open source under the MIT license. I haven't really touched it much; it's a bit of a mess.
 
 You can see the latest bits running at https://go.davepeck.org/ -- I will always run them there, on my own dime.
 
