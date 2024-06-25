@@ -26,19 +26,19 @@ Anyway, dive in and enjoy. With a little work, I bet we can turn this project in
 
 ### What's the current status?
 
-**June 18, 2013**. I built this website in 2009. Now, in 2013, _tons_ of people use it every day to learn and play go!
+I haven't really touched this in years, but it is still hosted at https://go.davepeck.org/ and thousands of new games are played there monthly.
 
-So: I'm doubling down. I've got lots of exciting things in mind for the site, but the core mission will remain the same:
+If I _were_ going to spend time on it, I'd say that this is its mission:
 
 > Be the best place to learn to play Go on the Internet.
 
-There's a lot of technical debt to overcome, first. My immediate next steps are as follows:
+There's a lot of technical debt and other nonsense to overcome, first. If I were to take next steps, they would be:
 
 - ~~Update to Python 2.7 (and the modern App Engine Python APIs)~~
 - ~~Move the application to the App Engine HRD~~
-- Move from webapp2 to a modern version of Django (1.4 or 1.5 if GAE lets me.)
+- Move from webapp2 to a modern version of Django
 - Completely port away from App Engine and onto a bog-standard Django install.
-- Rip out prototype & scriptaculous and replace with jQuery (and coffeescript) in a first pass
+- Rip out prototype & scriptaculous and replace with modern front-end stuff
 - Properly separate back-end concerns (right now game, game history, players, etc. are oddly intermixed)
 - Properly separate front-end concerns (right now lots of javascript there is a jumble)
 - Rewrite the front-end script entirely and get it on a firm footing
