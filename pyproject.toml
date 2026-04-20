@@ -1,0 +1,39 @@
+[project]
+name = "game-of-go"
+version = "0.1.0"
+description = "Dave Peck's Go -- play Go by email correspondence."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "django>=6.0.4",
+    "psycopg>=3.3.3",
+    "gunicorn>=23",
+    "whitenoise>=6.8",
+    "dj-database-url>=2.3",
+    "django-anymail[postmark]>=12",
+]
+
+[dependency-groups]
+dev = [
+    "djlint>=1.36.4",
+    "ruff>=0.15.11",
+    "ty>=0.0.31",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = ["_old", ".venv", "staticfiles", "migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",    # line length handled by formatter
+    "RUF012",  # mutable class defaults: doesn't match Django Meta.indexes etc.
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ty.src]
+exclude = ["_old", ".venv", "staticfiles", "**/migrations/*.py"]

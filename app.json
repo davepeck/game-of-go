@@ -1,0 +1,11 @@
+{
+  "name": "game-of-go",
+  "description": "Dave Peck's Go -- play Go by email correspondence.",
+  "keywords": ["django", "go", "board-game"],
+  "scripts": {
+    "dokku": {
+      "predeploy": "python manage.py collectstatic --noinput",
+      "postdeploy": "python manage.py migrate --noinput"
+    }
+  }
+}
