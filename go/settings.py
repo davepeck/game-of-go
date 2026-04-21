@@ -13,7 +13,9 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-do-not-use-in-prod")
-DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
+# Default to True so ``runserver`` serves app static files out of the box for
+# local dev. Production on dokku sets ``DJANGO_DEBUG=false`` via ``config:set``.
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = [
     h.strip()
     for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -81,7 +83,7 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # Pre-create STATIC_ROOT so WhiteNoiseMiddleware doesn't warn when
 # ``collectstatic`` hasn't been run yet (first-time dev, test runs).
