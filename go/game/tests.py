@@ -13,7 +13,8 @@ These cover the high-risk pieces of the port:
 import typing as t
 from datetime import UTC, datetime
 
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 
 from .game_logic import (
     CONST,
@@ -561,3 +562,274 @@ class GameplayFlowTests(TestCase):
         self.assertTrue(bob.game.is_finished)
         winner_color = bob.game.load_state().get_winner()
         self.assertEqual(winner_color, CONST.White_Color)
+
+    def test_capture_removes_stone_and_increments_counter(self) -> None:
+        """
+        A full capture scenario through the HTTP layer.
+
+        Black plays at (4,4); White surrounds it by playing at the four
+        cardinal neighbors over the course of alternating turns (with Black
+        playing filler moves far away in between). The final White move
+        captures the Black stone: the board cell becomes empty and
+        ``black_stones_captured`` increments to 1.
+        """
+        black_cookie, white_cookie = self._create_game()
+
+        def play(cookie: str, move_num: int, x: int, y: int) -> dict[str, t.Any]:
+            """Submit ``(x, y)`` as ``cookie``'s next move."""
+            return self._json(
+                "/service/make-this-move/",
+                your_cookie=cookie,
+                current_move_number=str(move_num),
+                move_x=str(x),
+                move_y=str(y),
+            )
+
+        # Alternating moves. Black plays filler far from (4,4) so its stones
+        # don't interfere with White's encirclement.
+        play(black_cookie, 0, 4, 4)  # Black: target stone.
+        play(white_cookie, 1, 3, 4)  # White: W edge.
+        play(black_cookie, 2, 7, 7)  # Black filler.
+        play(white_cookie, 3, 5, 4)  # White: E edge.
+        play(black_cookie, 4, 7, 8)  # Black filler.
+        play(white_cookie, 5, 4, 3)  # White: N edge — Black now in atari.
+        play(black_cookie, 6, 7, 6)  # Black filler.
+        captured = play(white_cookie, 7, 4, 5)  # White: S edge — captures.
+
+        # The JSON response should show the capture.
+        self.assertEqual(captured["black_stones_captured"], 1)
+        self.assertEqual(captured["white_stones_captured"], 0)
+        # The captured stone's cell should be empty in the board-state string.
+        # Cells are emitted in row-major order (y outer, x inner) on a 9x9.
+        board_str: str = captured["board_state_string"]
+        idx = 4 * 9 + 4  # (x=4, y=4) -> y*width + x
+        self.assertEqual(
+            board_str[idx],
+            ".",
+            f"Expected empty at (4,4); got {board_str[idx]!r} in {board_str!r}",
+        )
+
+        # And the stored state should agree.
+        black = Player.by_cookie(black_cookie)
+        assert black is not None
+        state = black.game.load_state()
+        self.assertEqual(state.get_board().get(4, 4), CONST.No_Color)
+        self.assertEqual(state.get_black_stones_captured(), 1)
+
+    def test_change_options_email_to_none_and_back(self) -> None:
+        """
+        The options flow switches ``contact_type`` between email and none.
+
+        Exercises the post-Twitter-purge simplification of ``ChangeOptionsView``
+        and the corresponding template/JS path.
+        """
+        alice_cookie, _ = self._create_game()
+        alice = Player.by_cookie(alice_cookie)
+        assert alice is not None
+        self.assertEqual(alice.contact_type, CONST.Email_Contact)
+        self.assertTrue(alice.wants_email)
+
+        # Opt out of all notifications.
+        off = self._json(
+            "/service/change-options/",
+            your_cookie=alice_cookie,
+            new_contact_type=CONST.No_Contact,
+        )
+        self.assertTrue(off["success"])
+        alice.refresh_from_db()
+        self.assertEqual(alice.contact_type, CONST.No_Contact)
+        self.assertFalse(alice.wants_email)
+
+        # Turn email back on.
+        on = self._json(
+            "/service/change-options/",
+            your_cookie=alice_cookie,
+            new_contact_type=CONST.Email_Contact,
+            new_contact="alice-new@example.com",
+        )
+        self.assertTrue(on["success"])
+        alice.refresh_from_db()
+        self.assertEqual(alice.contact_type, CONST.Email_Contact)
+        self.assertTrue(alice.wants_email)
+        self.assertEqual(alice.email, "alice-new@example.com")
+
+    def test_change_options_rejects_bad_email(self) -> None:
+        """A malformed email address fails validation and leaves state intact."""
+        alice_cookie, _ = self._create_game()
+        r = self.client.post(
+            "/service/change-options/",
+            data={
+                "your_cookie": alice_cookie,
+                "new_contact_type": CONST.Email_Contact,
+                "new_contact": "not-an-email",
+            },
+        )
+        body = r.json()
+        self.assertFalse(body["success"])
+        self.assertIn("Invalid email", body["flash"])
+
+    def test_historical_state_views(self) -> None:
+        """
+        Both historical-state endpoints return the right earlier state.
+
+        Plays one move, then reads back the pre-move state via both
+        ``/history/<cookie>/0/`` (HTML) and ``/service/get-historical-state/``
+        (JSON) — these are the paths the history browser uses.
+        """
+        black_cookie, _ = self._create_game()
+        self._json(
+            "/service/make-this-move/",
+            your_cookie=black_cookie,
+            current_move_number="0",
+            move_x="4",
+            move_y="4",
+        )
+
+        # HTML render at move 0: an empty 9x9 board is passed to init_history.
+        html = self.client.get(f"/history/{black_cookie}/0/")
+        self.assertEqual(html.status_code, 200)
+        self.assertIn(b"init_history(", html.content)
+        # The 9x9 board is encoded as 81 dots (no stones at move 0).
+        self.assertIn(b"." * 81, html.content)
+
+        # JSON snapshot at move 0.
+        snap = self._json(
+            "/service/get-historical-state/",
+            your_cookie=black_cookie,
+            move_number="0",
+        )
+        self.assertEqual(snap["current_move_number"], 0)
+        self.assertEqual(snap["last_move_x"], -1)
+        # Row-major index of (4,4) on 9x9.
+        self.assertEqual(snap["board_state_string"][4 * 9 + 4], ".")
+
+        # JSON snapshot at move 1 (post-move): the stone is there.
+        snap1 = self._json(
+            "/service/get-historical-state/",
+            your_cookie=black_cookie,
+            move_number="1",
+        )
+        self.assertEqual(snap1["last_move_x"], 4)
+        self.assertEqual(snap1["last_move_y"], 4)
+        self.assertEqual(snap1["board_state_string"][4 * 9 + 4], "b")
+
+        # Out-of-range move numbers are rejected.
+        r = self.client.post(
+            "/service/get-historical-state/",
+            data={"your_cookie": black_cookie, "move_number": "-5"},
+        )
+        self.assertFalse(r.json()["success"])
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class EmailIntegrationTests(TestCase):
+    """
+    Verify the email side-effects of gameplay events.
+
+    Fixing broken email delivery is one of the two forcing functions for this
+    migration, so these assertions guard against regressions in the
+    ``notify_*`` call sites in ``go/game/email.py``.
+    """
+
+    def _json(self, path: str, **data: str | int) -> dict[str, t.Any]:
+        """POST ``data`` to ``path`` and return the parsed JSON body."""
+        r = self.client.post(path, data=data)
+        self.assertEqual(r.status_code, 200, f"{path} -> {r.status_code}")
+        return r.json()
+
+    def test_create_game_sends_two_notification_emails(self) -> None:
+        """Both players receive an invitation email at game creation."""
+        mail.outbox.clear()
+        self._json(
+            "/service/create-game/",
+            your_name="Alice",
+            your_contact="alice@example.com",
+            your_contact_type=CONST.Email_Contact,
+            opponent_name="Bob",
+            opponent_contact="bob@example.com",
+            opponent_contact_type=CONST.Email_Contact,
+            your_color=str(CONST.Black_Color),
+            board_size_index="2",
+            handicap_index="0",
+            komi_index="0",
+        )
+
+        self.assertEqual(len(mail.outbox), 2, [m.subject for m in mail.outbox])
+        recipients = {m.to[0] for m in mail.outbox}
+        self.assertEqual(recipients, {"Alice <alice@example.com>", "Bob <bob@example.com>"})
+        for m in mail.outbox:
+            self.assertIn("GO", m.subject)
+            # Every invitation must include a link to /play/<cookie>/.
+            self.assertIn("/play/", m.body)
+
+    def test_move_sends_opponent_notification(self) -> None:
+        """After a move, the opponent (not the mover) is emailed."""
+        # Arrange: create a game and drain the invitation emails.
+        created = self._json(
+            "/service/create-game/",
+            your_name="Alice",
+            your_contact="alice@example.com",
+            your_contact_type=CONST.Email_Contact,
+            opponent_name="Bob",
+            opponent_contact="bob@example.com",
+            opponent_contact_type=CONST.Email_Contact,
+            your_color=str(CONST.Black_Color),
+            board_size_index="2",
+            handicap_index="0",
+            komi_index="0",
+        )
+        alice_cookie = created["your_cookie"]
+        mail.outbox.clear()
+
+        # Act: Alice (Black) plays a move.
+        self._json(
+            "/service/make-this-move/",
+            your_cookie=alice_cookie,
+            current_move_number="0",
+            move_x="4",
+            move_y="4",
+        )
+
+        # Assert: exactly one email went out, to Bob, containing the move number.
+        self.assertEqual(len(mail.outbox), 1)
+        notice = mail.outbox[0]
+        self.assertEqual(notice.to, ["Bob <bob@example.com>"])
+        self.assertIn("Move #1", notice.subject)
+        self.assertIn("/play/", notice.body)
+
+    def test_opted_out_player_does_not_get_email(self) -> None:
+        """A player with ``wants_email=False`` is not sent turn reminders."""
+        created = self._json(
+            "/service/create-game/",
+            your_name="Alice",
+            your_contact="alice@example.com",
+            your_contact_type=CONST.Email_Contact,
+            opponent_name="Bob",
+            opponent_contact="bob@example.com",
+            opponent_contact_type=CONST.Email_Contact,
+            your_color=str(CONST.Black_Color),
+            board_size_index="2",
+            handicap_index="0",
+            komi_index="0",
+        )
+        alice_cookie = created["your_cookie"]
+        alice = Player.by_cookie(alice_cookie)
+        assert alice is not None
+        bob = alice.get_opponent()
+        assert bob is not None
+
+        # Bob opts out.
+        bob.wants_email = False
+        bob.contact_type = CONST.No_Contact
+        bob.save()
+        mail.outbox.clear()
+
+        # Alice plays; Bob should receive nothing.
+        self._json(
+            "/service/make-this-move/",
+            your_cookie=alice_cookie,
+            current_move_number="0",
+            move_x="4",
+            move_y="4",
+        )
+        self.assertEqual(len(mail.outbox), 0)
