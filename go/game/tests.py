@@ -10,10 +10,15 @@ These cover the high-risk pieces of the port:
 - ``Player.by_cookie`` lookup
 """
 
+import io
+import json
+import tempfile
 import typing as t
 from datetime import UTC, datetime
+from pathlib import Path
 
 from django.core import mail
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from .game_logic import (
@@ -833,3 +838,210 @@ class EmailIntegrationTests(TestCase):
             move_y="4",
         )
         self.assertEqual(len(mail.outbox), 0)
+
+
+class ImportFromDatastoreTests(TestCase):
+    """
+    Guards around the one-shot App Engine → Postgres migration command.
+
+    Covers the integrity checks that gate committing the import: required
+    input fields, FK soundness, cookie uniqueness, 2-players-per-game,
+    cookie/color agreement, ``reminder_send_time`` presence on in-progress
+    games, and the ``--dry-run`` flag.
+    """
+
+    def _valid_state(self) -> dict[str, t.Any]:
+        """Return a minimal valid GameState JSON (empty 9x9, Black to move)."""
+        b = GameBoard(board_size_index=2)
+        s = GameState()
+        s.set_board(b)
+        s.whose_move = CONST.Black_Color
+        return s.to_jsonable()
+
+    def _fixture(
+        self,
+        *,
+        game_overrides: t.Sequence[dict[str, t.Any]] = (),
+        player_overrides: t.Sequence[dict[str, t.Any]] = (),
+    ) -> tuple[list[dict[str, t.Any]], list[dict[str, t.Any]]]:
+        """Return (games, players) for one two-player game; overrides layered in."""
+        now = datetime.now(UTC).isoformat()
+        state = self._valid_state()
+        games = [
+            {
+                "id": 1001,
+                "date_created": now,
+                "date_last_moved": now,
+                "reminder_send_time": now,
+                "current_state": state,
+                "history": [],
+                "chat_history": [],
+                "black_cookie": "bcook",
+                "white_cookie": "wcook",
+                "is_finished": False,
+                "has_scoring_data": False,
+            },
+        ]
+        players = [
+            {
+                "id": 2001,
+                "game_id": 1001,
+                "cookie": "bcook",
+                "color": CONST.Black_Color,
+                "name": "Alice",
+                "email": "alice@example.com",
+                "wants_email": True,
+                "contact_type": CONST.Email_Contact,
+                "show_grid": False,
+            },
+            {
+                "id": 2002,
+                "game_id": 1001,
+                "cookie": "wcook",
+                "color": CONST.White_Color,
+                "name": "Bob",
+                "email": "bob@example.com",
+                "wants_email": True,
+                "contact_type": CONST.Email_Contact,
+                "show_grid": False,
+            },
+        ]
+        for i, override in enumerate(game_overrides):
+            games[i] = {**games[i], **override}
+        for i, override in enumerate(player_overrides):
+            players[i] = {**players[i], **override}
+        return games, players
+
+    def _run_import(
+        self,
+        games: list[dict[str, t.Any]],
+        players: list[dict[str, t.Any]],
+        *,
+        dry_run: bool = False,
+    ) -> str:
+        """Write the JSONL fixtures and invoke ``import_from_datastore``."""
+        with tempfile.TemporaryDirectory() as tmp:
+            games_path = Path(tmp) / "games.jsonl"
+            players_path = Path(tmp) / "players.jsonl"
+            games_path.write_text("".join(json.dumps(g) + "\n" for g in games), encoding="utf-8")
+            players_path.write_text(
+                "".join(json.dumps(p) + "\n" for p in players), encoding="utf-8"
+            )
+            out = io.StringIO()
+            call_command(
+                "import_from_datastore",
+                str(games_path),
+                str(players_path),
+                dry_run=dry_run,
+                stdout=out,
+            )
+            return out.getvalue()
+
+    # ---- happy paths ----
+
+    def test_happy_path_imports_both_rows(self) -> None:
+        """A valid fixture imports two players and one game."""
+        games, players = self._fixture()
+        output = self._run_import(games, players)
+        self.assertIn("1 games", output)
+        self.assertIn("2 players", output)
+        self.assertEqual(Game.objects.count(), 1)
+        self.assertEqual(Player.objects.count(), 2)
+        game = Game.objects.get(pk=1001)
+        self.assertEqual(game.players.count(), 2)
+
+    def test_dry_run_rolls_back(self) -> None:
+        """``--dry-run`` leaves no rows behind but reports the count."""
+        games, players = self._fixture()
+        output = self._run_import(games, players, dry_run=True)
+        self.assertIn("DRY RUN", output)
+        self.assertEqual(Game.objects.count(), 0)
+        self.assertEqual(Player.objects.count(), 0)
+
+    def test_twitter_contact_migrated_to_email(self) -> None:
+        """A legacy ``contact_type='twitter'`` with an email becomes ``'email'``."""
+        games, players = self._fixture(player_overrides=[{"contact_type": "twitter"}])
+        output = self._run_import(games, players)
+        self.assertIn("migrated 1 twitter", output)
+        alice = Player.objects.get(id=2001)
+        self.assertEqual(alice.contact_type, CONST.Email_Contact)
+
+    def test_twitter_contact_without_email_becomes_none(self) -> None:
+        """A legacy twitter player with no email becomes ``contact_type='none'``."""
+        games, players = self._fixture(
+            player_overrides=[{"contact_type": "twitter", "email": None}]
+        )
+        self._run_import(games, players)
+        alice = Player.objects.get(id=2001)
+        self.assertEqual(alice.contact_type, CONST.No_Contact)
+
+    # ---- input validation ----
+
+    def test_missing_game_field_errors(self) -> None:
+        """A game row missing a required field aborts and rolls back."""
+        games, players = self._fixture(game_overrides=[{"date_created": None}])
+        # ``None`` still satisfies the "field is present" check, so force absence:
+        del games[0]["current_state"]
+        with self.assertRaisesRegex(Exception, "missing required fields"):
+            self._run_import(games, players)
+        self.assertEqual(Game.objects.count(), 0)
+
+    def test_missing_player_field_errors(self) -> None:
+        """A player row missing a required field aborts."""
+        games, players = self._fixture()
+        del players[0]["cookie"]
+        with self.assertRaisesRegex(Exception, "missing required fields"):
+            self._run_import(games, players)
+        self.assertEqual(Player.objects.count(), 0)
+
+    def test_duplicate_cookie_errors(self) -> None:
+        """Two players sharing a cookie aborts before touching the DB."""
+        games, players = self._fixture(player_overrides=[{}, {"cookie": "bcook"}])
+        with self.assertRaisesRegex(Exception, "duplicate cookie"):
+            self._run_import(games, players)
+        self.assertEqual(Player.objects.count(), 0)
+
+    def test_orphan_player_errors(self) -> None:
+        """A player whose game_id wasn't imported aborts."""
+        games, players = self._fixture(player_overrides=[{"game_id": 9999}])
+        with self.assertRaisesRegex(Exception, "game_id 9999 not in"):
+            self._run_import(games, players)
+        self.assertEqual(Player.objects.count(), 0)
+
+    def test_wrong_player_count_errors(self) -> None:
+        """A game ending up with only one player aborts post-insert."""
+        games, players = self._fixture()
+        players = players[:1]  # drop Bob
+        with self.assertRaisesRegex(Exception, r"!=2 players"):
+            self._run_import(games, players)
+        self.assertEqual(Game.objects.count(), 0)
+
+    def test_cookie_color_mismatch_errors(self) -> None:
+        """A player whose color disagrees with its cookie position aborts."""
+        games, players = self._fixture(
+            player_overrides=[
+                {"color": CONST.White_Color}
+            ]  # alice has black_cookie but white color
+        )
+        with self.assertRaisesRegex(Exception, "disagrees with expected"):
+            self._run_import(games, players)
+        self.assertEqual(Player.objects.count(), 0)
+
+    def test_null_reminder_on_in_progress_game_errors(self) -> None:
+        """An in-progress game with ``reminder_send_time=None`` aborts.
+
+        This is the highest-blast-radius failure: without it, the 3-min
+        reminder cron would email every player immediately after cutover.
+        """
+        games, players = self._fixture(game_overrides=[{"reminder_send_time": None}])
+        with self.assertRaisesRegex(Exception, "missing reminder_send_time"):
+            self._run_import(games, players)
+        self.assertEqual(Game.objects.count(), 0)
+
+    def test_null_reminder_on_finished_game_is_fine(self) -> None:
+        """Finished games are allowed to have ``reminder_send_time=None``."""
+        games, players = self._fixture(
+            game_overrides=[{"reminder_send_time": None, "is_finished": True}]
+        )
+        self._run_import(games, players)
+        self.assertEqual(Game.objects.count(), 1)
