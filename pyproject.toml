@@ -37,3 +37,10 @@ quote-style = "double"
 
 [tool.ty.src]
 exclude = ["_old", ".venv", "staticfiles", "**/migrations/*.py"]
+
+[tool.djlint]
+profile = "django"
+# Legacy templates ported verbatim from the App Engine app; these rules are
+# either stylistic (H019/H021/H023) or SEO-ish (H006/H030/H031). Skip for
+# "just move it"; a later refactor can tighten them up.
+ignore = "H006,H019,H021,H022,H023,H030,H031"

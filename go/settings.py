@@ -60,8 +60,11 @@ TEMPLATES = [
 ]
 
 DATABASES = {
+    # Default to a local SQLite file so ``manage.py test`` and first-time dev
+    # work with no environment setup. Production on dokku sets ``DATABASE_URL``
+    # to a Postgres DSN via ``dokku postgres:link``.
     "default": dj_database_url.config(
-        default="postgres://localhost/gameofgo",
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
     ),
 }

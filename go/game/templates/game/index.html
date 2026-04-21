@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      dir="ltr"
+      lang="en-US"
+      id="go-davepeck-org">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        <link href="{% static 'game/css/go.css' %}"
+              type="text/css"
+              rel="stylesheet"></link>
+    <!--[if IE]>
+    <link href="{% static 'game/css/ie.css' %}" type="text/css" rel="stylesheet"></link>
+<![endif]-->
+    <script src="{% static 'game/js/protoaculous-1.8.2-min.js' %}"
+            type="text/javascript"></script>
+    <script src="{% static 'game/js/go.js' %}" type="text/javascript"></script>
+    <title>[Dave Peck's Go]</title>
+</head>
+<body>
+    <div id="splash">
+        <div class="go">Go.</div>
+        <div class="splash-text">
+            Play Go online with your
+            friends. It&#146;s fun, easy to get started, and
+            free!
+        </div>
+        <br />
+        <div class="splash-text">
+            This site was built by <a href="http://davepeck.org/">Dave Peck</a> and other
+            members of the <a href="http://github.com/davepeck/appengine-go/">Go community</a>.
+        </div>
+        <br />
+        <div class="splash-text started">
+            <a href="{% url 'get-going' %}">Get going &raquo;</a>
+        </div>
+    </div>
+</body>
+</html>
