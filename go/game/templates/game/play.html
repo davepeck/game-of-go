@@ -113,12 +113,7 @@
                         {% if opponent_wins_python %}, and {{ opponent_name }} won{% endif %}
                         {% if by_resignation_python %}by resignation{% endif %}
                         !
-                        {% if opponent_contact_is_email %}
-                            <a href="mailto:{{ opponent_contact }}" class="subtle-link">Email your opponent</a> to discuss the game!
-                        {% else %}
-                            <a href="http://twitter.com/home?status=@{{ opponent_contact }} How was the game?"
-                               class="subtle-link">Twitter your opponent</a> to discuss the game!
-                        {% endif %}
+                        <a href="mailto:{{ opponent_contact }}" class="subtle-link">Email your opponent</a> to discuss the game!
                     </p>
                 {% else %}
                     {% if game_is_scoring_python %}

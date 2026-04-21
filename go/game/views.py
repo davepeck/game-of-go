@@ -163,7 +163,6 @@ class PlayGameView(View):
             "opponent_name": opponent.get_friendly_name(),
             "opponent_contact": opponent.get_contact(),
             "opponent_contact_type": opponent.get_contact_type(),
-            "opponent_contact_is_email": True,
             "last_move_message": state.get_last_move_message(),
             "wants_email": "true" if player.wants_email else "false",
             "wants_email_python": player.wants_email,

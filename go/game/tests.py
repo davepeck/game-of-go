@@ -10,6 +10,7 @@ These cover the high-risk pieces of the port:
 - ``Player.by_cookie`` lookup
 """
 
+import typing as t
 from datetime import UTC, datetime
 
 from django.test import TestCase
@@ -288,3 +289,275 @@ class PlayerBridgeTests(TestCase):
         self.assertEqual(p1.get_friendly_name(), "dave")
         self.assertTrue(p2.get_friendly_name().endswith("..."))
         self.assertEqual(len(p2.get_friendly_name()), 18)
+
+
+class ViewRenderTests(TestCase):
+    """
+    Smoke-test every player-facing GET view renders 200 on real data.
+
+    Catches regressions in deprecated template tags (``ifequal`` et al.),
+    missing context variables, and broken ``{% url %}`` / ``{% static %}``
+    references. Does not exercise gameplay — see the other view test classes
+    for that.
+    """
+
+    def setUp(self) -> None:
+        """Create a minimal two-player game for the tests to render."""
+        b = GameBoard(board_size_index=0, handicap_index=1, komi_index=2)  # 19x19, 9-stone
+        s = GameState()
+        s.set_board(b)
+        s.whose_move = CONST.White_Color
+        now = datetime.now(UTC)
+        self.game = Game.objects.create(
+            date_created=now,
+            date_last_moved=now,
+            reminder_send_time=now,
+            current_state=s.to_jsonable(),
+            history=[],
+            chat_history=[],
+            black_cookie="bcook",
+            white_cookie="wcook",
+        )
+        Player.objects.create(
+            game=self.game, cookie="bcook", color=CONST.Black_Color, name="Alice", email="a@x.com"
+        )
+        Player.objects.create(
+            game=self.game, cookie="wcook", color=CONST.White_Color, name="Bob", email="b@x.com"
+        )
+
+    def test_splash(self) -> None:
+        """The splash page renders."""
+        self.assertEqual(self.client.get("/").status_code, 200)
+
+    def test_get_going(self) -> None:
+        """The game-creation form renders."""
+        self.assertEqual(self.client.get("/get-going/").status_code, 200)
+
+    def test_play(self) -> None:
+        """The live game board renders and embeds the init_play JS call."""
+        r = self.client.get("/play/bcook/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b"init_play(", r.content)
+
+    def test_history(self) -> None:
+        """The history browser renders."""
+        self.assertEqual(self.client.get("/history/bcook/").status_code, 200)
+
+    def test_options(self) -> None:
+        """The options form renders (exercises the ``{% if ==%}`` replacements)."""
+        r = self.client.get("/options/bcook/")
+        self.assertEqual(r.status_code, 200)
+        # Confirms the rewritten ``{% if %}`` branches still pick the right
+        # copy for the player's contact_type.
+        self.assertIn(b"notify me via email", r.content)
+
+    def test_sgf_with_handicap(self) -> None:
+        """SGF download emits the ``{% if handicap != 0 %}`` branch correctly."""
+        r = self.client.get("/history/bcook.sgf")
+        self.assertEqual(r.status_code, 200)
+        body = r.content.decode()
+        self.assertIn("HA[9]", body)
+        self.assertIn("PL[W]", body)  # handicap sets next-to-move White
+
+    def test_sgf_without_handicap(self) -> None:
+        """SGF download emits the ``{% else %}`` branch when handicap is zero."""
+        b = GameBoard(board_size_index=0, handicap_index=0, komi_index=0)
+        s = GameState()
+        s.set_board(b)
+        s.whose_move = CONST.Black_Color
+        now = datetime.now(UTC)
+        g2 = Game.objects.create(
+            date_created=now,
+            date_last_moved=now,
+            current_state=s.to_jsonable(),
+            history=[],
+            chat_history=[],
+            black_cookie="b2",
+            white_cookie="w2",
+        )
+        Player.objects.create(
+            game=g2, cookie="b2", color=CONST.Black_Color, name="A", email="a@y.com"
+        )
+        Player.objects.create(
+            game=g2, cookie="w2", color=CONST.White_Color, name="B", email="b@y.com"
+        )
+        r = self.client.get("/history/b2.sgf")
+        self.assertEqual(r.status_code, 200)
+        body = r.content.decode()
+        self.assertNotIn("HA[", body)
+        self.assertIn("PL[B]", body)
+
+
+class GameplayFlowTests(TestCase):
+    """
+    End-to-end gameplay golden path.
+
+    Exercises the full service-view chain go.js calls in normal play:
+    create-game, make-this-move, has-opponent-moved, add-chat / recent-chat,
+    pass, mark-stone, done. Uses the Django test client so CSRF-exempt
+    dispatch, URL routing, JSON shape, and JSONField persistence are all
+    covered in one pass.
+    """
+
+    def _json(self, path: str, **data: str | int) -> dict[str, t.Any]:
+        """POST ``data`` to ``path`` and return the parsed JSON body."""
+        r = self.client.post(path, data=data)
+        self.assertEqual(r.status_code, 200, f"{path} -> {r.status_code}: {r.content!r}")
+        return r.json()
+
+    def _create_game(self) -> tuple[str, str]:
+        """Create a 9x9 no-handicap email/email game; return (your, opp) cookies."""
+        payload = self._json(
+            "/service/create-game/",
+            your_name="Alice",
+            your_contact="alice@example.com",
+            your_contact_type="email",
+            opponent_name="Bob",
+            opponent_contact="bob@example.com",
+            opponent_contact_type="email",
+            your_color=str(CONST.Black_Color),
+            board_size_index="2",  # 9x9
+            handicap_index="0",
+            komi_index="0",
+        )
+        self.assertTrue(payload["success"], payload)
+        self.assertTrue(payload["your_turn"])  # no handicap => Black moves first
+
+        your_cookie = payload["your_cookie"]
+        your = Player.by_cookie(your_cookie)
+        assert your is not None
+        opp = your.get_opponent()
+        assert opp is not None
+        return your_cookie, opp.cookie
+
+    def test_full_game_golden_path(self) -> None:
+        """Create a game, play a move, poll, chat, pass-pass to enter scoring."""
+        alice_cookie, bob_cookie = self._create_game()
+
+        # 1. Alice (Black) plays (4, 4) on the 9x9.
+        played = self._json(
+            "/service/make-this-move/",
+            your_cookie=alice_cookie,
+            current_move_number="0",
+            move_x="4",
+            move_y="4",
+        )
+        self.assertTrue(played["success"])
+        self.assertEqual(played["current_move_number"], 1)
+        self.assertEqual(played["last_move_x"], 4)
+        self.assertEqual(played["last_move_y"], 4)
+
+        # 2. Bob polls and sees the move.
+        polled = self._json(
+            "/service/has-opponent-moved/",
+            your_cookie=bob_cookie,
+        )
+        self.assertTrue(polled["has_opponent_moved"])
+        self.assertEqual(polled["current_move_number"], 1)
+        self.assertEqual(polled["last_move_x"], 4)
+        self.assertEqual(polled["last_move_y"], 4)
+
+        # 3. Chat round-trips.
+        self.assertEqual(
+            self._json(
+                "/service/recent-chat/",
+                your_cookie=alice_cookie,
+                last_chat_seen="0",
+            )["chat_count"],
+            0,
+        )
+        added = self._json(
+            "/service/add-chat/",
+            your_cookie=bob_cookie,
+            message="Nice opening.",
+            last_chat_seen="0",
+        )
+        self.assertEqual(added["chat_count"], 1)
+        self.assertEqual(added["recent_chats"][0]["message"], "Nice opening.")
+
+        # 4. Bob passes; Alice passes; game enters scoring.
+        after_bob_pass = self._json(
+            "/service/pass/",
+            your_cookie=bob_cookie,
+            current_move_number="1",
+        )
+        self.assertFalse(after_bob_pass["game_is_scoring"])
+        after_alice_pass = self._json(
+            "/service/pass/",
+            your_cookie=alice_cookie,
+            current_move_number="2",
+        )
+        self.assertTrue(after_alice_pass["game_is_scoring"])
+
+        # 5. Either player marks Done; since both pass on an almost-empty board
+        #    the territory scores aren't meaningful, but the flow should finish.
+        alice_done = self._json(
+            "/service/done/",
+            your_cookie=alice_cookie,
+            scoring_number=str(after_alice_pass["scoring_number"]),
+        )
+        self.assertTrue(alice_done["success"])
+        self.assertTrue(alice_done["you_are_done_scoring"])
+        bob_done = self._json(
+            "/service/done/",
+            your_cookie=bob_cookie,
+            scoring_number=str(after_alice_pass["scoring_number"]),
+        )
+        self.assertTrue(bob_done["success"])
+        self.assertTrue(bob_done["game_is_finished"])
+
+    def test_create_game_rejects_invalid_email(self) -> None:
+        """``/service/create-game/`` returns success=False on a bogus email."""
+        r = self.client.post(
+            "/service/create-game/",
+            data={
+                "your_name": "Alice",
+                "your_contact": "not-an-email",
+                "your_contact_type": "email",
+                "opponent_name": "Bob",
+                "opponent_contact": "bob@example.com",
+                "opponent_contact_type": "email",
+                "your_color": str(CONST.Black_Color),
+                "board_size_index": "2",
+                "handicap_index": "0",
+                "komi_index": "0",
+            },
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertFalse(body["success"])
+        self.assertIn("contact information is invalid", body["flash"])
+
+    def test_make_move_wrong_turn_rejected(self) -> None:
+        """The player whose turn it is *not* cannot move."""
+        _, bob_cookie = self._create_game()
+        r = self.client.post(
+            "/service/make-this-move/",
+            data={
+                "your_cookie": bob_cookie,
+                "current_move_number": "0",
+                "move_x": "4",
+                "move_y": "4",
+            },
+        )
+        body = r.json()
+        self.assertFalse(body["success"])
+        self.assertIn("not your turn", body["flash"])
+
+    def test_resign_ends_game(self) -> None:
+        """A resign finishes the game and awards the opponent the win."""
+        alice_cookie, bob_cookie = self._create_game()
+        payload = self._json(
+            "/service/resign/",
+            your_cookie=alice_cookie,
+            current_move_number="0",
+        )
+        self.assertTrue(payload["success"])
+        self.assertTrue(payload["game_is_finished"])
+
+        # Check from Bob's side: he wins.
+        bob = Player.by_cookie(bob_cookie)
+        assert bob is not None
+        self.assertTrue(bob.game.is_finished)
+        winner_color = bob.game.load_state().get_winner()
+        self.assertEqual(winner_color, CONST.White_Color)

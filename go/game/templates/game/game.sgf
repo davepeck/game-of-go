@@ -7,8 +7,8 @@ PB[{{black_name}}]
 PW[{{white_name}}]
 RU[Japanese]
 SZ[{{board_size}}]
-KM[{{komi}}]{% ifnotequal handicap 0 %}
+KM[{{komi}}]{% if handicap != 0 %}
 HA[{{handicap}}]
-AB{% for h in handicap_stones %}[{{h}}]{% endfor %}PL[W]{% else %}PL[B]{% endifnotequal %}
+AB{% for h in handicap_stones %}[{{h}}]{% endfor %}PL[W]{% else %}PL[B]{% endif %}
 {% for m in moves %};{{m}}
 {% endfor %})
