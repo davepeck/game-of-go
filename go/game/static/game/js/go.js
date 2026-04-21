@@ -38,7 +38,6 @@ CONST.Komis = [6.5, 5.5, 0.5, -4.5, -5.5];
 CONST.Komi_Names = ['has six komi', 'has five komi', 'has no komi', 'has five reverse komi', 'has six reverse komi'];
 CONST.Komi_None = 2;
 CONST.Email_Contact = "email";
-CONST.Twitter_Contact = "twitter";
 CONST.No_Contact = "none";
 CONST.Dim = "dim";
 CONST.Notable = "notable";
@@ -140,26 +139,10 @@ ContactValidator.is_probably_good_email = function(s)
     return true;
 }
 
-ContactValidator.is_probably_good_twitter = function(s)
-{
-    if (!s || (s.length < 1) || (s.length > 16))
-    {
-        return false;
-    }
-
-    return s.match(/^[0-9a-zA-Z_]+$/);
-}
-
 ContactValidator.is_probably_good_contact = function(s, contact_type)
 {
-    if (contact_type == CONST.Email_Contact)
-    {
-        return ContactValidator.is_probably_good_email(s);
-    }
-    else
-    {
-        return ContactValidator.is_probably_good_twitter(s);
-    }
+    // Only email is supported now; twitter was removed.
+    return ContactValidator.is_probably_good_email(s);
 }
 
 
@@ -180,20 +163,9 @@ var GetGoing = Class.create({
 
         this.auto_komi = true;
 
-        //We can't just assign the correct contact types, because the
-        //HTML has a default that's updated by swapping.
+        // Only email is supported now.
         this.your_contact_type = CONST.Email_Contact;
-        if (ContactValidator.is_probably_good_twitter(
-                $F('your_contact')))
-        {
-            this.swap_your_contact_type();
-        }
         this.opponent_contact_type = CONST.Email_Contact;
-        if (ContactValidator.is_probably_good_twitter(
-                $F('opponent_contact')))
-        {
-            this.swap_opponent_contact_type();
-        }
 
         //Update validity flags
         this._input_your_name();
@@ -201,44 +173,9 @@ var GetGoing = Class.create({
         this._input_opponent_name();
         this._input_opponent_contact();
 
-        this.showing_twitter_password = false;
-        
         this._initialize_events();
     },
 
-    swap_your_contact_type : function()
-    {
-        if (this.your_contact_type == CONST.Email_Contact)
-        {
-            this.your_contact_type = CONST.Twitter_Contact;
-            $("your_contact_type").update("twitter");            
-        }
-        else
-        {
-            this.your_contact_type = CONST.Email_Contact;
-            $("your_contact_type").update("email");
-            this._hide_twitter_password();
-        }
-        this.valid_your_contact = ContactValidator.is_probably_good_contact($("your_contact").value, this.your_contact_type);        
-        this._evaluate_validity();
-    },
-
-    swap_opponent_contact_type : function()
-    {
-        if (this.opponent_contact_type == CONST.Email_Contact)
-        {
-            this.opponent_contact_type = CONST.Twitter_Contact;
-            $("opponent_contact_type").update("twitter");            
-        }
-        else
-        {
-            this.opponent_contact_type = CONST.Email_Contact;
-            $("opponent_contact_type").update("email");
-        }
-        this.valid_opponent_contact = ContactValidator.is_probably_good_contact($("opponent_contact").value, this.opponent_contact_type);
-        this._evaluate_validity();
-    },
-    
     swap_colors : function()
     {
         if (this.your_color == CONST.Black_Color)
@@ -378,45 +315,29 @@ var GetGoing = Class.create({
                 "opponent_contact_type": this.opponent_contact_type
             };
 
-            if (this.showing_twitter_password)
-            {
-                var tp = $("twitter_password").value;
-                if (tp && tp.length > 1)
-                {
-                    params["your_twitter_password"] = tp;
-                }                
-            }
-                                
             new Ajax.Request(
                 "/service/create-game/",
                 {
-                    method: 'POST',                
+                    method: 'POST',
 
                     parameters : params,
-                
-                    onSuccess: function(transport) 
+
+                    onSuccess: function(transport)
                     {
                         var response = eval_json(transport.responseText);
                         if (response['success'])
                         {
-                            if (response['need_your_twitter_password'])
-                            {
-                                self._require_twitter_password(response['flash']);
-                            }                            
-                            else
-                            {
-                                self._succeed_create_game(response['your_cookie'], response['your_turn']);
-                            }
+                            self._succeed_create_game(response['your_cookie'], response['your_turn']);
                         }
                         else
-                        {                    
+                        {
                             self._fail_create_game(response['flash']);
                         }
                     },
-                
-                    onFailure: function() 
+
+                    onFailure: function()
                     {
-                        self._fail_create_game("Sorry, but an unknown failure occured. Please try again."); 
+                        self._fail_create_game("Sorry, but an unknown failure occured. Please try again.");
                     }
                 }
             );
@@ -425,7 +346,6 @@ var GetGoing = Class.create({
 
     _succeed_create_game : function(your_cookie, your_turn)
     {
-        this._hide_twitter_password();
         $("play_link").href = "/play/" + your_cookie + "/";
         
         if (your_turn)
@@ -442,32 +362,9 @@ var GetGoing = Class.create({
         Effect.Appear("flash");
     },
 
-    _show_twitter_password : function()
-    {
-        if (this.showing_twitter_password) { return; }
-        $("twitter_password_container").removeClassName("hide");
-        this.showing_twitter_password = true;
-    },
-
-    _hide_twitter_password : function()
-    {
-        if (!this.showing_twitter_password) { return; }
-        $("twitter_password_container").addClassName("hide");
-        $("flash").update("");
-        this.showing_twitter_password = false;
-    },
-    
-    _require_twitter_password : function(flash)
-    {
-        this._show_twitter_password();
-        $("flash").update(flash);
-        Effect.Appear("flash");
-    },
-    
     _fail_create_game : function(flash)
     {
-        this._hide_twitter_password();
-        $("flash").update(flash);        
+        $("flash").update(flash);
         Effect.Appear("flash");
     },
 
@@ -2496,11 +2393,7 @@ var GameController = Class.create({
             gameOver += " by resignation";
         }
 
-        if (this.opponent_contact_type == CONST.Email_Contact) {
-            $("turn_message").update(gameOver + "! <a href=\"mailto:" + this.opponent_contact + "\" class=\"subtle-link\">Email your opponent</a> to discuss the game!");
-        } else {
-            $("turn_message").update(gameOver + "! <a href=\"http://twitter.com/home?status=@" + this.opponent_contact + " How was the game?\" class=\"subtle-link\">Twitter your opponent</a> to discuss the game!");
-        }
+        $("turn_message").update(gameOver + "! <a href=\"mailto:" + this.opponent_contact + "\" class=\"subtle-link\">Email your opponent</a> to discuss the game!");
 
         $("playing_links").addClassName("hide");
         $("scoring_links").addClassName("hide");
@@ -3202,12 +3095,11 @@ var HistoryController = Class.create({
 //-----------------------------------------------------------------------------
 
 var OptionsController = Class.create({
-    initialize : function(your_cookie, your_email, your_twitter, your_contact_type)
+    initialize : function(your_cookie, your_email, your_contact_type)
     {
         this.your_cookie = your_cookie;
         this.your_email = your_email;
-        this.your_twitter = your_twitter;
-        this.your_contact_type = your_contact_type;       
+        this.your_contact_type = your_contact_type;
 
         if (this.your_contact_type == CONST.No_Contact)
         {
@@ -3218,26 +3110,18 @@ var OptionsController = Class.create({
         this.is_valid = false;
         this.is_save_active = false;
         this.is_finished = false;
-        this.showing_twitter_password = false;
 
         $("contact_info").observe('keyup', this._keyup_contact_info.bindAsEventListener(this));
     },
 
     rotate_contact_type : function()
     {
+        // Only email <-> none now; twitter was removed.
         if (this.is_finished) { return; }
-        
+
         if (this.your_contact_type == CONST.Email_Contact)
         {
             this.your_email = $("contact_info").value;
-            this.your_contact_type = CONST.Twitter_Contact;
-            $("rotate_link").update("notify me via twitter");
-            $("contact_info_label").update("Your twitter:");
-            $("contact_info").value = this.your_twitter;
-        }
-        else if (this.your_contact_type == CONST.Twitter_Contact)
-        {
-            this.your_twitter = $("contact_info").value;
             this.your_contact_type = CONST.No_Contact;
             $("rotate_link").update("don&#146;t send me any notification");
             new Effect.Opacity("contact_info_container", {to: 0.0, duration: 0.2});
@@ -3251,7 +3135,6 @@ var OptionsController = Class.create({
             new Effect.Opacity("contact_info_container", {to: 1.0, duration: 0.2});
         }
 
-        this._hide_twitter_password();
         this._update_validity();
     },
 
@@ -3265,22 +3148,9 @@ var OptionsController = Class.create({
             "new_contact_type": this.your_contact_type
         };
 
-        if (this.your_contact_type == CONST.Twitter_Contact)
-        {
-            params["new_contact"] = this.your_twitter;
-        }
-        else if (this.your_contact_type == CONST.Email_Contact)
+        if (this.your_contact_type == CONST.Email_Contact)
         {
             params["new_contact"] = this.your_email;
-        }
-
-        if (this.showing_twitter_password)
-        {
-            var tp = $("twitter_password").value;
-            if (tp && tp.length > 1)
-            {
-                params["your_twitter_password"] = tp;
-            }
         }
 
         new Ajax.Request(
@@ -3294,14 +3164,7 @@ var OptionsController = Class.create({
                     var response = eval_json(transport.responseText);
                     if (response['success'])
                     {
-                        if (response['need_your_twitter_password'])
-                        {
-                            self._require_twitter_password(response['flash']);
-                        }
-                        else
-                        {
-                            self._succeed_save_options();
-                        }
+                        self._succeed_save_options();
                     }
                     else
                     {
@@ -3315,13 +3178,11 @@ var OptionsController = Class.create({
                 }
             }
         );
-        
     },
 
     _succeed_save_options : function()
     {
         this.is_finished = true; /* success! */
-        this._hide_twitter_password();
         $("flash").update("Your options were updated successfully.");
         Effect.Appear("flash");
         $("save_p").addClassName("hide");
@@ -3333,29 +3194,6 @@ var OptionsController = Class.create({
 
     _fail_save_options : function(flash)
     {
-        $("flash").update(flash);        
-        Effect.Appear("flash");
-        this._hide_twitter_password();        
-    },
-
-    _show_twitter_password : function()
-    {
-        if (this.showing_twitter_password) { return; }
-        $("twitter_password_container").removeClassName("hide");
-        this.showing_twitter_password = true;
-    },
-
-    _hide_twitter_password : function()
-    {
-        if (!this.showing_twitter_password) { return; }
-        $("twitter_password_container").addClassName("hide");
-        $("flash").update("");
-        this.showing_twitter_password = false;
-    },
-    
-    _require_twitter_password : function(flash)
-    {
-        this._show_twitter_password();
         $("flash").update(flash);
         Effect.Appear("flash");
     },
@@ -3363,29 +3201,19 @@ var OptionsController = Class.create({
     _keyup_contact_info : function()
     {
         if (this.is_finished) { return; }
-        
+
         if (this.your_contact_type == CONST.Email_Contact)
         {
             this.your_email = $("contact_info").value;
-            this._update_validity();
-        }
-        else if (this.your_contact_type == CONST.Twitter_Contact)
-        {
-            this.your_twitter = $("contact_info").value;
             this._update_validity();
         }
     },
 
     _update_validity : function()
     {
-        this.is_valid = false;
         if (this.your_contact_type == CONST.Email_Contact)
         {
-            this._update_email_validity();
-        }
-        else if (this.your_contact_type == CONST.Twitter_Contact)
-        {
-            this._update_twitter_validity();
+            this.is_valid = ContactValidator.is_probably_good_email(this.your_email);
         }
         else
         {
@@ -3400,16 +3228,6 @@ var OptionsController = Class.create({
         {
             this._deactivate_save();
         }
-    },
-
-    _update_email_validity : function()
-    {
-        this.is_valid = ContactValidator.is_probably_good_email(this.your_email);
-    },
-
-    _update_twitter_validity : function()
-    {
-        this.is_valid = ContactValidator.is_probably_good_twitter(this.your_twitter);
     },
 
     _activate_save : function()
@@ -3552,9 +3370,9 @@ function init_history(your_cookie, your_color, board_size_index, board_state_str
     chat_controller.start_listening_to_chat();
 }
 
-function init_options(your_cookie, your_email, your_twitter, your_contact_type)
+function init_options(your_cookie, your_email, your_contact_type)
 {
-    options_controller = new OptionsController(your_cookie, your_email, your_twitter, your_contact_type)
+    options_controller = new OptionsController(your_cookie, your_email, your_contact_type)
 }
 
 function init_database_update()

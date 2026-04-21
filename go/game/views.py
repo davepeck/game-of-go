@@ -431,7 +431,6 @@ class CreateGameView(_JsonMixin, View):
         return JsonResponse(
             {
                 "success": True,
-                "need_your_twitter_password": False,
                 "your_cookie": your_cookie,
                 "your_turn": your_turn,
                 "flash": "OK",
@@ -1033,7 +1032,7 @@ class ChangeOptionsView(_JsonMixin, View):
             player.contact_type = gl.CONST.No_Contact
 
         player.save()
-        return JsonResponse({"success": True, "need_your_twitter_password": False, "flash": "OK"})
+        return self._ok()
 
 
 class ChangeGridOptionsView(_JsonMixin, View):

@@ -842,14 +842,6 @@ p.flash
     width: 650px;
 }
 
-#twitter_password_container
-{
-    font-size: 0.66em;
-    padding-bottom: 1em;
-    padding-left: 1.5em;
-    padding-top: 0.5em;
-}
-
 #game_options
 {
     line-height: 1.2em;
@@ -874,11 +866,6 @@ p.flash
     line-height: 1.2em;
     padding-bottom: 0;
     padding-top: 0.8em;
-}
-
-#game_options #twitter_password_container
-{
-    font-size: 0.75em;
 }
 
 #chat_bar
