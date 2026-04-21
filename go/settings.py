@@ -83,6 +83,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Pre-create STATIC_ROOT so WhiteNoiseMiddleware doesn't warn when
+# ``collectstatic`` hasn't been run yet (first-time dev, test runs).
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
