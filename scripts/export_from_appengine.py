@@ -61,13 +61,16 @@ def _paginate(
     field: str,
     out: t.IO[str],
     page_size: int,
+    resume_from: int = 0,
 ) -> int:
     """
     Paginate ``path`` (one of ``/export/games/``, ``/export/players/``) into JSONL.
 
-    Returns the total number of rows written.
+    Returns the total number of rows written in this run. If ``resume_from``
+    is non-zero, pagination starts after that id (letting you continue after
+    a crash or Ctrl-C without rewriting already-saved rows).
     """
-    last_id_seen = 0
+    last_id_seen = resume_from
     total = 0
     while True:
         url = f"{base_url.rstrip('/')}{path}"
@@ -132,30 +135,82 @@ def main() -> None:
         default=500,
         help="Rows per page request (default: 500). App Engine request timeout is 60s.",
     )
+    parser.add_argument(
+        "--kinds",
+        default="games,players",
+        help=(
+            "Comma-separated subset of {games, players} to export "
+            "(default: both). Useful when one half finished and the other "
+            "didn't."
+        ),
+    )
+    parser.add_argument(
+        "--resume-from-games",
+        type=int,
+        default=0,
+        help="Start games pagination after this Datastore id (skip rows already on disk).",
+    )
+    parser.add_argument(
+        "--resume-from-players",
+        type=int,
+        default=0,
+        help="Start players pagination after this Datastore id.",
+    )
     args = parser.parse_args()
+
+    requested_kinds = {k.strip() for k in args.kinds.split(",") if k.strip()}
+    unknown = requested_kinds - {"games", "players"}
+    if unknown:
+        sys.exit(f"error: unknown --kinds entries: {sorted(unknown)}")
 
     args.out.mkdir(parents=True, exist_ok=True)
 
     session = requests.Session()
     session.headers.update(_auth_headers(args.cookie, args.bearer))
 
-    games_path: Path = args.out / "games.jsonl"
-    players_path: Path = args.out / "players.jsonl"
+    counts: dict[str, int] = {}
 
-    print(f"Exporting games to {games_path} ...", file=sys.stderr)
-    with games_path.open("w", encoding="utf-8") as f:
-        game_count = _paginate(session, args.base_url, "/export/games/", "games", f, args.page_size)
-
-    print(f"Exporting players to {players_path} ...", file=sys.stderr)
-    with players_path.open("w", encoding="utf-8") as f:
-        player_count = _paginate(
-            session, args.base_url, "/export/players/", "players", f, args.page_size
+    if "games" in requested_kinds:
+        games_path: Path = args.out / "games.jsonl"
+        mode = "a" if args.resume_from_games else "w"
+        print(
+            f"Exporting games to {games_path} (mode={mode!r}, "
+            f"resume_from={args.resume_from_games}) ...",
+            file=sys.stderr,
         )
+        with games_path.open(mode, encoding="utf-8") as f:
+            counts["games"] = _paginate(
+                session,
+                args.base_url,
+                "/export/games/",
+                "games",
+                f,
+                args.page_size,
+                resume_from=args.resume_from_games,
+            )
+
+    if "players" in requested_kinds:
+        players_path: Path = args.out / "players.jsonl"
+        mode = "a" if args.resume_from_players else "w"
+        print(
+            f"Exporting players to {players_path} (mode={mode!r}, "
+            f"resume_from={args.resume_from_players}) ...",
+            file=sys.stderr,
+        )
+        with players_path.open(mode, encoding="utf-8") as f:
+            counts["players"] = _paginate(
+                session,
+                args.base_url,
+                "/export/players/",
+                "players",
+                f,
+                args.page_size,
+                resume_from=args.resume_from_players,
+            )
 
     print("", file=sys.stderr)
-    print(f"Done. {game_count} games, {player_count} players.", file=sys.stderr)
-    print(f"  {games_path}", file=sys.stderr)
-    print(f"  {players_path}", file=sys.stderr)
+    summary = ", ".join(f"{n} {k}" for k, n in counts.items())
+    print(f"Done. {summary} written this run.", file=sys.stderr)
     print(
         "\nNext: compare these counts against the Datastore entity counts in the "
         "GCP console, then feed the JSONL files into ``python manage.py "
