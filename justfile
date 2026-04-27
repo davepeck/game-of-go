@@ -1,4 +1,4 @@
-default: lint_check html_lint_check format_check html_format_check type_check test
+default: lint_check html_lint_check format_check html_format_check type_check django_check test
 
 lint_check:
     uv run ruff check
@@ -14,6 +14,9 @@ html_format_check:
 
 type_check:
     uv run ty check
+
+django_check:
+    uv run python manage.py check
 
 test:
     uv run python manage.py test
