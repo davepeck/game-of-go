@@ -918,6 +918,7 @@ class ImportFromDatastoreTests(TestCase):
         players: list[dict[str, t.Any]],
         *,
         dry_run: bool = False,
+        skip_orphan_games: bool = False,
     ) -> str:
         """Write the JSONL fixtures and invoke ``import_from_datastore``."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -933,6 +934,7 @@ class ImportFromDatastoreTests(TestCase):
                 str(games_path),
                 str(players_path),
                 dry_run=dry_run,
+                skip_orphan_games=skip_orphan_games,
                 stdout=out,
             )
             return out.getvalue()
@@ -959,21 +961,94 @@ class ImportFromDatastoreTests(TestCase):
         self.assertEqual(Player.objects.count(), 0)
 
     def test_twitter_contact_migrated_to_email(self) -> None:
-        """A legacy ``contact_type='twitter'`` with an email becomes ``'email'``."""
-        games, players = self._fixture(player_overrides=[{"contact_type": "twitter"}])
+        """
+        A legacy ``contact_type='twitter'`` with an email becomes ``'email'``.
+
+        Crucially: the player's ``wants_email`` must also flip to ``True`` so
+        the new model's ``contact_type`` and ``wants_email`` agree. The legacy
+        row has ``wants_email=False`` (since they opted in to twitter, not
+        email) — leaving that unchanged would yield a "silent drop" player
+        whose row says email but who never gets one.
+        """
+        games, players = self._fixture(
+            player_overrides=[
+                {
+                    "contact_type": "twitter",
+                    "wants_email": False,
+                    "wants_twitter": True,
+                }
+            ]
+        )
         output = self._run_import(games, players)
         self.assertIn("migrated 1 twitter", output)
         alice = Player.objects.get(id=2001)
         self.assertEqual(alice.contact_type, CONST.Email_Contact)
+        self.assertTrue(alice.wants_email)
 
     def test_twitter_contact_without_email_becomes_none(self) -> None:
         """A legacy twitter player with no email becomes ``contact_type='none'``."""
         games, players = self._fixture(
-            player_overrides=[{"contact_type": "twitter", "email": None}]
+            player_overrides=[
+                {
+                    "contact_type": "twitter",
+                    "email": None,
+                    "wants_email": False,
+                    "wants_twitter": True,
+                }
+            ]
         )
         self._run_import(games, players)
         alice = Player.objects.get(id=2001)
         self.assertEqual(alice.contact_type, CONST.No_Contact)
+        self.assertFalse(alice.wants_email)
+
+    def test_legacy_opted_out_player_imports_as_none(self) -> None:
+        """
+        A legacy row with ``contact_type=None`` and ``wants_email=False``
+        imports as ``contact_type='none', wants_email=False``.
+
+        This is the "silent drop" bug surfaced by the real Datastore export:
+        the previous implementation produced ``contact_type='email'`` (from
+        the ``or`` default) paired with ``wants_email=False``, leaving the
+        new row internally inconsistent and the player silently uncontactable.
+        """
+        games, players = self._fixture(
+            player_overrides=[{"contact_type": None, "wants_email": False}]
+        )
+        self._run_import(games, players)
+        alice = Player.objects.get(id=2001)
+        self.assertEqual(alice.contact_type, CONST.No_Contact)
+        self.assertFalse(alice.wants_email)
+
+    def test_legacy_missing_contact_type_with_wants_email_imports_as_email(self) -> None:
+        """A legacy row with no ``contact_type`` but ``wants_email=True`` imports as email."""
+        games, players = self._fixture(
+            player_overrides=[{"contact_type": None, "wants_email": True}]
+        )
+        self._run_import(games, players)
+        alice = Player.objects.get(id=2001)
+        self.assertEqual(alice.contact_type, CONST.Email_Contact)
+        self.assertTrue(alice.wants_email)
+
+    def test_email_contact_without_email_address_imports_as_none(self) -> None:
+        """``contact_type='email'`` without an email address imports as ``'none'``.
+
+        Defensive guard: the new model's ``email`` ``contact_type`` only makes
+        sense when there's actually an email to send to.
+        """
+        games, players = self._fixture(
+            player_overrides=[
+                {
+                    "contact_type": CONST.Email_Contact,
+                    "wants_email": True,
+                    "email": None,
+                }
+            ]
+        )
+        self._run_import(games, players)
+        alice = Player.objects.get(id=2001)
+        self.assertEqual(alice.contact_type, CONST.No_Contact)
+        self.assertFalse(alice.wants_email)
 
     # ---- input validation ----
 
@@ -1016,6 +1091,66 @@ class ImportFromDatastoreTests(TestCase):
             self._run_import(games, players)
         self.assertEqual(Game.objects.count(), 0)
 
+    def test_skip_orphan_games_drops_lone_player_game(self) -> None:
+        """
+        ``--skip-orphan-games`` deletes a game with !=2 players and lets the
+        rest of the import succeed.
+
+        Builds a fixture with one well-formed game (1001 + 2 players) and
+        one orphan game (3001, only 1 player). With the flag, only the
+        well-formed game survives.
+        """
+        games, players = self._fixture()
+        # Add a second game with only one player.
+        now = datetime.now(UTC).isoformat()
+        games.append(
+            {
+                "id": 3001,
+                "date_created": now,
+                "date_last_moved": now,
+                "reminder_send_time": now,
+                "current_state": self._valid_state(),
+                "history": [],
+                "chat_history": [],
+                "black_cookie": "lonely-b",
+                "white_cookie": "lonely-w",
+                "is_finished": True,  # finished, so reminder doesn't matter
+                "has_scoring_data": False,
+            }
+        )
+        players.append(
+            {
+                "id": 4001,
+                "game_id": 3001,
+                "cookie": "lonely-b",
+                "color": CONST.Black_Color,
+                "name": "Solo",
+                "email": "solo@example.com",
+                "wants_email": True,
+                "contact_type": CONST.Email_Contact,
+                "show_grid": False,
+            }
+        )
+
+        output = self._run_import(games, players, skip_orphan_games=True)
+        self.assertIn("Skipped 1 orphan", output)
+        self.assertIn("[3001]", output)
+
+        # Only the well-formed game survives; the orphan and its lone
+        # player are gone.
+        self.assertEqual(Game.objects.count(), 1)
+        self.assertEqual(Game.objects.get().id, 1001)
+        self.assertEqual(Player.objects.count(), 2)
+        self.assertFalse(Player.objects.filter(id=4001).exists())
+
+    def test_skip_orphan_games_no_op_when_clean(self) -> None:
+        """``--skip-orphan-games`` is a no-op when no orphans exist."""
+        games, players = self._fixture()
+        output = self._run_import(games, players, skip_orphan_games=True)
+        self.assertNotIn("Skipped", output)
+        self.assertEqual(Game.objects.count(), 1)
+        self.assertEqual(Player.objects.count(), 2)
+
     def test_cookie_color_mismatch_errors(self) -> None:
         """A player whose color disagrees with its cookie position aborts."""
         games, players = self._fixture(
@@ -1045,3 +1180,111 @@ class ImportFromDatastoreTests(TestCase):
         )
         self._run_import(games, players)
         self.assertEqual(Game.objects.count(), 1)
+
+
+class LegacyUnpickleTests(TestCase):
+    """
+    Guards on the Py2-pickle compat layer used by the Datastore exporter.
+
+    We can't easily generate a real Python 2 pickle in this test process, so
+    these tests instead:
+
+    1. Verify that pickling a Py3 ``GameState`` (or ``ChatEntry``) at
+       protocol 2 (the lowest common denominator with Py2) and unpickling
+       through ``legacy.load`` round-trips faithfully.
+    2. Verify that an "ancient" ``GameBoard`` constructed via ``__new__``
+       with only the attributes that v0 boards had still ``to_jsonable()``
+       cleanly after passing through ``patch_legacy``.
+    """
+
+    def test_round_trip_pickle_protocol_2(self) -> None:
+        """A current-shape ``GameState`` round-trips through the compat layer."""
+        import pickle
+
+        from .legacy import load
+
+        b = GameBoard(board_size_index=0, handicap_index=0, komi_index=0)
+        b.set(3, 4, CONST.Black_Color)
+        s = GameState()
+        s.set_board(b)
+        s.whose_move = CONST.White_Color
+        s.set_last_move(3, 4)
+
+        blob = pickle.dumps(s, protocol=2)
+        restored = load(blob)
+        self.assertIsInstance(restored, GameState)
+        self.assertEqual(restored.to_jsonable(), s.to_jsonable())
+
+    def test_round_trip_chat_entry(self) -> None:
+        """A ``ChatEntry`` round-trips through the compat layer."""
+        import pickle
+
+        from .legacy import load
+
+        c = ChatEntry("abc", "Hello!", 7)
+        restored = load(pickle.dumps(c, protocol=2))
+        self.assertIsInstance(restored, ChatEntry)
+        self.assertEqual(restored.to_jsonable(), c.to_jsonable())
+
+    def test_patch_legacy_v0_board_serializes(self) -> None:
+        """A ``GameBoard`` missing v1/v2/v3 attributes can be patched + serialized.
+
+        Simulates the schema state of a 15-year-old pickle that pre-dates
+        ``_version``, ``_komi_index``, ``_has_owners``, and ``owners``.
+        """
+        from .legacy import patch_legacy
+
+        # Hand-build the minimum-viable v0 GameBoard via __new__ to bypass
+        # __init__ (which would set the modern attributes for us).
+        b = GameBoard.__new__(GameBoard)
+        b.width = 19
+        b.height = 19
+        b.size_index = 0
+        b.handicap_index = 0
+        b.board = [[CONST.No_Color] * 19 for _ in range(19)]
+
+        patch_legacy(b)
+        self.assertEqual(b.get_version(), 0)
+        self.assertFalse(b.has_owners())
+        # to_jsonable must succeed without an AttributeError.
+        out = b.to_jsonable()
+        self.assertEqual(out["version"], 0)
+        self.assertFalse(out["has_owners"])
+        self.assertIsNone(out["owners"])
+
+    def test_patch_legacy_old_state_serializes(self) -> None:
+        """A pre-scoring ``GameState`` (no scoring fields) patches + serializes."""
+        from .legacy import patch_legacy
+
+        s = GameState.__new__(GameState)
+        s.board = GameBoard(board_size_index=0)
+        s.white_stones_captured = 0
+        s.black_stones_captured = 0
+        s.whose_move = CONST.Black_Color
+        s.last_move_message = "Your move!"
+        s.current_move_number = 0
+        # Note: no scoring_number, no winner, no done numbers, no last_move,
+        # no last_move_was_pass — these were added in later versions.
+
+        patch_legacy(s)
+        self.assertEqual(s.get_scoring_number(), -1)
+        self.assertEqual(s.get_winner(), CONST.No_Color)
+        self.assertFalse(s.get_last_move_was_pass())
+        # to_jsonable must succeed.
+        out = s.to_jsonable()
+        self.assertEqual(out["scoring_number"], -1)
+        self.assertEqual(out["last_move"], [-1, -1])
+
+    def test_patch_legacy_v0_board_with_handicap_uses_komi_none(self) -> None:
+        """A handicap-game v0 board defaults ``_komi_index`` to ``Komi_None``."""
+        from .legacy import patch_legacy
+
+        b = GameBoard.__new__(GameBoard)
+        b.width = 19
+        b.height = 19
+        b.size_index = 0
+        b.handicap_index = 1  # 9-stone handicap
+        b.board = [[CONST.No_Color] * 19 for _ in range(19)]
+
+        patch_legacy(b)
+        self.assertEqual(b.get_komi_index(), CONST.Komi_None)

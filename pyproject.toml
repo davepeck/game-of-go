@@ -19,6 +19,9 @@ dev = [
     "ruff>=0.15.11",
     "ty>=0.0.31",
 ]
+export = [
+    "google-cloud-datastore>=2.24.0",
+]
 
 [tool.ruff]
 line-length = 100

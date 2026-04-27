@@ -17,3 +17,9 @@ type_check:
 
 test:
     uv run python manage.py test
+
+export:
+    uv run --group export scripts/export_from_datastore.py --project davepeck-go-hrd --out ./export
+
+import:
+    uv run python manage.py import_from_datastore export/games.jsonl export/players.jsonl --skip-orphan-games

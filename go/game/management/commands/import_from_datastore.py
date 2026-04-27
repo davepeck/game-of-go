@@ -100,12 +100,23 @@ class Command(BaseCommand):
             action="store_true",
             help="Run the whole import inside a transaction then roll back.",
         )
+        parser.add_argument(
+            "--skip-orphan-games",
+            action="store_true",
+            help=(
+                "After insert, delete any game that doesn't end up with "
+                "exactly two players (cascades to its lone player, if any). "
+                "Without this, such games abort the import. Use for legacy "
+                "data with half-completed creates."
+            ),
+        )
 
     def handle(self, *args: object, **options: object) -> None:
         """Read both files and insert all rows in a single transaction."""
         games_path = t.cast(Path, options["games"])
         players_path = t.cast(Path, options["players"])
         dry_run = bool(options.get("dry_run"))
+        skip_orphan_games = bool(options.get("skip_orphan_games"))
 
         if not games_path.exists():
             raise CommandError(f"{games_path}: not found")
@@ -113,7 +124,9 @@ class Command(BaseCommand):
             raise CommandError(f"{players_path}: not found")
 
         with transaction.atomic():
-            game_count, player_count, twitter_migrated = self._do_import(games_path, players_path)
+            game_count, player_count, twitter_migrated = self._do_import(
+                games_path, players_path, skip_orphan_games=skip_orphan_games
+            )
             self._bump_sequences()
             if dry_run:
                 transaction.set_rollback(True)
@@ -126,7 +139,13 @@ class Command(BaseCommand):
 
     # ---- core work ----
 
-    def _do_import(self, games_path: Path, players_path: Path) -> tuple[int, int, int]:
+    def _do_import(
+        self,
+        games_path: Path,
+        players_path: Path,
+        *,
+        skip_orphan_games: bool,
+    ) -> tuple[int, int, int]:
         """Insert games then players; raise on the first integrity violation."""
         game_ids: set[int] = set()
         game_count = 0
@@ -153,8 +172,31 @@ class Command(BaseCommand):
             twitter_migrated += self._insert_player(p)
             player_count += 1
 
+        if skip_orphan_games:
+            removed_games, removed_players = self._delete_orphan_games()
+            game_count -= removed_games
+            player_count -= removed_players
+
         self._validate_post_insert()
         return game_count, player_count, twitter_migrated
+
+    def _delete_orphan_games(self) -> tuple[int, int]:
+        """Delete games with !=2 players (cascades to lone players). Returns counts."""
+        from django.db.models import Count
+
+        orphan_ids = list(
+            Game.objects.annotate(n=Count("players")).exclude(n=2).values_list("id", flat=True)
+        )
+        if not orphan_ids:
+            return 0, 0
+        removed_players = Player.objects.filter(game_id__in=orphan_ids).count()
+        Game.objects.filter(id__in=orphan_ids).delete()  # cascades to players
+        sample = orphan_ids[:10]
+        more = "" if len(orphan_ids) <= 10 else f" (+{len(orphan_ids) - 10} more)"
+        self.stdout.write(
+            f"Skipped {len(orphan_ids)} orphan game(s) with !=2 players: {sample}{more}"
+        )
+        return len(orphan_ids), removed_players
 
     def _insert_game(self, g: dict[str, t.Any]) -> None:
         """Insert one game row after normalizing its state blobs."""
@@ -177,13 +219,40 @@ class Command(BaseCommand):
         )
 
     def _insert_player(self, p: dict[str, t.Any]) -> int:
-        """Insert one player row; return 1 if a twitter->email migration happened."""
-        contact_type = p.get("contact_type") or CONST.Email_Contact
+        """
+        Insert one player row; return 1 if a twitter→email migration happened.
+
+        Derives a single "do they want notifications?" decision from all
+        three legacy fields (``contact_type`` / ``wants_email`` /
+        ``wants_twitter``) and writes ``contact_type`` and ``wants_email``
+        together so they can't end up disagreeing — the case that bit us
+        when the legacy data had e.g. ``wants_email=False`` paired with no
+        ``contact_type`` set, which the previous implementation silently
+        turned into ``contact_type='email', wants_email=False``.
+
+        Migration rules:
+        - ``contact_type='twitter'`` (or ``wants_twitter=True``): twitter is
+          gone; opt in to email if they have one, else opt out.
+        - ``contact_type='none'``: respect; opt out.
+        - ``contact_type='email'``: respect ``wants_email`` (must also have
+          an email address).
+        - ``contact_type`` missing (legacy): use ``wants_email`` as the
+          source of truth, gated on having an email address.
+        """
+        source_contact = p.get("contact_type")
+        source_wants_email = bool(p.get("wants_email", True))
+        source_wants_twitter = bool(p.get("wants_twitter", False))
         email = p.get("email") or None
-        migrated = 0
-        if contact_type == "twitter":
-            contact_type = CONST.Email_Contact if email else CONST.No_Contact
-            migrated = 1
+
+        twitter_migrated = 0
+        if source_contact == "twitter" or source_wants_twitter:
+            wants = email is not None
+            twitter_migrated = 1
+        elif source_contact == CONST.No_Contact:
+            wants = False
+        else:
+            # 'email', or legacy missing-contact_type. Need both opt-in and an address.
+            wants = source_wants_email and email is not None
 
         Player.objects.create(
             id=p["id"],
@@ -192,11 +261,11 @@ class Command(BaseCommand):
             color=int(p.get("color", CONST.No_Color)),
             name=p.get("name"),
             email=email,
-            wants_email=bool(p.get("wants_email", True)),
-            contact_type=contact_type,
+            wants_email=wants,
+            contact_type=CONST.Email_Contact if wants else CONST.No_Contact,
             show_grid=bool(p.get("show_grid", False)),
         )
-        return migrated
+        return twitter_migrated
 
     # ---- validation ----
 
