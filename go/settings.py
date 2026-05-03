@@ -5,24 +5,33 @@ Configuration is driven entirely by environment variables. ``.env.example``
 documents the knobs; production on dokku sets them via ``dokku config:set``.
 """
 
-import os
 from pathlib import Path
 
-import dj_database_url
+import environ
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-do-not-use-in-prod")
-# Default to True so ``runserver`` serves app static files out of the box for
-# local dev. Production on dokku sets ``DJANGO_DEBUG=false`` via ``config:set``.
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
-ALLOWED_HOSTS = [
-    h.strip()
-    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-    if h.strip()
-]
+# Initialize environment variables
+env = environ.Env(DEBUG=(bool, False))
+
+# Read .env file, if it exists
+environ.Env.read_env(BASE_DIR / ".env")
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-insecure-do-not-use-in-prod")  # type: ignore
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env.bool("DEBUG")  # type: ignore
+
+BASE_URL: str = env("BASE_URL", default="http://localhost:8000")  # type: ignore
+ORIGIN = BASE_URL.replace("http://", "").replace("https://", "").split(":")[0]
+CSRF_TRUSTED_ORIGINS = [BASE_URL]
+ALLOWED_HOSTS = [ORIGIN, "localhost", "127.0.0.1"]
+INTERNAL_IPS = ["127.0.0.1"]
 
 INSTALLED_APPS = [
+    *([] if DEBUG else ["servestatic.runserver_nostatic"]),
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -34,7 +43,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+    *([] if DEBUG else ["servestatic.middleware.ServeStaticMiddleware"]),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -44,12 +53,11 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "go.urls"
-WSGI_APPLICATION = "go.wsgi.application"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "go" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -61,15 +69,25 @@ TEMPLATES = [
     },
 ]
 
+WSGI_APPLICATION = "go.wsgi.application"
+
+# Database
+# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+
+
+# Use Postgres in production; SQLite for local dev if DATABASE_URL is not set
 DATABASES = {
-    # Default to a local SQLite file so ``manage.py test`` and first-time dev
-    # work with no environment setup. Production on dokku sets ``DATABASE_URL``
-    # to a Postgres DSN via ``dokku postgres:link``.
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-    ),
+    "default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")  # type: ignore
 }
+
+if (
+    env.bool("DATABASE_DISABLE_SSL", default=False)
+    and DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql"
+):
+    DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"]["sslmode"] = "disable"
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -78,39 +96,74 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+
+# Internationalization
+# https://docs.djangoproject.com/en/6.0/topics/i18n/
+
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = "America/Los_Angeles"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "/static/"
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/6.0/howto/static-files/
+
+STATICFILES_DIRS = [BASE_DIR / "cookie" / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-# Pre-create STATIC_ROOT so WhiteNoiseMiddleware doesn't warn when
-# ``collectstatic`` hasn't been run yet (first-time dev, test runs).
-STATIC_ROOT.mkdir(parents=True, exist_ok=True)
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATIC_URL = "static/"
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+# Enable ServeStatic's GZip compression of static assets (production only).
+if not DEBUG:
+    STORAGES = {
+        "staticfiles": {"BACKEND": "servestatic.storage.CompressedManifestStaticFilesStorage"}
+    }
 
-# ---- App-specific configuration ----
+# Email configuration
 
-GO_BASE_URL = os.environ.get("GO_BASE_URL", "http://localhost:8000/")
-
-DEFAULT_FROM_EMAIL = os.environ.get(
-    "DEFAULT_FROM_EMAIL",
-    "Dave Peck's Go <go@davepeck.dev>",
-)
-# In dev, EMAIL_BACKEND defaults to console (mails print to stdout). In
-# production on dokku, set EMAIL_BACKEND to ``django.core.mail.backends.smtp.EmailBackend``
-# and supply the SMTP relay's host/port/user/password via ``dokku config:set``.
-EMAIL_BACKEND = os.environ.get(
+EMAIL_HOST = env("EMAIL_HOST", default="localhost")  # type: ignore
+EMAIL_PORT = env.int("EMAIL_PORT", default=25)  # type: ignore
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")  # type: ignore
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")  # type: ignore
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)  # type: ignore
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)  # type: ignore
+EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
-    "django.core.mail.backends.console.EmailBackend",
+    default="django.core.mail.backends.console.EmailBackend",  # type: ignore
 )
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="go@example.com")  # type: ignore
+SERVER_EMAIL = env("SERVER_EMAIL", default="admin@example.com")  # type: ignore
+ADMINS = env.json("ADMINS", default=[["Go Admin", "admin@example.com"]])  # type: ignore
 
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Logging
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "timestamped": {
+            "format": "%(asctime)s %(levelname)s %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "timestamped",
+        },
+    },
+    "loggers": {
+        "cookie.trails": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+    },
+}
+
+
+# Background tasks
+
+TASKS = {
+    "default": {
+        "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
+    }
+}

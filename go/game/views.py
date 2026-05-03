@@ -327,7 +327,7 @@ class SGFView(View):
             whose_move = state.get_whose_move()
 
         items = {
-            "base_url": settings.GO_BASE_URL,
+            "base_url": settings.BASE_URL,
             "start_date": game.date_created.date().isoformat(),
             "stop_date": game.date_last_moved.date().isoformat(),
             "board_size": board.get_width(),

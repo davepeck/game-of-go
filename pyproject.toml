@@ -8,8 +8,8 @@ dependencies = [
     "django>=6.0.4",
     "psycopg>=3.3.3",
     "gunicorn>=23",
-    "whitenoise>=6.8",
-    "dj-database-url>=2.3",
+    "django-environ>=0.13.0",
+    "servestatic>=4.3.0",
 ]
 
 [dependency-groups]

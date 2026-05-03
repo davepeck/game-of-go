@@ -10,7 +10,7 @@ This is a website that lets people learn and play the ancient game of Go via ema
 
 It was a quick hack written in a single weekend so that I could learn about (what at the time, way back in the late 2000s!) was the new Google App Engine service. It was originally written as a Webapp2 + Python 2.7 + App Engine Datastore service.
 
-Here we are 15+ years later. In order to keep the service running, I moved it to Django 6 + Postgres 16, built with Python 3.14, hosted on a personal server behind Cloudflare. (Alas, App Engine kept changing and deteriorating; it was no longer work running there.)
+Here we are 15+ years later. In order to keep the service running, in May 2026 I moved it to Django 6 + Postgres 18, built with Python 3.14, hosted on a personal server behind Cloudflare. (Alas, App Engine kept changing and deteriorating; it was no longer work running there.)
 
 But when I transitioned from Webapp2/2.7/Datastore to Django, I mostly tried not to touch anything that didn't _have_ to be touched. That means there's still an incredible amount of cleaning-things-up still to do, just to get a nice codebase from which to work from. Did I mention this started as a weekend hack?
 
@@ -28,7 +28,7 @@ Anyway, dive in and enjoy. With a little work, I bet we can turn this project in
 
 ### What's the current status?
 
-I haven't really touched this in years, but it is still hosted at https://go.davepeck.dev/ and thousands of new games are played there monthly.
+Except for the May 2026 update to keep the thing running, I haven't really touched this in years. It is still hosted at https://go.davepeck.dev/ and thousands of new games are played there monthly.
 
 If I _were_ going to spend time on it, I'd say that this is its mission:
 
@@ -99,7 +99,7 @@ This list is in "no particular order":
 
 ## Licenses
 
-Dave Peck's Go is (c) 2009-2013 Dave Peck, All Rights Reserved. It is licensed under the MIT license. (It used to be licensed under the uber-restrictive AGPLv3 but that was kinda silly, no?)
+Dave Peck's Go is (c) 2009-2026 Dave Peck, All Rights Reserved. It is licensed under the MIT license. (It used to be licensed under the uber-restrictive AGPLv3 but that was kinda silly, no?)
 
 There are a few other bits of code included; they all happen to be MIT-licensed too:
 
