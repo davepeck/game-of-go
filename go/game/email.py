@@ -14,7 +14,7 @@ from django.core.mail import EmailMessage
 
 def _game_url(cookie: str) -> str:
     """Return the absolute ``/play/<cookie>/`` URL for email links."""
-    return f"{settings.BASE_URL}play/{cookie}/"
+    return f"{settings.BASE_URL}/play/{cookie}/"
 
 
 def _rfc_address(name: str, email: str) -> str:

@@ -36,6 +36,11 @@ quote-style = "double"
 # by default; ty has no view of them and would false-positive every import.
 exclude = ["_old", ".venv", "staticfiles", "scripts", "**/migrations/*.py"]
 
+[tool.ty.rules]
+# Pylance/pyright (the VS Code default) needs `# type: ignore` on these lines
+# even though ty doesn't — keep the comments and silence ty's complaint.
+unused-type-ignore-comment = "ignore"
+
 [tool.djlint]
 profile = "django"
 # Legacy templates ported verbatim from the App Engine app; these rules are
