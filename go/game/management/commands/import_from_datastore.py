@@ -50,6 +50,23 @@ _REQUIRED_GAME_FIELDS = ("id", "date_created", "date_last_moved", "current_state
 _REQUIRED_PLAYER_FIELDS = ("id", "game_id", "cookie")
 
 
+def _scrub_nuls(obj: t.Any) -> t.Any:
+    """Recursively strip ``\\u0000`` from every string in ``obj``.
+
+    Postgres ``text`` and ``jsonb`` reject the NUL character outright.
+    Some legacy chat messages contain stray NULs (pickle-era artifacts);
+    SQLite stored them silently, Postgres won't. Scrubbing at the parse
+    boundary keeps every downstream insert path clean.
+    """
+    if isinstance(obj, str):
+        return obj.replace("\x00", "")
+    if isinstance(obj, dict):
+        return {_scrub_nuls(k): _scrub_nuls(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_scrub_nuls(x) for x in obj]
+    return obj
+
+
 def _iter_jsonl(path: Path) -> t.Iterator[dict[str, t.Any]]:
     """Yield each non-empty JSON object from ``path`` (one per line)."""
     with path.open(encoding="utf-8") as f:
@@ -58,7 +75,7 @@ def _iter_jsonl(path: Path) -> t.Iterator[dict[str, t.Any]]:
             if not line:
                 continue
             try:
-                yield json.loads(line)
+                yield _scrub_nuls(json.loads(line))
             except json.JSONDecodeError as e:
                 raise CommandError(f"{path}:{line_no}: invalid JSON: {e}") from e
 
