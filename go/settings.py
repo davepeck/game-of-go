@@ -130,8 +130,8 @@ EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.console.EmailBackend",  # type: ignore
 )
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="go@example.com")  # type: ignore
-SERVER_EMAIL = env("SERVER_EMAIL", default="admin@example.com")  # type: ignore
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="go@example.com").strip()  # type: ignore
+SERVER_EMAIL = env("SERVER_EMAIL", default="admin@example.com").strip()  # type: ignore
 ADMINS = env.json("ADMINS", default=[["Go Admin", "admin@example.com"]])  # type: ignore
 
 
