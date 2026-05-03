@@ -1,0 +1,49 @@
+[project]
+name = "game-of-go"
+version = "0.1.0"
+description = "Dave Peck's Go -- play Go by email correspondence."
+readme = "README.md"
+requires-python = ">=3.14.4"
+dependencies = [
+    "django>=6.0.4",
+    "psycopg>=3.3.3",
+    "gunicorn>=23",
+    "django-environ>=0.13.0",
+    "servestatic>=4.3.0",
+]
+
+[dependency-groups]
+dev = ["djlint>=1.36.4", "ruff>=0.15.11", "ty>=0.0.31"]
+export = ["google-cloud-datastore>=2.24.0", "httpx>=0.27"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = ["_old", ".venv", "staticfiles", "migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length handled by formatter
+    "RUF012", # mutable class defaults: doesn't match Django Meta.indexes etc.
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ty.src]
+# scripts/ pulls deps from the optional ``export`` group which isn't synced
+# by default; ty has no view of them and would false-positive every import.
+exclude = ["_old", ".venv", "staticfiles", "scripts", "**/migrations/*.py"]
+
+[tool.ty.rules]
+# Pylance/pyright (the VS Code default) needs `# type: ignore` on these lines
+# even though ty doesn't — keep the comments and silence ty's complaint.
+unused-type-ignore-comment = "ignore"
+
+[tool.djlint]
+profile = "django"
+# Legacy templates ported verbatim from the App Engine app; these rules are
+# either stylistic (H019/H021/H023) or SEO-ish (H006/H030/H031). Skip for
+# "just move it"; a later refactor can tighten them up.
+ignore = "H006,H019,H021,H022,H023,H030,H031"

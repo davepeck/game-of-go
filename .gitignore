@@ -1,5 +1,24 @@
 *.pyc
+__pycache__/
 .DS_Store
 .emacs.*
 .#*
 .*.sw?
+
+# Virtualenvs and local env
+.venv/
+.env
+.env.local
+
+# Build artifacts
+staticfiles/
+
+# IDE
+.vscode/
+
+# Local databases
+db.sqlite3
+
+# Export data
+export-*/
+export/
