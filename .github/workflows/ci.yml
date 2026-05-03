@@ -15,8 +15,6 @@ jobs:
 
         env:
             DJANGO_SECRET_KEY: ci-insecure-do-not-use
-            DJANGO_DEBUG: "false"
-            DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
 
         steps:
             - uses: actions/checkout@v6
@@ -46,6 +44,9 @@ jobs:
 
             - name: Django check
               run: uv run python manage.py check
+
+            - name: Collect static
+              run: uv run python manage.py collectstatic --noinput
 
             - name: Tests
               run: uv run python manage.py test
