@@ -24,6 +24,9 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-insecure-do-not-use-in-prod")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG")  # type: ignore
 
+# When True, every request is short-circuited to a maintenance page (HTTP 503).
+MAINTENANCE_MODE = env.bool("MAINTENANCE_MODE", default=False)  # type: ignore
+
 BASE_URL: str = env("BASE_URL", default="http://localhost:8000")  # type: ignore
 ORIGIN = BASE_URL.replace("http://", "").replace("https://", "").split(":")[0]
 CSRF_TRUSTED_ORIGINS = [BASE_URL]
@@ -43,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "go.middleware.MaintenanceModeMiddleware",
     *([] if DEBUG else ["servestatic.middleware.ServeStaticMiddleware"]),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

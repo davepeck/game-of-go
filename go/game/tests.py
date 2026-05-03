@@ -394,6 +394,24 @@ class ViewRenderTests(TestCase):
         self.assertIn("PL[B]", body)
 
 
+class MaintenanceModeTests(TestCase):
+    """Verify ``MaintenanceModeMiddleware`` short-circuits every request when on."""
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_routed_url_returns_503(self) -> None:
+        """A normally-200 URL returns 503 with the maintenance copy."""
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 503)
+        self.assertIn(b"check back soon", r.content)
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_unrouted_url_also_returns_503(self) -> None:
+        """The middleware fires before URL resolution, so even unknown paths are caught."""
+        r = self.client.get("/this/path/does/not/exist/")
+        self.assertEqual(r.status_code, 503)
+        self.assertIn(b"check back soon", r.content)
+
+
 class GameplayFlowTests(TestCase):
     """
     End-to-end gameplay golden path.
