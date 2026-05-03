@@ -8,9 +8,11 @@ https://go.davepeck.dev/
 
 This is a website that lets people learn and play the ancient game of Go via email correspondence.
 
-It was a quick hack written in a single weekend so that I could learn about (what at the time, way back in the late 2000s!) was the new Google App Engine service.
+It was a quick hack written in a single weekend so that I could learn about (what at the time, way back in the late 2000s!) was the new Google App Engine service. It was originally written as a Webapp2 + Python 2.7 + App Engine Datastore service.
 
-Here we are 15+ years later. It is _still_ a Webapp2 site, built with Python 2.7, targeted for hosting with Google App Engine. It's open source under the MIT license. I haven't really touched it much; it's a bit of a mess.
+Here we are 15+ years later. In order to keep the service running, I moved it to Django 6 + Postgres 16, built with Python 3.14, hosted on a personal server behind Cloudflare. (Alas, App Engine kept changing and deteriorating; it was no longer work running there.)
+
+But when I transitioned from Webapp2/2.7/Datastore to Django, I mostly tried not to touch anything that didn't _have_ to be touched. That means there's still an incredible amount of cleaning-things-up still to do, just to get a nice codebase from which to work from. Did I mention this started as a weekend hack?
 
 You can see the latest bits running at https://go.davepeck.dev/ -- I will always run them there, on my own dime.
 
@@ -36,8 +38,8 @@ There's a lot of technical debt and other nonsense to overcome, first. If I were
 
 - ~~Update to Python 2.7 (and the modern App Engine Python APIs)~~
 - ~~Move the application to the App Engine HRD~~
-- Move from webapp2 to a modern version of Django
-- Completely port away from App Engine and onto a bog-standard Django install.
+- ~~Move from webapp2 to a modern version of Django~~
+- ~~Completely port away from App Engine and onto a bog-standard Django install.~~
 - Rip out prototype & scriptaculous and replace with modern front-end stuff
 - Properly separate back-end concerns (right now game, game history, players, etc. are oddly intermixed)
 - Properly separate front-end concerns (right now lots of javascript there is a jumble)
@@ -46,7 +48,7 @@ There's a lot of technical debt and other nonsense to overcome, first. If I were
 - Fix CSS and HTML so that the website looks great on mobile devices
 - Separate concerns so that there is a proper API that native apps can access
 - Improve the "create game" flow so options are obvious
-- Get twitter working again, maybe.
+- ~~Get twitter working again, maybe.~~ never going to happen; i'd rather do mastodon and bluesky
 
 As this is a hobby project, I expect these initial efforts will take quite some time. They will be incremental, though, so the site will continue to behave well as each change is made.
 
