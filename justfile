@@ -9,8 +9,14 @@ html_lint_check:
 format_check:
     uv run ruff format --check
 
+format:
+    uv run ruff format
+
 html_format_check:
     uv run djlint go --check --profile=django
+
+html_format:
+    uv run djlint go --reformat --profile=django
 
 type_check:
     uv run ty check

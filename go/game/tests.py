@@ -402,14 +402,14 @@ class MaintenanceModeTests(TestCase):
         """A normally-200 URL returns 503 with the maintenance copy."""
         r = self.client.get("/")
         self.assertEqual(r.status_code, 503)
-        self.assertIn(b"check back soon", r.content)
+        self.assertIn(b"right back", r.content)
 
     @override_settings(MAINTENANCE_MODE=True)
     def test_unrouted_url_also_returns_503(self) -> None:
         """The middleware fires before URL resolution, so even unknown paths are caught."""
         r = self.client.get("/this/path/does/not/exist/")
         self.assertEqual(r.status_code, 503)
-        self.assertIn(b"check back soon", r.content)
+        self.assertIn(b"right back", r.content)
 
 
 class GameplayFlowTests(TestCase):
