@@ -1,0 +1,51 @@
+name: CI
+
+on:
+    push:
+        branches: [ master, main ]
+    pull_request:
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+
+        env:
+            DJANGO_SECRET_KEY: ci-insecure-do-not-use
+            DJANGO_DEBUG: "false"
+            DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+              with:
+                  python-version: 3.14
+
+            - name: Sync dependencies
+              run: uv sync --group dev
+
+            - name: Lint (ruff)
+              run: uv run ruff check
+
+            - name: Lint templates (djlint)
+              run: uv run djlint go --lint --profile=django
+
+            - name: Format check (ruff)
+              run: uv run ruff format --check
+
+            - name: Format check templates (djlint)
+              run: uv run djlint go --check --profile=django
+
+            - name: Type check (ty)
+              run: uv run ty check
+
+            - name: Django check
+              run: uv run python manage.py check
+
+            - name: Tests
+              run: uv run python manage.py test
