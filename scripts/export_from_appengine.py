@@ -9,7 +9,9 @@ blobs via ``to_jsonable()``, so this script only has to walk the pages and
 append each row to its file.
 
 Feed the output into ``python manage.py import_from_datastore`` on the new
-dokku/Postgres side.
+dokku/Postgres side. (See also the faster ``export_from_datastore.py``
+which talks gRPC straight to Cloud Datastore — this HTTP path is the
+fallback when only browser-cookie admin auth is available.)
 
 Auth
     The ``/export/*`` routes are gated by App Engine ``login: admin``. Provide
@@ -24,9 +26,16 @@ Auth
 
 Usage
     APPENGINE_COOKIE='SACSID=...; ACSID=...' \\
-        uv run scripts/export_from_appengine.py \\
+        uv run --group export scripts/export_from_appengine.py \\
         --base-url https://go.davepeck.org \\
         --out ./export-$(date +%Y-%m-%d)
+
+    # Resume games-only after a crash, picking up after id 12345:
+    uv run --group export scripts/export_from_appengine.py \\
+        --base-url https://go.davepeck.org \\
+        --out ./export-2026-04-21 \\
+        --kinds games \\
+        --resume-from-games 12345
 """
 
 import argparse
@@ -36,7 +45,7 @@ import sys
 import typing as t
 from pathlib import Path
 
-import requests
+import httpx
 
 
 def _auth_headers(cookie: str | None, bearer: str | None) -> dict[str, str]:
@@ -55,7 +64,7 @@ def _auth_headers(cookie: str | None, bearer: str | None) -> dict[str, str]:
 
 
 def _paginate(
-    session: requests.Session,
+    client: httpx.Client,
     base_url: str,
     path: str,
     field: str,
@@ -74,10 +83,9 @@ def _paginate(
     total = 0
     while True:
         url = f"{base_url.rstrip('/')}{path}"
-        r = session.get(
+        r = client.get(
             url,
             params={"last_id_seen": str(last_id_seen), "amount": str(page_size)},
-            timeout=60,
         )
         r.raise_for_status()
         payload = r.json()
@@ -103,7 +111,7 @@ def _paginate(
 
 
 def main() -> None:
-    """Parse args, authenticate, and paginate both export endpoints to JSONL."""
+    """Parse args, authenticate, and paginate the requested kinds to JSONL."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -138,79 +146,66 @@ def main() -> None:
     parser.add_argument(
         "--kinds",
         default="games,players",
-        help=(
-            "Comma-separated subset of {games, players} to export "
-            "(default: both). Useful when one half finished and the other "
-            "didn't."
-        ),
+        help="Comma-separated subset of {games, players} (default: both).",
     )
     parser.add_argument(
         "--resume-from-games",
         type=int,
         default=0,
-        help="Start games pagination after this Datastore id (skip rows already on disk).",
+        help="Resume the games export after this Datastore id (default: start from 0).",
     )
     parser.add_argument(
         "--resume-from-players",
         type=int,
         default=0,
-        help="Start players pagination after this Datastore id.",
+        help="Resume the players export after this Datastore id (default: start from 0).",
     )
     args = parser.parse_args()
 
-    requested_kinds = {k.strip() for k in args.kinds.split(",") if k.strip()}
-    unknown = requested_kinds - {"games", "players"}
+    requested = {k.strip() for k in args.kinds.split(",") if k.strip()}
+    unknown = requested - {"games", "players"}
     if unknown:
         sys.exit(f"error: unknown --kinds entries: {sorted(unknown)}")
 
     args.out.mkdir(parents=True, exist_ok=True)
 
-    session = requests.Session()
-    session.headers.update(_auth_headers(args.cookie, args.bearer))
-
+    headers = _auth_headers(args.cookie, args.bearer)
     counts: dict[str, int] = {}
 
-    if "games" in requested_kinds:
-        games_path: Path = args.out / "games.jsonl"
-        mode = "a" if args.resume_from_games else "w"
-        print(
-            f"Exporting games to {games_path} (mode={mode!r}, "
-            f"resume_from={args.resume_from_games}) ...",
-            file=sys.stderr,
-        )
-        with games_path.open(mode, encoding="utf-8") as f:
-            counts["games"] = _paginate(
-                session,
-                args.base_url,
-                "/export/games/",
-                "games",
-                f,
-                args.page_size,
-                resume_from=args.resume_from_games,
-            )
+    with httpx.Client(headers=headers, timeout=60.0) as client:
+        if "games" in requested:
+            games_path: Path = args.out / "games.jsonl"
+            mode = "a" if args.resume_from_games else "w"
+            print(f"Exporting games to {games_path} ...", file=sys.stderr)
+            with games_path.open(mode, encoding="utf-8") as f:
+                counts["games"] = _paginate(
+                    client,
+                    args.base_url,
+                    "/export/games/",
+                    "games",
+                    f,
+                    args.page_size,
+                    resume_from=args.resume_from_games,
+                )
 
-    if "players" in requested_kinds:
-        players_path: Path = args.out / "players.jsonl"
-        mode = "a" if args.resume_from_players else "w"
-        print(
-            f"Exporting players to {players_path} (mode={mode!r}, "
-            f"resume_from={args.resume_from_players}) ...",
-            file=sys.stderr,
-        )
-        with players_path.open(mode, encoding="utf-8") as f:
-            counts["players"] = _paginate(
-                session,
-                args.base_url,
-                "/export/players/",
-                "players",
-                f,
-                args.page_size,
-                resume_from=args.resume_from_players,
-            )
+        if "players" in requested:
+            players_path: Path = args.out / "players.jsonl"
+            mode = "a" if args.resume_from_players else "w"
+            print(f"Exporting players to {players_path} ...", file=sys.stderr)
+            with players_path.open(mode, encoding="utf-8") as f:
+                counts["players"] = _paginate(
+                    client,
+                    args.base_url,
+                    "/export/players/",
+                    "players",
+                    f,
+                    args.page_size,
+                    resume_from=args.resume_from_players,
+                )
 
     print("", file=sys.stderr)
     summary = ", ".join(f"{n} {k}" for k, n in counts.items())
-    print(f"Done. {summary} written this run.", file=sys.stderr)
+    print(f"Done. {summary}.", file=sys.stderr)
     print(
         "\nNext: compare these counts against the Datastore entity counts in the "
         "GCP console, then feed the JSONL files into ``python manage.py "

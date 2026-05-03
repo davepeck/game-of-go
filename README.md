@@ -4,7 +4,7 @@
 
 ### What is this? (Short Version)
 
-https://go.davepeck.org/
+https://go.davepeck.dev/
 
 This is a website that lets people learn and play the ancient game of Go via email correspondence.
 
@@ -12,7 +12,7 @@ It was a quick hack written in a single weekend so that I could learn about (wha
 
 Here we are 15+ years later. It is _still_ a Webapp2 site, built with Python 2.7, targeted for hosting with Google App Engine. It's open source under the MIT license. I haven't really touched it much; it's a bit of a mess.
 
-You can see the latest bits running at https://go.davepeck.org/ -- I will always run them there, on my own dime.
+You can see the latest bits running at https://go.davepeck.dev/ -- I will always run them there, on my own dime.
 
 ### What is this? (Longer Version)
 
@@ -26,7 +26,7 @@ Anyway, dive in and enjoy. With a little work, I bet we can turn this project in
 
 ### What's the current status?
 
-I haven't really touched this in years, but it is still hosted at https://go.davepeck.org/ and thousands of new games are played there monthly.
+I haven't really touched this in years, but it is still hosted at https://go.davepeck.dev/ and thousands of new games are played there monthly.
 
 If I _were_ going to spend time on it, I'd say that this is its mission:
 

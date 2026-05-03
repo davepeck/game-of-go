@@ -10,7 +10,6 @@ dependencies = [
     "gunicorn>=23",
     "whitenoise>=6.8",
     "dj-database-url>=2.3",
-    "django-anymail[postmark]>=12",
 ]
 
 [dependency-groups]
@@ -21,6 +20,7 @@ dev = [
 ]
 export = [
     "google-cloud-datastore>=2.24.0",
+    "httpx>=0.27",
 ]
 
 [tool.ruff]
@@ -39,7 +39,9 @@ ignore = [
 quote-style = "double"
 
 [tool.ty.src]
-exclude = ["_old", ".venv", "staticfiles", "**/migrations/*.py"]
+# scripts/ pulls deps from the optional ``export`` group which isn't synced
+# by default; ty has no view of them and would false-positive every import.
+exclude = ["_old", ".venv", "staticfiles", "scripts", "**/migrations/*.py"]
 
 [tool.djlint]
 profile = "django"

@@ -35,19 +35,27 @@ def notify_you_new_game(
     your_turn: bool,
 ) -> None:
     """Email the game creator that their new game has been set up."""
-    body = (
+    body: list[str] = []
+    body = [
         f"Hi {your_name},\n\n"
         f"You've started a game of Go with {opponent_name}. "
         f"You can see what's happening by visiting:\n\n{_game_url(your_cookie)}\n\n"
-    )
-    body += (
+    ]
+    body += [
         "Also, it's your turn to move first!"
         if your_turn
         else "Your opponent plays first; you'll get an email when it's your turn to move."
-    )
+    ]
+    body += [
+        "\n\n",
+        "------\n\n",
+        "Update May 2026: you may notice this email comes from somewhere new.\n",
+        "You may also notice that the domain name you play at has changed.\n",
+        "Everything should keep working as before. Let me know how it goes! -Dave\n",
+    ]
     _send(
         subject=f"[GO] You've started a game with {opponent_name}",
-        body=body,
+        body="".join(body),
         to=_rfc_address(your_name, your_email),
     )
 
@@ -60,19 +68,27 @@ def notify_opponent_new_game(
     your_turn: bool,
 ) -> None:
     """Email the invited opponent that a new game has been started for them."""
-    body = (
+    body: list[str] = []
+    body = [
         f"Hi {opponent_name},\n\n"
         f"{your_name} started a game of Go with you. "
         f"You can see what's happening by visiting:\n\n{_game_url(opponent_cookie)}\n\n"
-    )
-    body += (
+    ]
+    body += [
         "You'll get another email when it's your turn."
         if your_turn
         else "It's your turn to move, so get going!"
-    )
+    ]
+    body += [
+        "\n\n",
+        "------\n\n",
+        "Update May 2026: you may notice this email comes from somewhere new.\n",
+        "You may also notice that the domain name you play at has changed.\n",
+        "Everything should keep working as before. Let me know how it goes! -Dave\n",
+    ]
     _send(
         subject=f"[GO] {your_name} has invited you to play!",
-        body=body,
+        body="".join(body),
         to=_rfc_address(opponent_name, opponent_email),
     )
 
@@ -134,23 +150,31 @@ def remind_player(
     is_scoring: bool,
 ) -> None:
     """Email a stale-game reminder to a player who hasn't moved in a while."""
+    body: list[str] = []
     if is_scoring:
         subject = (
             f"[GO - Scoring] REMINDER: You are still scoring your game against {opponent_name}"
         )
-        body = (
+        body = [
             f"Just a reminder that you are still scoring in your game against "
             f"{opponent_name}. You haven't done anything in over a week. To mark "
             f"dead stones or finish the game, just follow this link:\n\n"
             f"{_game_url(player_cookie)}\n"
-        )
+        ]
     else:
         subject = (
             f"[GO - Move #{move_number}] REMINDER: It's still your turn against {opponent_name}"
         )
-        body = (
+        body = [
             f"Just a reminder that it's still your turn to move against "
             f"{opponent_name}. Your last move was over a week ago. To make a move, "
             f"just follow this link:\n\n{_game_url(player_cookie)}\n"
-        )
-    _send(subject=subject, body=body, to=_rfc_address(player_name, player_email))
+        ]
+    body += [
+        "\n\n",
+        "------\n\n",
+        "Update May 2026: you may notice this email comes from somewhere new.\n",
+        "You may also notice that the domain name you play at has changed.\n",
+        "Everything should keep working as before. Let me know how it goes! -Dave\n",
+    ]
+    _send(subject=subject, body="".join(body), to=_rfc_address(player_name, player_email))

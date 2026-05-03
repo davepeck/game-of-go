@@ -98,14 +98,19 @@ GO_BASE_URL = os.environ.get("GO_BASE_URL", "http://localhost:8000/")
 
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL",
-    "Dave Peck's Go <no-reply@go.davepeck.org>",
+    "Dave Peck's Go <go@davepeck.dev>",
 )
+# In dev, EMAIL_BACKEND defaults to console (mails print to stdout). In
+# production on dokku, set EMAIL_BACKEND to ``django.core.mail.backends.smtp.EmailBackend``
+# and supply the SMTP relay's host/port/user/password via ``dokku config:set``.
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend",
 )
-ANYMAIL = {
-    "POSTMARK_SERVER_TOKEN": os.environ.get("ANYMAIL_POSTMARK_SERVER_TOKEN", ""),
-}
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

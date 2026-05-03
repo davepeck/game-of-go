@@ -6,9 +6,8 @@ Talks gRPC straight to Cloud Datastore using ``google-cloud-datastore`` —
 no App Engine in the loop, so the F1 memory ceiling and the dead Python 2
 runtime are both moot. Reads each ``Game`` / ``Player`` entity, unpickles
 the legacy ``current_state`` / ``history`` / ``chat_history`` blobs with a
-small Py3-compat shim, and writes one entity per line in the same JSON
-shape ``scripts/export_from_appengine.py`` produces. The output drops
-straight into ``manage.py import_from_datastore`` with no other changes.
+small Py3-compat shim, and writes one JSON entity per line. The output
+drops straight into ``manage.py import_from_datastore``.
 
 Auth
     Uses Application Default Credentials. One-time setup:

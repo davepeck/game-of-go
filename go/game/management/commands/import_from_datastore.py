@@ -1,11 +1,12 @@
 """
 ``python manage.py import_from_datastore``: one-shot migration command.
 
-Reads the JSONL files produced by ``scripts/export_from_appengine.py``
-(one entity per line, from the still-live App Engine ``/export/*``
-endpoints). Rebuilds ``Game`` and ``Player`` rows, preserving the original
-Datastore numeric IDs as Postgres primary keys so every emailed cookie URL
-keeps working after cutover.
+Reads the JSONL files produced by ``scripts/export_from_datastore.py``
+(direct Cloud Datastore reader, preferred) or
+``scripts/export_from_appengine.py`` (HTTP-based, fallback when only
+browser-cookie admin auth is available). Rebuilds ``Game`` and ``Player``
+rows, preserving the original Datastore numeric IDs as Postgres primary
+keys so every emailed cookie URL keeps working after cutover.
 
 What this command guarantees before committing:
 
