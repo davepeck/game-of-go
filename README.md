@@ -12,7 +12,7 @@ It was a quick hack written in a single weekend so that I could learn about (wha
 
 Here we are 15+ years later. In order to keep the service running, in May 2026 I moved it to Django 6 + Postgres 18, built with Python 3.14, hosted on a personal server behind Cloudflare. (Alas, App Engine kept changing and deteriorating. It was time to move.)
 
-But when I transitioned from Webapp2/2.7/Datastore to Django, I mostly tried not to touch anything that didn't _have_ to be touched. That means there's still an incredible amount of cleaning-things-up still to do, just to get a nice codebase from which to work from. Did I mention this started as a weekend hack?
+But when I transitioned from Webapp2/2.7/Datastore to Django, I mostly tried not to touch anything that didn't _have_ to be touched. That means there's an incredible amount of cleaning-things-up still to do, just to get a nice codebase from which to work from. Did I mention this started as a weekend hack?
 
 You can see the latest bits running at https://go.davepeck.dev/ -- I will always run them there, on my own dime.
 
