@@ -56,13 +56,19 @@ As this is a hobby project, I expect these initial efforts will take quite some 
 
 At the moment there isn't too much code. It's a big messy ball of spaghetti (but see plans above.)
 
-The key files are:
+The Django project lives under `go/` and there is a single app, `go/game/`. The key files are:
 
-- `go.py`: currently houses all of the AppEngine server-side code, and all of the logic needed to play go (like liberty counting, Ko detection, etc.)
-- `static/js/go.js`: currently houses all of the browser javascript code, including visuals and AJAX communication
-- `static/css/go.css`: a total mess of a CSS file for the service.
-- `templates/play.html` and `templates/history.html`: these are the two "main" pages. the templates are a little gnarly at the moment.
-- `templates/get-going.html`: the game "creation" form
+- `go/game/game_logic.py`: pure-Python Go logic — boards, stones, liberty counting, Ko detection, etc. Persisted to Postgres as JSON via `to_jsonable()` / `from_jsonable()`. (Ported from the original `go.py`.)
+- `go/game/models.py`: Django models for games and players, backed by Postgres (JSONB for game state).
+- `go/game/views.py`: the Django views — page rendering plus the AJAX endpoints the front-end calls.
+- `go/game/urls.py` and `go/urls.py`: URL routing.
+- `go/game/email.py`: email notifications when it's your turn.
+- `go/static/game/js/go.js`: currently houses all of the browser javascript code, including visuals and AJAX communication.
+- `go/static/game/css/go.css`: a total mess of a CSS file for the service.
+- `go/templates/game/play.html` and `go/templates/game/history.html`: these are the two "main" pages. the templates are a little gnarly at the moment.
+- `go/templates/game/get-going.html`: the game "creation" form.
+
+The project uses [uv](https://docs.astral.sh/uv/) for package management; see `pyproject.toml` and the `justfile` for common commands.
 
 ## Community Contributions To Date
 
