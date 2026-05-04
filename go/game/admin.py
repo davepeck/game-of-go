@@ -9,10 +9,13 @@ admin tooling from the old App Engine app.
 from datetime import UTC, datetime, timedelta
 
 from django.contrib import admin
+from django.contrib.admin.decorators import display
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html
+
+from go.admin import admin_site
 
 from .models import Game, Player
 
@@ -51,7 +54,6 @@ class ActiveWithinFilter(admin.SimpleListFilter):
         return queryset.filter(is_finished=False, date_last_moved__gte=cutoff)
 
 
-@admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
     """Admin configuration for Game."""
 
@@ -68,15 +70,18 @@ class GameAdmin(admin.ModelAdmin):
     readonly_fields = ("current_state", "history", "chat_history")
     date_hierarchy = "date_last_moved"
 
-    @admin.display(description="Black", ordering="black_cookie")
+    @display(description="Black", ordering="black_cookie")
     def black_cookie_link(self, obj: Game) -> str:
         """Render the Black player's cookie as a link to the play view."""
         return _play_link(obj.black_cookie)
 
-    @admin.display(description="White", ordering="white_cookie")
+    @display(description="White", ordering="white_cookie")
     def white_cookie_link(self, obj: Game) -> str:
         """Render the White player's cookie as a link to the play view."""
         return _play_link(obj.white_cookie)
+
+
+admin_site.register(Game, GameAdmin)
 
 
 def _play_link(cookie: str | None) -> str:
@@ -87,7 +92,6 @@ def _play_link(cookie: str | None) -> str:
     return format_html('<a href="{}">{}</a>', url, cookie)
 
 
-@admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
     """Admin configuration for Player."""
 
@@ -103,3 +107,6 @@ class PlayerAdmin(admin.ModelAdmin):
     search_fields = ("cookie", "email", "name")
     list_filter = ("contact_type", "wants_email")
     raw_id_fields = ("game",)
+
+
+admin_site.register(Player, PlayerAdmin)
