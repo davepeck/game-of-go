@@ -12,10 +12,13 @@ These cover the high-risk pieces of the port:
 
 import typing as t
 from datetime import UTC, datetime
+from email.utils import parseaddr
 
 from django.core import mail
+from django.core.mail.backends.smtp import EmailBackend as SmtpEmailBackend
 from django.test import TestCase, override_settings
 
+from .email import _rfc_address
 from .game_logic import (
     CONST,
     BoardArray,
@@ -737,6 +740,37 @@ class GameplayFlowTests(TestCase):
             data={"your_cookie": black_cookie, "move_number": "-5"},
         )
         self.assertFalse(r.json()["success"])
+
+
+class RfcAddressTests(TestCase):
+    """
+    ``_rfc_address`` produces RFC-5322-valid recipient strings.
+
+    Regression guard: Django 6's SMTP ``prep_address`` raises ``ValueError``
+    on a display name containing specials (e.g. ``.``) when the name isn't
+    quoted. The pre-fix implementation did raw ``f"{name} <{email}>"`` and
+    blew up in production on a player named ``Pluribus .``.
+    """
+
+    def test_plain_name_passes_through(self) -> None:
+        """A simple alphabetic name needs no quoting."""
+        self.assertEqual(_rfc_address("Alice", "a@x.com"), "Alice <a@x.com>")
+
+    def test_name_with_period_is_quoted(self) -> None:
+        """A name containing ``.`` is wrapped in double quotes per RFC 5322."""
+        addr = _rfc_address("Pluribus .", "someone.else@example.com")
+        self.assertEqual(addr, '"Pluribus ." <someone.else@example.com>')
+        # And the result round-trips through the stdlib parser.
+        name, email = parseaddr(addr)
+        self.assertEqual(name, "Pluribus .")
+        self.assertEqual(email, "someone.else@example.com")
+
+    def test_django_smtp_prep_address_accepts_specials(self) -> None:
+        """Every flavor of tricky display name survives ``prep_address``."""
+        backend = SmtpEmailBackend()
+        for name in ["Alice", "Pluribus .", "Smith, Jr.", "O'Reilly", "Anne-Marie"]:
+            with self.subTest(name=name):
+                backend.prep_address(_rfc_address(name, "user@example.com"))
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")

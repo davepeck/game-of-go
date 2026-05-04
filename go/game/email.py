@@ -8,6 +8,8 @@ outbound mail, breaking delivery) to a custom-domain sender configured via
 from Django's ``EMAIL_BACKEND`` setting.
 """
 
+from email.utils import formataddr
+
 from django.conf import settings
 from django.core.mail import EmailMessage
 
@@ -18,8 +20,14 @@ def _game_url(cookie: str) -> str:
 
 
 def _rfc_address(name: str, email: str) -> str:
-    """Return an ``RFC 5322``-ish ``Name <email>`` address string."""
-    return f"{name} <{email}>"
+    """
+    Return an RFC 5322 ``Name <email>`` address string.
+
+    Uses ``email.utils.formataddr`` so display names containing specials
+    (``.``, ``,``, ``@``, ...) get quoted — Django 6's SMTP backend rejects
+    the raw concatenated form as a malformed phrase.
+    """
+    return formataddr((name, email))
 
 
 def _send(subject: str, body: str, to: str) -> None:
